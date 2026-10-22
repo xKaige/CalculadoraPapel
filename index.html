@@ -1,0 +1,998 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f6f4f" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#161513" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Papel">
+<title>Calculadora de Papel</title>
+<meta name="description" content="Calculá kilos de papel, pliegos y cuántas poses entran en un pliego.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --card: #ffffff;
+    --ink: #1f1d1a;
+    --muted: #6d675d;
+    --line: #e2ddd2;
+    --accent: #2f6f4f;
+    --accent-soft: #e3efe8;
+    --warn: #8a5a00;
+    --radius: 14px;
+    --rot: #b4386e;
+    --rot-soft: rgba(180,56,110,.14);
+    --pinza: #b07d00;
+    --pinza-soft: rgba(224,170,0,.22);
+    --sheet: #fdfcf9;
+    --margin: rgba(109,103,93,.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161513;
+      --card: #211f1c;
+      --ink: #f1ede5;
+      --muted: #a39d92;
+      --line: #35322d;
+      --accent: #6fbf94;
+      --accent-soft: #1f3329;
+      --warn: #e0b25c;
+      --rot: #ec7aa9;
+      --rot-soft: rgba(236,122,169,.2);
+      --pinza: #e9c050;
+      --pinza-soft: rgba(233,192,80,.18);
+      --sheet: #2a2824;
+      --margin: rgba(163,157,146,.14);
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: Inter, system-ui, sans-serif;
+    line-height: 1.45;
+  }
+  .wrap { max-width: 560px; margin: 0 auto;
+    padding: calc(24px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(48px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+  header h1 { font-size: 1.5rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header p { margin: 0 0 20px; color: var(--muted); font-size: .95rem; }
+
+  /* Pestañas de herramientas */
+  .tabs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 16px; }
+  .tab {
+    flex: 0 0 auto;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    padding: 8px 14px;
+    border-radius: 999px;
+    font: inherit;
+    font-size: .9rem;
+    cursor: pointer;
+  }
+  .tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tab:disabled { opacity: .5; cursor: default; }
+  .tab small { font-size: .72rem; opacity: .8; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px;
+  }
+  .tool[hidden] { display: none; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .full { grid-column: 1 / -1; }
+  label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
+  .field { position: relative; }
+  input {
+    width: 100%;
+    font: inherit;
+    font-size: 1.1rem;
+    padding: 12px 52px 12px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .unit {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--muted); font-size: .85rem; pointer-events: none;
+  }
+
+  .mode { display: grid; grid-template-columns: 1fr 1fr; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+  .mode button {
+    font: inherit; font-size: .95rem; border: 0; padding: 10px; border-radius: 7px;
+    background: transparent; color: var(--muted); cursor: pointer; font-weight: 500;
+  }
+  .mode button[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+
+  .result {
+    margin-top: 16px;
+    background: var(--accent-soft);
+    border-radius: var(--radius);
+    padding: 18px;
+  }
+  .result .label { font-size: .85rem; color: var(--muted); }
+  .result .big { font-family: "JetBrains Mono", monospace; font-size: 2.1rem; font-weight: 700; color: var(--accent); margin: 2px 0 10px; word-break: break-word; }
+  .result dl { margin: 0; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: .9rem; }
+  .result dt { color: var(--muted); }
+  .result dd { margin: 0; font-family: "JetBrains Mono", monospace; text-align: right; }
+  .hint { color: var(--warn); font-size: .85rem; margin-top: 10px; }
+
+  details { margin-top: 16px; font-size: .9rem; color: var(--muted); }
+  summary { cursor: pointer; font-weight: 500; color: var(--ink); }
+  code { font-family: "JetBrains Mono", monospace; font-size: .85rem; }
+  /* ---------- Poses por pliego ---------- */
+  .sec { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 22px 0 10px; font-weight: 600; }
+  .sec:first-of-type { margin-top: 18px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font: inherit; font-size: .82rem; padding: 6px 10px; border: 1px solid var(--line);
+    border-radius: 999px; background: transparent; color: var(--ink); cursor: pointer;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .mode.four { grid-template-columns: repeat(4, 1fr); }
+  .mode.four button { padding: 10px 4px; font-size: .88rem; }
+  .sheet-view { margin-top: 14px; }
+  .sheet-view svg { width: 100%; height: auto; display: block; max-height: 60vh; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .78rem; color: var(--muted); margin-top: 8px; }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .alts { margin-top: 14px; }
+  .alts .chip b { font-family: "JetBrains Mono", monospace; }
+  /* ---------- Presupuesto ---------- */
+  .dolar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--bg); }
+  .dolar b { font-family: "JetBrains Mono", monospace; font-size: 1.15rem; color: var(--accent); }
+  .dolar small { display: block; color: var(--muted); font-size: .76rem; }
+  .dolar .err { color: var(--warn); }
+  .btn { font: inherit; font-size: .88rem; font-weight: 500; padding: 8px 12px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { color: #fff; filter: brightness(1.08); }
+  .readout { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .readout div { background: var(--bg); border-radius: 8px; padding: 8px 10px; }
+  .readout small { display: block; color: var(--muted); font-size: .74rem; }
+  .readout b { font-family: "JetBrains Mono", monospace; font-size: 1rem; font-weight: 500; }
+  .pr-group { font-size: .74rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+    font-weight: 600; margin: 16px 0 4px; }
+  .pr-row { padding: 10px 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+  .pr-head { display: flex; align-items: center; gap: 8px; }
+  .pr-name { font-weight: 600; font-size: .95rem; }
+  .pr-sub { margin-left: auto; font-family: "JetBrains Mono", monospace; font-size: .95rem; white-space: nowrap; }
+  .pr-sub.zero { color: var(--muted); }
+  .pr-head select { font: inherit; font-size: .8rem; padding: 3px 6px; border-radius: 6px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+  .pr-inputs { display: grid; grid-template-columns: 1fr auto 1.3fr; gap: 8px; align-items: center; }
+  .pr-inputs input { font-size: 1rem; padding: 9px 46px 9px 10px; }
+  .pr-inputs .x { color: var(--muted); }
+  .pr-cur { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font: inherit; font-size: .76rem;
+    font-weight: 600; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--card);
+    color: var(--muted); cursor: pointer; min-width: 38px; }
+  .pr-cur[data-cur="USD"] { color: var(--accent); border-color: var(--accent); }
+  .pr-hint { font-size: .76rem; color: var(--muted); }
+  .totals { margin-top: 16px; }
+  .totals .big { margin-bottom: 4px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .ok-msg { color: var(--accent); font-size: .85rem; align-self: center; }
+  footer { margin-top: 28px; text-align: center; color: var(--muted); font-size: .8rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Calculadora de Papel</h1>
+    <p>Herramientas para cálculo de papel y cartón.</p>
+  </header>
+
+  <!-- Para sumar una herramienta nueva: agregá un botón acá con data-tool="id"
+       y una <section class="tool" id="id"> abajo. -->
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-tool="peso-papel" aria-selected="true">Peso de papel</button>
+    <button class="tab" role="tab" data-tool="poses" aria-selected="false">Poses por pliego</button>
+    <button class="tab" role="tab" data-tool="presupuesto" aria-selected="false">Presupuesto</button>
+    <button class="tab" role="tab" data-tool="carton" disabled>Cartón montado <small>· próximamente</small></button>
+  </nav>
+
+  <!-- ===== Herramienta: Peso de papel ===== -->
+  <section class="tool card" id="peso-papel">
+    <div class="grid">
+      <div>
+        <label for="ancho">Ancho</label>
+        <div class="field"><input id="ancho" inputmode="decimal" placeholder="72"><span class="unit">cm</span></div>
+      </div>
+      <div>
+        <label for="largo">Largo</label>
+        <div class="field"><input id="largo" inputmode="decimal" placeholder="88"><span class="unit">cm</span></div>
+      </div>
+      <div class="full">
+        <label for="gramaje">Gramaje</label>
+        <div class="field"><input id="gramaje" inputmode="decimal" placeholder="205"><span class="unit">g/m²</span></div>
+      </div>
+
+      <div class="full">
+        <label>Tengo el dato en</label>
+        <div class="mode" role="group">
+          <button type="button" data-mode="hojas" aria-pressed="true">Hojas</button>
+          <button type="button" data-mode="kilos" aria-pressed="false">Kilos</button>
+        </div>
+      </div>
+
+      <div class="full">
+        <label for="cantidad" id="cantidadLabel">Cantidad de hojas</label>
+        <div class="field"><input id="cantidad" inputmode="decimal" placeholder="13000"><span class="unit" id="cantidadUnit">hojas</span></div>
+      </div>
+    </div>
+
+    <div class="result" aria-live="polite">
+      <div class="label" id="resLabel">Peso total</div>
+      <div class="big" id="resBig">—</div>
+      <dl>
+        <dt>Peso por hoja</dt><dd id="resHoja">—</dd>
+        <dt>Superficie por hoja</dt><dd id="resM2">—</dd>
+        <dt>Superficie total</dt><dd id="resM2Total">—</dd>
+      </dl>
+      <div class="hint" id="hint" hidden></div>
+    </div>
+
+    <details>
+      <summary>¿Cómo se calcula?</summary>
+      <p><code>Kilos = ancho × largo × gramaje × hojas ÷ 10.000.000</code></p>
+      <p><code>Hojas = kilos × 10.000.000 ÷ (ancho × largo × gramaje)</code></p>
+      <p>Medidas en centímetros. El 10.000.000 sale de pasar cm² a m² (÷10.000) y gramos a kilos (÷1.000).</p>
+    </details>
+  </section>
+
+  <!-- ===== Herramienta: Poses por pliego ===== -->
+  <section class="tool card" id="poses" hidden>
+    <div class="result" aria-live="polite" style="margin-top:0">
+      <div class="label">Poses por pliego</div>
+      <div class="big" id="poBig">—</div>
+      <dl>
+        <dt>Aprovechamiento</dt><dd id="poPct">—</dd>
+        <dt>Derechas + giradas</dt><dd id="poMix">—</dd>
+        <dt>Mesa útil</dt><dd id="poMesa">—</dd>
+        <dt id="poPlLabel">Pliegos necesarios</dt><dd id="poPl">—</dd>
+      </dl>
+      <div class="hint" id="poHint" hidden></div>
+    </div>
+
+    <div class="sheet-view">
+      <svg id="poSvg" role="img" aria-label="Pliego con las poses ubicadas"></svg>
+      <div class="legend">
+        <span><i style="background:var(--accent-soft);border:1px solid var(--accent)"></i>Derecha</span>
+        <span><i style="background:var(--rot-soft);border:1px solid var(--rot)"></i>Girada 90°</span>
+        <span><i style="background:var(--pinza-soft);border:1px solid var(--pinza)"></i>Pinza</span>
+        <span><i style="background:var(--margin);border:1px dashed var(--muted)"></i>Margen</span>
+      </div>
+    </div>
+
+    <div class="alts">
+      <label>Otras formas de armarlo</label>
+      <div class="chips" id="poAlts"></div>
+    </div>
+
+    <h2 class="sec">Pliego</h2>
+    <div class="grid">
+      <div>
+        <label for="poAncho">Ancho</label>
+        <div class="field"><input id="poAncho" inputmode="decimal" value="66"><span class="unit">cm</span></div>
+      </div>
+      <div>
+        <label for="poAlto">Alto</label>
+        <div class="field"><input id="poAlto" inputmode="decimal" value="44"><span class="unit">cm</span></div>
+      </div>
+      <div class="full chips" id="poPliegoChips">
+        <button type="button" class="chip" data-w="66" data-h="44">66×44</button>
+        <button type="button" class="chip" data-w="70" data-h="100">70×100</button>
+        <button type="button" class="chip" data-w="72" data-h="102">72×102</button>
+        <button type="button" class="chip" data-w="65" data-h="95">65×95</button>
+        <button type="button" class="chip" data-w="64" data-h="88">64×88</button>
+        <button type="button" class="chip" data-w="50" data-h="70">50×70</button>
+        <button type="button" class="chip" data-w="33" data-h="48">33×48</button>
+      </div>
+    </div>
+
+    <h2 class="sec">Trabajo</h2>
+    <div class="grid">
+      <div>
+        <label for="poTw">Ancho</label>
+        <div class="field"><input id="poTw" inputmode="decimal" value="210"><span class="unit poTU">mm</span></div>
+      </div>
+      <div>
+        <label for="poTh">Alto</label>
+        <div class="field"><input id="poTh" inputmode="decimal" value="297"><span class="unit poTU">mm</span></div>
+      </div>
+      <div class="full">
+        <div class="mode" role="group" aria-label="Unidad del trabajo" id="poUnit">
+          <button type="button" data-u="mm" aria-pressed="true">Milímetros</button>
+          <button type="button" data-u="cm" aria-pressed="false">Centímetros</button>
+        </div>
+      </div>
+      <div class="full chips" id="poTrabajoChips">
+        <button type="button" class="chip" data-w="210" data-h="297">A4</button>
+        <button type="button" class="chip" data-w="148" data-h="210">A5</button>
+        <button type="button" class="chip" data-w="297" data-h="420">A3</button>
+        <button type="button" class="chip" data-w="216" data-h="279">Carta</button>
+        <button type="button" class="chip" data-w="216" data-h="356">Oficio</button>
+        <button type="button" class="chip" data-w="90" data-h="50">Tarjeta 9×5</button>
+        <button type="button" class="chip" data-w="100" data-h="150">10×15</button>
+      </div>
+    </div>
+
+    <h2 class="sec">Pinza y márgenes</h2>
+    <div class="grid">
+      <div>
+        <label for="poPinza">Pinza</label>
+        <div class="field"><input id="poPinza" inputmode="decimal" value="10"><span class="unit">mm</span></div>
+      </div>
+      <div>
+        <label for="poCalle">Calle entre poses</label>
+        <div class="field"><input id="poCalle" inputmode="decimal" value="0"><span class="unit">mm</span></div>
+      </div>
+      <div class="full chips" id="poPinzaChips">
+        <button type="button" class="chip" data-pz="0">Sin pinza</button>
+        <button type="button" class="chip" data-pz="10">10 mm</button>
+        <button type="button" class="chip" data-pz="12">12 mm</button>
+        <button type="button" class="chip" data-pz="15">15 mm</button>
+      </div>
+      <div class="full">
+        <label>Lado de la pinza</label>
+        <div class="mode four" role="group" id="poSide">
+          <button type="button" data-side="b" aria-pressed="true">Abajo</button>
+          <button type="button" data-side="t" aria-pressed="false">Arriba</button>
+          <button type="button" data-side="l" aria-pressed="false">Izq.</button>
+          <button type="button" data-side="r" aria-pressed="false">Der.</button>
+        </div>
+      </div>
+      <div>
+        <label for="poMargen">Margen otros lados</label>
+        <div class="field"><input id="poMargen" inputmode="decimal" value="0"><span class="unit">mm</span></div>
+      </div>
+      <div>
+        <label for="poQty">Ejemplares</label>
+        <div class="field"><input id="poQty" inputmode="numeric" placeholder="1000"><span class="unit">ej.</span></div>
+      </div>
+    </div>
+
+    <details>
+      <summary>¿Cómo se calcula?</summary>
+      <p>Se descuenta la pinza (desde el borde del papel) y el margen de los otros lados. En esa mesa útil se prueban las poses todas derechas, todas giradas y combinaciones de columnas o filas mixtas, y se elige la que más entra.</p>
+      <p>El bloque de poses queda siempre centrado en la mesa útil, así el sobrante se reparte igual a cada lado.</p>
+    </details>
+  </section>
+
+  <!-- ===== Herramienta: Presupuesto ===== -->
+  <section class="tool card" id="presupuesto" hidden>
+    <div class="dolar" aria-live="polite">
+      <div>
+        <small>Dólar oficial BNA (venta)</small>
+        <b id="prDolar">—</b>
+        <small id="prDolarInfo">Buscando cotización…</small>
+      </div>
+      <button type="button" class="btn" id="prDolarBtn">Actualizar</button>
+    </div>
+    <div class="grid" style="margin-top:10px">
+      <div class="full">
+        <label for="prDolarManual">Usar otro valor de dólar (opcional)</label>
+        <div class="field"><input id="prDolarManual" inputmode="decimal" placeholder="vacío = cotización BNA"><span class="unit">$</span></div>
+      </div>
+    </div>
+
+    <h2 class="sec">Datos</h2>
+    <div class="grid">
+      <div class="full">
+        <label for="prFecha">Fecha</label>
+        <input id="prFecha" type="date" style="padding-right:12px">
+      </div>
+      <div class="full">
+        <label for="prCliente">Cliente</label>
+        <input id="prCliente" placeholder="Nombre del cliente" style="padding-right:12px">
+      </div>
+      <div class="full">
+        <label for="prTrabajo">Trabajo</label>
+        <input id="prTrabajo" placeholder="Ej. Folleto tríptico" style="padding-right:12px">
+      </div>
+    </div>
+
+    <h2 class="sec">Trabajo</h2>
+    <div class="grid">
+      <div>
+        <label for="prPw">Pliego ancho</label>
+        <div class="field"><input id="prPw" inputmode="decimal" placeholder="72"><span class="unit">cm</span></div>
+      </div>
+      <div>
+        <label for="prPh">Pliego alto</label>
+        <div class="field"><input id="prPh" inputmode="decimal" placeholder="102"><span class="unit">cm</span></div>
+      </div>
+      <div>
+        <label for="prTw">Corte a corte ancho</label>
+        <div class="field"><input id="prTw" inputmode="decimal" placeholder="210"><span class="unit">mm</span></div>
+      </div>
+      <div>
+        <label for="prTh">Corte a corte alto</label>
+        <div class="field"><input id="prTh" inputmode="decimal" placeholder="297"><span class="unit">mm</span></div>
+      </div>
+      <div>
+        <label for="prGram">Gramaje</label>
+        <div class="field"><input id="prGram" inputmode="decimal" placeholder="150"><span class="unit">g/m²</span></div>
+      </div>
+      <div>
+        <label for="prColores">Colores</label>
+        <div class="field"><input id="prColores" type="number" inputmode="numeric" min="0" step="1" value="4"><span class="unit">col.</span></div>
+      </div>
+      <div class="full">
+        <label>Impresión</label>
+        <div class="mode" role="group" id="prCaras">
+          <button type="button" data-caras="1" aria-pressed="true">Frente solo</button>
+          <button type="button" data-caras="2" aria-pressed="false">Frente y dorso</button>
+        </div>
+      </div>
+      <div class="full">
+        <label for="prCant">Cantidad</label>
+        <div class="field"><input id="prCant" inputmode="numeric" placeholder="1000"><span class="unit">ej.</span></div>
+      </div>
+      <div>
+        <label for="prPoses">Poses por pliego</label>
+        <div class="field"><input id="prPoses" inputmode="numeric" placeholder="auto"><span class="unit">poses</span></div>
+      </div>
+      <div>
+        <label for="prDemasia">Demasía</label>
+        <div class="field"><input id="prDemasia" inputmode="numeric" placeholder="0"><span class="unit">pl.</span></div>
+      </div>
+      <div class="full readout">
+        <div><small>Pliegos a imprimir</small><b id="prPliegos">—</b></div>
+        <div><small>Millares de pliegos</small><b id="prMilP">—</b></div>
+        <div><small>Kilos de papel</small><b id="prKilos">—</b></div>
+        <div><small>Poses (pinza 10 mm)</small><b id="prPosesAuto">—</b></div>
+      </div>
+    </div>
+
+    <h2 class="sec">Costos</h2>
+    <p class="pr-hint" style="margin:0 0 4px">La cantidad se calcula sola (podés pisarla). Tocá <b>$</b> para cargar el precio en dólares.</p>
+    <div id="prItems"></div>
+
+    <div class="result totals" aria-live="polite">
+      <div class="label">Total</div>
+      <div class="big" id="prTotal">—</div>
+      <dl>
+        <dt>Precio unitario</dt><dd id="prUnit">—</dd>
+        <dt>Precio por millar</dt><dd id="prMil">—</dd>
+        <dt>Total en dólares</dt><dd id="prTotalUsd">—</dd>
+      </dl>
+      <div class="hint" id="prHint" hidden></div>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="btn primary" id="prCopiar">Copiar para el cliente</button>
+      <button type="button" class="btn" id="prNuevo">Nuevo presupuesto</button>
+      <span class="ok-msg" id="prMsg" hidden></span>
+    </div>
+    <textarea id="prCopiaTxt" readonly hidden style="width:100%;margin-top:10px;min-height:180px;font:inherit;font-size:.85rem;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)"></textarea>
+
+    <details>
+      <summary>¿Cómo se calcula?</summary>
+      <p>Pliegos = cantidad ÷ poses (redondeado para arriba) + demasía. Los millares se redondean para arriba.</p>
+      <p>Chapas y posturas = colores × caras. Millar de impresión = millares de pliegos × colores × caras. Barniz, UV y laminado se multiplican por las caras que elijas en cada uno. Troquel por millar de pliegos; binder y doblado por millar de ejemplares.</p>
+      <p>Los precios en dólares se pasan a pesos con la cotización de venta del Banco Nación (o el valor que cargues a mano).</p>
+    </details>
+  </section>
+
+  <!-- ===== Herramienta: Cartón montado (pendiente) ===== -->
+  <section class="tool card" id="carton" hidden>
+    <p>Próximamente: grilla de cartones de montado por número y medida.</p>
+  </section>
+
+  <footer>Calculadora de Papel</footer>
+</div>
+
+<script>
+  // ---------- Pestañas ----------
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      if (tab.disabled) return;
+      document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', t === tab));
+      document.querySelectorAll('.tool').forEach(s => s.hidden = s.id !== tab.dataset.tool);
+    });
+  });
+
+  // ---------- Utilidades ----------
+  // Acepta "72,5" o "72.5" y separadores de miles tipo "13.000"
+  function parseNum(str) {
+    if (!str) return NaN;
+    let s = String(str).trim().replace(/\s/g, '');
+    if (s.includes(',')) {
+      s = s.replace(/\./g, '').replace(',', '.');      // 1.234,5 -> 1234.5
+    } else if (/^\d{1,3}(\.\d{3})+$/.test(s)) {
+      s = s.replace(/\./g, '');                         // 13.000 -> 13000
+    }
+    return parseFloat(s);
+  }
+  const fmt = (n, dec = 2) => n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: dec });
+
+  // ---------- Peso de papel ----------
+  const $ = id => document.getElementById(id);
+  let modo = 'hojas';
+
+  document.querySelectorAll('#peso-papel .mode button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      modo = btn.dataset.mode;
+      document.querySelectorAll('#peso-papel .mode button').forEach(b => b.setAttribute('aria-pressed', b === btn));
+      $('cantidadLabel').textContent = modo === 'hojas' ? 'Cantidad de hojas' : 'Cantidad de kilos';
+      $('cantidadUnit').textContent = modo === 'hojas' ? 'hojas' : 'kg';
+      $('cantidad').placeholder = modo === 'hojas' ? '13000' : '850';
+      $('cantidad').value = '';
+      calcular();
+    });
+  });
+
+  function calcular() {
+    const ancho = parseNum($('ancho').value);
+    const largo = parseNum($('largo').value);
+    const gramaje = parseNum($('gramaje').value);
+    const cantidad = parseNum($('cantidad').value);
+    const hint = $('hint');
+    hint.hidden = true;
+
+    $('resLabel').textContent = modo === 'hojas' ? 'Peso total' : 'Cantidad de hojas';
+
+    const m2Hoja = ancho * largo / 10000;              // cm² -> m²
+    const gHoja = m2Hoja * gramaje;                     // gramos por hoja
+
+    if (!(m2Hoja > 0) || !(gramaje > 0)) {
+      $('resBig').textContent = '—';
+      $('resHoja').textContent = $('resM2').textContent = $('resM2Total').textContent = '—';
+      return;
+    }
+
+    $('resHoja').textContent = fmt(gHoja, 2) + ' g';
+    $('resM2').textContent = fmt(m2Hoja, 4) + ' m²';
+
+    if (!(cantidad > 0)) {
+      $('resBig').textContent = '—';
+      $('resM2Total').textContent = '—';
+      return;
+    }
+
+    if (modo === 'hojas') {
+      const kilos = gHoja * cantidad / 1000;
+      $('resBig').textContent = fmt(kilos, 2) + ' kg';
+      $('resM2Total').textContent = fmt(m2Hoja * cantidad, 2) + ' m²';
+    } else {
+      const hojasExactas = cantidad * 1000 / gHoja;
+      const hojas = Math.floor(hojasExactas);
+      $('resBig').textContent = fmt(hojas, 0) + ' hojas';
+      $('resM2Total').textContent = fmt(m2Hoja * hojasExactas, 2) + ' m²';
+      hint.textContent = 'Valor exacto: ' + fmt(hojasExactas, 2) + ' hojas (se redondea hacia abajo).';
+      hint.hidden = false;
+    }
+  }
+
+  ['ancho', 'largo', 'gramaje', 'cantidad'].forEach(id => $(id).addEventListener('input', calcular));
+  calcular();
+</script>
+<script>
+  // ---------- Poses por pliego ----------
+  (function () {
+    const $ = id => document.getElementById(id);
+    const num = id => { const n = parseNum($(id).value); return isFinite(n) ? n : NaN; };
+    const f = (n, d = 0) => n.toLocaleString('es-AR', { maximumFractionDigits: d, minimumFractionDigits: 0 });
+    const cmTxt = mm => f(mm / 10, 1);
+    const KEY = 'poses-v1';
+    const fields = ['poAncho', 'poAlto', 'poTw', 'poTh', 'poPinza', 'poCalle', 'poMargen', 'poQty'];
+    let unit = 'mm', side = 'b', selected = 0, options = [];
+
+    try {
+      const st = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (st) { fields.forEach(k => { if (st[k] != null) $(k).value = st[k]; }); unit = st.unit || unit; side = st.side || side; }
+    } catch (e) {}
+
+    function grid(x0, y0, AW, AH, w, h, g, rot) {
+      if (AW < w - 1e-9 || AH < h - 1e-9) return { rects: [], usedW: 0, usedH: 0, nx: 0, ny: 0 };
+      const nx = Math.floor((AW + g + 1e-9) / (w + g)), ny = Math.floor((AH + g + 1e-9) / (h + g));
+      const rects = [];
+      for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) rects.push({ x: x0 + i * (w + g), y: y0 + j * (h + g), w, h, rot });
+      return { rects, nx, ny, usedW: nx ? nx * w + (nx - 1) * g : 0, usedH: ny ? ny * h + (ny - 1) * g : 0 };
+    }
+
+    function solve(w, h, g, box) {
+      const { x: X, y: Y, w: AW, h: AH } = box, out = [];
+      if (AW <= 0 || AH <= 0) return out;
+      const bbox = rs => ({ x1: Math.min(...rs.map(r => r.x)), y1: Math.min(...rs.map(r => r.y)),
+        x2: Math.max(...rs.map(r => r.x + r.w)), y2: Math.max(...rs.map(r => r.y + r.h)) });
+      // Centra todo el armado en la mesa útil; en los mixtos cada bloque además se centra en el otro sentido
+      const add = (blocks, label, eje) => {
+        blocks = blocks.filter(bl => bl.length);
+        if (!blocks.length) return;
+        blocks = blocks.map(bl => {
+          if (!eje) return bl;
+          const b = bbox(bl);
+          const dx = eje === 'x' ? X + (AW - (b.x2 - b.x1)) / 2 - b.x1 : 0;
+          const dy = eje === 'y' ? Y + (AH - (b.y2 - b.y1)) / 2 - b.y1 : 0;
+          return bl.map(r => ({ ...r, x: r.x + dx, y: r.y + dy }));
+        });
+        const rects = blocks.flat(), b = bbox(rects);
+        const dx = X + (AW - (b.x2 - b.x1)) / 2 - b.x1, dy = Y + (AH - (b.y2 - b.y1)) / 2 - b.y1;
+        out.push({ rects: rects.map(r => ({ ...r, x: r.x + dx, y: r.y + dy })), label });
+      };
+      const A = grid(X, Y, AW, AH, w, h, g, false), B = grid(X, Y, AW, AH, h, w, g, true);
+      add([A.rects], `Derechas ${A.nx}×${A.ny}`);
+      add([B.rects], `Giradas ${B.nx}×${B.ny}`);
+      for (const [pw, ph, rot, qw, qh] of [[w, h, false, h, w], [h, w, true, w, h]]) {
+        const maxC = Math.floor((AW + g + 1e-9) / (pw + g));
+        for (let i = 1; i < maxC; i++) {
+          const a = grid(X, Y, i * pw + (i - 1) * g, AH, pw, ph, g, rot);
+          const b = grid(X + a.usedW + g, Y, AW - a.usedW - g, AH, qw, qh, g, !rot);
+          if (b.rects.length) add([a.rects, b.rects], 'Columnas mixtas', 'y');
+        }
+        const maxR = Math.floor((AH + g + 1e-9) / (ph + g));
+        for (let i = 1; i < maxR; i++) {
+          const a = grid(X, Y, AW, i * ph + (i - 1) * g, pw, ph, g, rot);
+          const b = grid(X, Y + a.usedH + g, AW, AH - a.usedH - g, qw, qh, g, !rot);
+          if (b.rects.length) add([a.rects, b.rects], 'Filas mixtas', 'x');
+        }
+      }
+      out.sort((p, q) => q.rects.length - p.rects.length);
+      const seen = new Set();
+      return out.filter(o => {
+        const k = o.rects.length + '/' + o.rects.filter(r => r.rot).length + '/' + o.label;
+        if (seen.has(k)) return false; seen.add(k); return true;
+      }).slice(0, 6);
+    }
+
+    // Para otras pestañas: cuántas poses entran (mejor armado, centrado, con pinza)
+    window.mejorPoses = (W, H, w, h, o = {}) => {
+      const m = o.margen || 0, pz = o.pinza ?? 10, ld = o.lado || 'b';
+      const E = { t: m, b: m, l: m, r: m }; E[ld] = Math.max(pz, m);
+      const r = solve(w, h, o.calle || 0, { x: E.l, y: E.t, w: W - E.l - E.r, h: H - E.t - E.b });
+      return r.length ? r[0].rects.length : 0;
+    };
+
+    function setPressed(groupId, attr, val) {
+      document.querySelectorAll('#' + groupId + ' button').forEach(b => b.setAttribute('aria-pressed', b.dataset[attr] === val));
+    }
+
+    function render() {
+      setPressed('poUnit', 'u', unit);
+      setPressed('poSide', 'side', side);
+      document.querySelectorAll('.poTU').forEach(el => el.textContent = unit);
+      try { const st = { unit, side }; fields.forEach(k => st[k] = $(k).value); localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+
+      const k = unit === 'cm' ? 10 : 1;
+      const W = num('poAncho') * 10, H = num('poAlto') * 10;
+      const w = num('poTw') * k, h = num('poTh') * k;
+      const g = Math.max(0, num('poCalle') || 0), m = Math.max(0, num('poMargen') || 0);
+      const pz = Math.max(0, num('poPinza') || 0), qty = Math.floor(num('poQty') || 0);
+      const hint = $('poHint'); hint.hidden = true;
+      const svg = $('poSvg');
+
+      const clear = msg => {
+        ['poBig', 'poPct', 'poMix', 'poMesa', 'poPl'].forEach(id => $(id).textContent = '—');
+        svg.innerHTML = ''; $('poAlts').innerHTML = '';
+        if (msg) { hint.textContent = msg; hint.hidden = false; }
+      };
+      if (!(W > 0 && H > 0 && w > 0 && h > 0)) return clear('Cargá las medidas del pliego y del trabajo.');
+
+      const E = { t: m, b: m, l: m, r: m }; E[side] = Math.max(pz, m);
+      const box = { x: E.l, y: E.t, w: W - E.l - E.r, h: H - E.t - E.b };
+      options = solve(w, h, g, box);
+      if (selected >= options.length) selected = 0;
+      const o = options[selected];
+      $('poMesa').textContent = box.w > 0 && box.h > 0 ? `${cmTxt(box.w)} × ${cmTxt(box.h)} cm` : '—';
+      if (!o) {
+        clear(`El trabajo de ${cmTxt(w)}×${cmTxt(h)} cm no entra en el pliego de ${cmTxt(W)}×${cmTxt(H)} cm con esa pinza y margen.`);
+        $('poMesa').textContent = box.w > 0 && box.h > 0 ? `${cmTxt(box.w)} × ${cmTxt(box.h)} cm` : '—';
+        return;
+      }
+      const n = o.rects.length, rotN = o.rects.filter(r => r.rot).length;
+      $('poBig').textContent = n + (n === 1 ? ' pose' : ' poses');
+      $('poPct').textContent = f(n * w * h / (W * H) * 100, 1) + ' %';
+      $('poMix').textContent = `${n - rotN} + ${rotN}`;
+      $('poPlLabel').textContent = qty ? `Pliegos para ${f(qty)} ej.` : 'Pliegos necesarios';
+      $('poPl').textContent = qty ? f(Math.ceil(qty / n)) : 'cargá ejemplares';
+
+      // Dibujo a escala (unidades en mm)
+      const M = Math.max(W, H), pad = M * 0.07, fs = M * 0.03, sw = M * 0.0022;
+      const txt = (x, y, t, col, size, extra = '') =>
+        `<text x="${x}" y="${y}" style="fill:var(${col})" font-family="JetBrains Mono,monospace" font-weight="700" font-size="${size}" text-anchor="middle" dominant-baseline="central"${extra}>${t}</text>`;
+      let b = `<rect x="0" y="0" width="${W}" height="${H}" style="fill:var(--sheet);stroke:var(--ink)" stroke-width="${sw * 1.4}"/>`;
+      if (m > 0) b += `<path d="M0 0H${W}V${H}H0Z M${box.x} ${box.y}V${box.y + box.h}H${box.x + box.w}V${box.y}Z" style="fill:var(--margin)" fill-rule="evenodd"/>`;
+      const P = E[side];
+      if (P > 0) {
+        const pr = { b: [0, H - P, W, P], t: [0, 0, W, P], l: [0, 0, P, H], r: [W - P, 0, P, H] }[side];
+        b += `<rect x="${pr[0]}" y="${pr[1]}" width="${pr[2]}" height="${pr[3]}" style="fill:var(--pinza-soft)"/>`;
+        const cx = pr[0] + pr[2] / 2, cy = pr[1] + pr[3] / 2, vert = side === 'l' || side === 'r';
+        b += txt(cx, cy, `PINZA ${f(P, 1)} mm`, '--pinza', Math.min(fs * 0.8, Math.max(P * 0.7, fs * 0.45)), vert ? ` transform="rotate(-90 ${cx} ${cy})"` : '');
+      }
+      if (P > 0 || m > 0) b += `<rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" style="fill:none;stroke:var(--muted)" stroke-width="${sw * .7}" stroke-dasharray="${fs * .4} ${fs * .3}"/>`;
+      const nfs = Math.min(w, h) * 0.24;
+      o.rects.forEach((r, i) => {
+        const c = r.rot ? '--rot' : '--accent', fl = r.rot ? '--rot-soft' : '--accent-soft';
+        b += `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" style="fill:var(${fl});stroke:var(${c})" stroke-width="${sw}"/>`;
+        if (n <= 120) b += txt(r.x + r.w / 2, r.y + r.h / 2, i + 1, c, nfs);
+      });
+      b += `<text x="${W / 2}" y="${-pad * .4}" style="fill:var(--muted)" font-family="JetBrains Mono,monospace" font-size="${fs}" text-anchor="middle">${cmTxt(W)} cm</text>`;
+      b += `<text x="${-pad * .4}" y="${H / 2}" style="fill:var(--muted)" font-family="JetBrains Mono,monospace" font-size="${fs}" text-anchor="middle" transform="rotate(-90 ${-pad * .4} ${H / 2})">${cmTxt(H)} cm</text>`;
+      svg.setAttribute('viewBox', `${-pad} ${-pad} ${W + pad * 1.5} ${H + pad * 1.5}`);
+      svg.innerHTML = b;
+
+      $('poAlts').innerHTML = options.map((a, i) => {
+        const r = a.rects.filter(x => x.rot).length;
+        return `<button type="button" class="chip" data-i="${i}" aria-pressed="${i === selected}"><b>${a.rects.length}</b> · ${a.label}${r && r < a.rects.length ? ` (${a.rects.length - r}+${r})` : ''}</button>`;
+      }).join('');
+    }
+
+    fields.forEach(id => $(id).addEventListener('input', () => { selected = 0; render(); }));
+    $('poUnit').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b || b.dataset.u === unit) return;
+      const factor = b.dataset.u === 'cm' ? 0.1 : 10;
+      ['poTw', 'poTh'].forEach(id => { const v = num(id); if (v > 0) $(id).value = f(v * factor, 2).replace(/\./g, ''); });
+      unit = b.dataset.u; selected = 0; render();
+    });
+    $('poSide').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { side = b.dataset.side; selected = 0; render(); } });
+    $('poPliegoChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) { $('poAncho').value = b.dataset.w; $('poAlto').value = b.dataset.h; selected = 0; render(); } });
+    $('poTrabajoChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) { unit = 'mm'; $('poTw').value = b.dataset.w; $('poTh').value = b.dataset.h; selected = 0; render(); } });
+    $('poPinzaChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) { $('poPinza').value = b.dataset.pz; selected = 0; render(); } });
+    $('poAlts').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) { selected = +b.dataset.i; render(); } });
+    render();
+  })();
+
+  // ---------- Presupuesto ----------
+  (function () {
+    const $ = id => document.getElementById(id);
+    const n = id => { const v = parseNum($(id).value); return isFinite(v) ? v : NaN; };
+    const f = (v, d = 0) => v.toLocaleString('es-AR', { maximumFractionDigits: d, minimumFractionDigits: 0 });
+    const pesos = (v, d = 2) => '$ ' + v.toLocaleString('es-AR', { minimumFractionDigits: d, maximumFractionDigits: d });
+    const KEY = 'presupuesto-v1', KEY_DOLAR = 'dolar-bna-v1';
+    const CAMPOS = ['prFecha', 'prCliente', 'prTrabajo', 'prPw', 'prPh', 'prTw', 'prTh', 'prGram', 'prColores', 'prCant', 'prPoses', 'prDemasia', 'prDolarManual'];
+    const DEL_TRABAJO = ['prCliente', 'prTrabajo', 'prCant', 'prPoses', 'prDemasia'];
+
+    // grupo, id, nombre, unidad, cantidad automática, explicación, opciones extra
+    const ITEMS = [
+      { g: 'Impresión', id: 'papel', name: 'Papel', u: 'kg', cur: 'USD', q: c => c.kilos, h: c => `${f(c.pliegos)} pliegos · ${f(c.kilos, 1)} kg · precio por kg` },
+      { g: 'Impresión', id: 'chapa', name: 'Chapa CTP', u: 'ch.', q: c => c.col * c.caras, h: c => `${c.col} colores × ${c.caras} ${c.caras > 1 ? 'caras' : 'cara'} · precio por chapa` },
+      { g: 'Impresión', id: 'postura', name: 'Postura de máquina', u: 'post.', q: c => c.col * c.caras, h: c => `${c.col} colores × ${c.caras} ${c.caras > 1 ? 'caras' : 'cara'} · precio por postura` },
+      { g: 'Impresión', id: 'millar', name: 'Millar de impresión', u: 'mill.', q: c => c.milP * c.col * c.caras, h: c => `${c.milP} mill. × ${c.col} col. × ${c.caras} ${c.caras > 1 ? 'caras' : 'cara'} · precio por millar` },
+      { g: 'Impresión', id: 'barniz', name: 'Barniz', u: 'mill.', lados: true, q: (c, it) => c.milP * it.lados, h: (c, it) => `${c.milP} mill. de pliegos × ${it.lados} ${it.lados > 1 ? 'caras' : 'cara'} · precio por millar` },
+      { g: 'Terminaciones', id: 'uv', name: 'UV', u: 'pl.', lados: true, q: (c, it) => c.pliegos * it.lados, h: (c, it) => `${f(c.pliegos)} pliegos × ${it.lados} ${it.lados > 1 ? 'caras' : 'cara'} · precio por pliego` },
+      { g: 'Terminaciones', id: 'laminado', name: 'Laminado', u: 'pl.', lados: true, tipos: ['Brillante', 'Mate'], q: (c, it) => c.pliegos * it.lados, h: (c, it) => `${f(c.pliegos)} pliegos × ${it.lados} ${it.lados > 1 ? 'caras' : 'cara'} · precio por pliego` },
+      { g: 'Troquelado', id: 'troqP', name: 'Postura de troquel', u: 'u.', q: () => 1, h: () => 'precio fijo' },
+      { g: 'Troquelado', id: 'troqM', name: 'Millar de troquel', u: 'mill.', q: c => c.milP, h: c => `${c.milP} mill. de pliegos · precio por millar` },
+      { g: 'Encuadernación binder', id: 'binP', name: 'Postura binder', u: 'u.', q: () => 1, h: () => 'precio fijo' },
+      { g: 'Encuadernación binder', id: 'binM', name: 'Millar binder', u: 'mill.', q: c => c.milE, h: c => `${c.milE} mill. de ejemplares · precio por millar` },
+      { g: 'Doblado', id: 'dobP', name: 'Postura de doblado', u: 'u.', tipos: ['Díptico', 'Tríptico'], q: () => 1, h: () => 'precio fijo' },
+      { g: 'Doblado', id: 'dobM', name: 'Millar de doblado', u: 'mill.', q: c => c.milE, h: c => `${c.milE} mill. de ejemplares · precio por millar` },
+      { g: 'Entrega', id: 'cajas', name: 'Cajas', u: 'cajas', q: () => 0, h: () => 'cargá cuántas cajas · precio por caja' },
+      { g: 'Entrega', id: 'flete', name: 'Flete', u: 'u.', q: () => 1, h: () => 'precio fijo' },
+    ];
+    const st = Object.fromEntries(ITEMS.map(it => [it.id, { q: '', p: '', cur: it.cur || 'ARS', lados: 1, tipo: it.tipos ? it.tipos[0] : '' }]));
+    let caras = 1, dolar = null, ultimo = null;
+
+    // ----- armar filas -----
+    let html = '', grupo = '';
+    ITEMS.forEach(it => {
+      if (it.g !== grupo) { grupo = it.g; html += `<div class="pr-group">${grupo}</div>`; }
+      const extra = (it.tipos ? `<select data-k="tipo" aria-label="Tipo de ${it.name.toLowerCase()}">${it.tipos.map(t => `<option>${t}</option>`).join('')}</select>` : '')
+        + (it.lados ? `<select data-k="lados" aria-label="Caras de ${it.name.toLowerCase()}"><option value="1">Frente</option><option value="2">F y D</option></select>` : '');
+      html += `<div class="pr-row" data-id="${it.id}">
+        <div class="pr-head"><span class="pr-name">${it.name}</span>${extra}<span class="pr-sub zero">—</span></div>
+        <div class="pr-inputs">
+          <div class="field"><input data-k="q" inputmode="decimal" aria-label="Cantidad de ${it.name.toLowerCase()}"><span class="unit">${it.u}</span></div>
+          <span class="x">×</span>
+          <div class="field"><input data-k="p" inputmode="decimal" placeholder="precio" aria-label="Precio de ${it.name.toLowerCase()}"><button type="button" class="pr-cur" data-cur="ARS">$</button></div>
+        </div>
+        <div class="pr-hint"></div>
+      </div>`;
+    });
+    $('prItems').innerHTML = html;
+
+    // ----- guardar / cargar -----
+    function guardar() {
+      try {
+        const d = { caras, items: st }; CAMPOS.forEach(k => d[k] = $(k).value);
+        localStorage.setItem(KEY, JSON.stringify(d));
+      } catch (e) {}
+    }
+    try {
+      const d = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (d) {
+        CAMPOS.forEach(k => { if (d[k] != null) $(k).value = d[k]; });
+        caras = d.caras || 1;
+        if (d.items) for (const k in d.items) if (st[k]) Object.assign(st[k], d.items[k]);
+      }
+      dolar = JSON.parse(localStorage.getItem(KEY_DOLAR) || 'null');
+    } catch (e) {}
+    if (!$('prFecha').value) $('prFecha').value = hoy();
+    document.querySelectorAll('.pr-row').forEach(row => {
+      const s = st[row.dataset.id];
+      row.querySelector('[data-k=q]').value = s.q;
+      row.querySelector('[data-k=p]').value = s.p;
+      const sl = row.querySelector('[data-k=lados]'); if (sl) sl.value = s.lados;
+      const tp = row.querySelector('[data-k=tipo]'); if (tp) tp.value = s.tipo;
+    });
+
+    function hoy() {
+      const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+      return d.toISOString().slice(0, 10);
+    }
+
+    // ----- dólar BNA -----
+    function valorDolar() {
+      const man = n('prDolarManual');
+      if (man > 0) return { v: man, manual: true };
+      return dolar && dolar.venta > 0 ? { v: dolar.venta, manual: false } : null;
+    }
+    function pintarDolar(error) {
+      const info = $('prDolarInfo');
+      if (dolar && dolar.venta > 0) {
+        $('prDolar').textContent = pesos(dolar.venta, 2);
+        const fe = dolar.fecha ? new Date(dolar.fecha) : null;
+        info.textContent = (fe ? 'Cotización del ' + fe.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '')
+          + (dolar.compra ? ` · compra ${pesos(dolar.compra, 2)}` : '');
+      } else {
+        $('prDolar').textContent = '—';
+        info.textContent = '';
+      }
+      info.classList.toggle('err', !!error);
+      if (error) info.textContent = error + (dolar ? ' Se usa la última guardada.' : ' Cargá el valor a mano.');
+    }
+    async function traerDolar() {
+      $('prDolarBtn').disabled = true; $('prDolarBtn').textContent = 'Actualizando…';
+      try {
+        const r = await fetch('https://dolarapi.com/v1/dolares/oficial', { cache: 'no-store' });
+        if (!r.ok) throw new Error();
+        const j = await r.json();
+        if (!(j.venta > 0)) throw new Error();
+        dolar = { venta: j.venta, compra: j.compra, fecha: j.fechaActualizacion, chequeado: Date.now() };
+        try { localStorage.setItem(KEY_DOLAR, JSON.stringify(dolar)); } catch (e) {}
+        pintarDolar();
+      } catch (e) {
+        pintarDolar('No se pudo actualizar (¿sin conexión?).');
+      }
+      $('prDolarBtn').disabled = false; $('prDolarBtn').textContent = 'Actualizar';
+      calcular();
+    }
+    $('prDolarBtn').addEventListener('click', traerDolar);
+    pintarDolar(); traerDolar();
+    setInterval(() => { if (document.visibilityState === 'visible') traerDolar(); }, 15 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && (!dolar || Date.now() - (dolar.chequeado || 0) > 15 * 60 * 1000)) traerDolar();
+    });
+
+    // ----- cálculo -----
+    function calcular() {
+      document.querySelectorAll('#prCaras button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.caras === caras));
+      const W = n('prPw') * 10, H = n('prPh') * 10, w = n('prTw'), h = n('prTh');
+      const gram = n('prGram'), col = Math.max(0, Math.floor(n('prColores') || 0)), cant = Math.floor(n('prCant') || 0);
+      const auto = (W > 0 && H > 0 && w > 0 && h > 0 && window.mejorPoses) ? window.mejorPoses(W, H, w, h) : 0;
+      $('prPosesAuto').textContent = auto ? f(auto) : '—';
+      $('prPoses').placeholder = auto ? String(auto) : 'auto';
+      const poses = n('prPoses') > 0 ? Math.floor(n('prPoses')) : auto;
+      const dem = Math.max(0, Math.floor(n('prDemasia') || 0));
+      const pliegos = poses > 0 && cant > 0 ? Math.ceil(cant / poses) + dem : 0;
+      const kilos = pliegos && gram > 0 ? (W / 10) * (H / 10) * gram * pliegos / 1e7 : 0;
+      const c = { col, caras, pliegos, kilos, milP: pliegos ? Math.ceil(pliegos / 1000) : 0, milE: cant ? Math.ceil(cant / 1000) : 0 };
+      $('prPliegos').textContent = pliegos ? f(pliegos) : '—';
+      $('prMilP').textContent = c.milP ? f(c.milP) : '—';
+      $('prKilos').textContent = kilos ? f(kilos, 1) + ' kg' : '—';
+
+      const dv = valorDolar();
+      let total = 0, faltaDolar = false;
+      document.querySelectorAll('.pr-row').forEach(row => {
+        const it = ITEMS.find(x => x.id === row.dataset.id), s = st[it.id];
+        const qAuto = it.q(c, s);
+        const qIn = row.querySelector('[data-k=q]');
+        qIn.placeholder = qAuto ? f(qAuto, 2) : '0';
+        const q = s.q !== '' && isFinite(parseNum(s.q)) ? parseNum(s.q) : qAuto;
+        const p = parseNum(s.p) || 0;
+        const btn = row.querySelector('.pr-cur');
+        btn.dataset.cur = s.cur; btn.textContent = s.cur === 'USD' ? 'US$' : '$';
+        let sub = q * p;
+        if (s.cur === 'USD') { if (dv) sub *= dv.v; else if (sub) { faltaDolar = true; sub = 0; } }
+        total += sub;
+        const el = row.querySelector('.pr-sub');
+        el.textContent = sub ? pesos(sub) : '—'; el.classList.toggle('zero', !sub);
+        row.querySelector('.pr-hint').textContent = (s.q !== '' ? 'Cantidad cargada a mano · auto: ' + f(qAuto, 2) : it.h(c, s))
+          + (s.cur === 'USD' && p && dv ? ` · US$ ${f(p, 2)} = ${pesos(p * dv.v)} c/u` : '');
+      });
+
+      $('prTotal').textContent = total ? pesos(total) : '—';
+      $('prUnit').textContent = total && cant ? pesos(total / cant, 2) : '—';
+      $('prMil').textContent = total && cant ? pesos(total / cant * 1000) : '—';
+      $('prTotalUsd').textContent = total && dv ? 'US$ ' + f(total / dv.v, 2) : '—';
+      const hint = $('prHint');
+      const avisos = [];
+      if (faltaDolar) avisos.push('Hay precios en dólares sin cotización: cargá el dólar a mano.');
+      if (!cant) avisos.push('Cargá la cantidad para ver el precio unitario.');
+      else if (!poses) avisos.push('Cargá pliego y corte a corte (o las poses) para calcular pliegos.');
+      hint.textContent = avisos.join(' '); hint.hidden = !avisos.length;
+      ultimo = { total, cant, dv, poses, pliegos };
+      guardar();
+    }
+
+    // ----- eventos -----
+    CAMPOS.forEach(k => $(k).addEventListener('input', calcular));
+    $('prCaras').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { caras = +b.dataset.caras; calcular(); } });
+    $('prItems').addEventListener('input', e => {
+      const row = e.target.closest('.pr-row'); if (!row) return;
+      st[row.dataset.id][e.target.dataset.k] = e.target.dataset.k === 'lados' ? +e.target.value : e.target.value;
+      calcular();
+    });
+    $('prItems').addEventListener('change', e => {
+      const row = e.target.closest('.pr-row'); if (!row || e.target.tagName !== 'SELECT') return;
+      st[row.dataset.id][e.target.dataset.k] = e.target.dataset.k === 'lados' ? +e.target.value : e.target.value;
+      calcular();
+    });
+    $('prItems').addEventListener('click', e => {
+      const b = e.target.closest('.pr-cur'); if (!b) return;
+      const s = st[b.closest('.pr-row').dataset.id]; s.cur = s.cur === 'USD' ? 'ARS' : 'USD'; calcular();
+    });
+
+    function aviso(t) { const m = $('prMsg'); m.textContent = t; m.hidden = false; clearTimeout(aviso.t); aviso.t = setTimeout(() => m.hidden = true, 3000); }
+
+    $('prNuevo').addEventListener('click', () => {
+      DEL_TRABAJO.forEach(k => $(k).value = '');
+      $('prFecha').value = hoy();
+      for (const k in st) st[k].q = '';
+      document.querySelectorAll('.pr-row [data-k=q]').forEach(i => i.value = '');
+      $('prCopiaTxt').hidden = true;
+      calcular(); aviso('Listo. Los precios quedaron guardados.');
+    });
+
+    $('prCopiar').addEventListener('click', () => {
+      const u = ultimo || {};
+      const fe = $('prFecha').value ? $('prFecha').value.split('-').reverse().join('/') : '';
+      const term = [];
+      ITEMS.forEach(it => {
+        const s = st[it.id]; if (!(parseNum(s.p) > 0)) return;
+        const lado = it.lados ? (s.lados > 1 ? ' frente y dorso' : ' frente') : '';
+        if (it.id === 'barniz') term.push('Barniz' + lado);
+        if (it.id === 'uv') term.push('UV' + lado);
+        if (it.id === 'laminado') term.push('Laminado ' + s.tipo.toLowerCase() + lado);
+        if ((it.id === 'troqP' || it.id === 'troqM') && !term.includes('Troquelado')) term.push('Troquelado');
+        if (it.id === 'binP' || it.id === 'binM') { if (!term.includes('Encuadernación binder')) term.push('Encuadernación binder'); }
+        if (it.id === 'dobP' || it.id === 'dobM') { const t = 'Doblado ' + st.dobP.tipo.toLowerCase(); if (!term.includes(t)) term.push(t); }
+      });
+      const txt = [
+        `PRESUPUESTO${fe ? ' · ' + fe : ''}`,
+        $('prCliente').value && `Cliente: ${$('prCliente').value}`,
+        $('prTrabajo').value && `Trabajo: ${$('prTrabajo').value}`,
+        (n('prTw') > 0 && n('prTh') > 0) && `Medida: ${f(n('prTw'), 1)} × ${f(n('prTh'), 1)} mm`,
+        n('prGram') > 0 && `Papel: ${f(n('prGram'))} g/m²`,
+        `Impresión: ${n('prColores') || 0} ${n('prColores') == 1 ? 'color' : 'colores'} · ${caras > 1 ? 'frente y dorso' : 'frente'}`,
+        term.length && `Terminaciones: ${term.join(', ')}`,
+        u.cant && `Cantidad: ${f(u.cant)} ejemplares`,
+        '',
+        u.total ? `TOTAL: ${pesos(u.total)}` : 'TOTAL: —',
+        u.total && u.cant && `Precio unitario: ${pesos(u.total / u.cant, 2)}`,
+        u.dv && `Dólar ${u.dv.manual ? 'tomado' : 'BNA'}: ${pesos(u.dv.v, 2)}`,
+      ].filter(x => x === '' || !!x).join('\n');
+      const area = $('prCopiaTxt'); area.value = txt; area.hidden = false;
+      const fallback = () => { area.focus(); area.select(); aviso('Seleccionado: copialo con el menú del teléfono.'); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(() => aviso('Copiado. Pegalo en WhatsApp o en un mail.'), fallback);
+      else fallback();
+    });
+
+    // recalcular cuando se abre la pestaña (por si cambió algo en otra)
+    document.querySelector('[data-tool=presupuesto]').addEventListener('click', calcular);
+    calcular();
+  })();
+
+  // ---------- App instalable (funciona sin internet) ----------
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+</script>
+</body>
+</html>
