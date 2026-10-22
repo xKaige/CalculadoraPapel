@@ -210,11 +210,17 @@
     <div class="grid">
       <div>
         <label for="ancho">Ancho</label>
-        <div class="field"><input id="ancho" inputmode="decimal" placeholder="72"><span class="unit">cm</span></div>
+        <div class="field"><input id="ancho" inputmode="decimal" placeholder="72"><span class="unit pesoU">cm</span></div>
       </div>
       <div>
         <label for="largo">Largo</label>
-        <div class="field"><input id="largo" inputmode="decimal" placeholder="88"><span class="unit">cm</span></div>
+        <div class="field"><input id="largo" inputmode="decimal" placeholder="88"><span class="unit pesoU">cm</span></div>
+      </div>
+      <div class="full">
+        <div class="mode" role="group" aria-label="Unidad de las medidas" id="pesoUnidad">
+          <button type="button" data-u="cm" aria-pressed="true">Centímetros</button>
+          <button type="button" data-u="mm" aria-pressed="false">Milímetros</button>
+        </div>
       </div>
       <div class="full">
         <label for="gramaje">Gramaje</label>
@@ -223,7 +229,7 @@
 
       <div class="full">
         <label>Tengo el dato en</label>
-        <div class="mode" role="group">
+        <div class="mode" role="group" id="pesoModo">
           <button type="button" data-mode="hojas" aria-pressed="true">Hojas</button>
           <button type="button" data-mode="kilos" aria-pressed="false">Kilos</button>
         </div>
@@ -250,7 +256,7 @@
       <summary>¿Cómo se calcula?</summary>
       <p><code>Kilos = ancho × largo × gramaje × hojas ÷ 10.000.000</code></p>
       <p><code>Hojas = kilos × 10.000.000 ÷ (ancho × largo × gramaje)</code></p>
-      <p>Medidas en centímetros. El 10.000.000 sale de pasar cm² a m² (÷10.000) y gramos a kilos (÷1.000).</p>
+      <p>Medidas en centímetros (si cargás milímetros, se pasan solas a cm). El 10.000.000 sale de pasar cm² a m² (÷10.000) y gramos a kilos (÷1.000).</p>
     </details>
   </section>
 
@@ -525,10 +531,10 @@
   const $ = id => document.getElementById(id);
   let modo = 'hojas';
 
-  document.querySelectorAll('#peso-papel .mode button').forEach(btn => {
+  document.querySelectorAll('#pesoModo button').forEach(btn => {
     btn.addEventListener('click', () => {
       modo = btn.dataset.mode;
-      document.querySelectorAll('#peso-papel .mode button').forEach(b => b.setAttribute('aria-pressed', b === btn));
+      document.querySelectorAll('#pesoModo button').forEach(b => b.setAttribute('aria-pressed', b === btn));
       $('cantidadLabel').textContent = modo === 'hojas' ? 'Cantidad de hojas' : 'Cantidad de kilos';
       $('cantidadUnit').textContent = modo === 'hojas' ? 'hojas' : 'kg';
       $('cantidad').placeholder = modo === 'hojas' ? '13000' : '850';
@@ -537,9 +543,34 @@
     });
   });
 
+  // ---------- Unidad: centímetros o milímetros ----------
+  let unidad = 'cm';
+  try { unidad = localStorage.getItem('peso-unidad') === 'mm' ? 'mm' : 'cm'; } catch (e) {}
+  function pintarUnidad() {
+    document.querySelectorAll('#pesoUnidad button').forEach(b => b.setAttribute('aria-pressed', b.dataset.u === unidad));
+    document.querySelectorAll('.pesoU').forEach(el => el.textContent = unidad);
+    $('ancho').placeholder = unidad === 'mm' ? '720' : '72';
+    $('largo').placeholder = unidad === 'mm' ? '880' : '88';
+  }
+  document.querySelectorAll('#pesoUnidad button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.u === unidad) return;
+      const factor = btn.dataset.u === 'mm' ? 10 : 0.1;
+      ['ancho', 'largo'].forEach(id => {
+        const v = parseNum($(id).value);
+        if (v > 0) $(id).value = fmt(v * factor, 2).replace(/\./g, '');
+      });
+      unidad = btn.dataset.u;
+      try { localStorage.setItem('peso-unidad', unidad); } catch (e) {}
+      pintarUnidad();
+      calcular();
+    });
+  });
+
   function calcular() {
-    const ancho = parseNum($('ancho').value);
-    const largo = parseNum($('largo').value);
+    const div = unidad === 'mm' ? 10 : 1;   // todo se calcula en cm
+    const ancho = parseNum($('ancho').value) / div;
+    const largo = parseNum($('largo').value) / div;
     const gramaje = parseNum($('gramaje').value);
     const cantidad = parseNum($('cantidad').value);
     const hint = $('hint');
@@ -580,6 +611,7 @@
   }
 
   ['ancho', 'largo', 'gramaje', 'cantidad'].forEach(id => $(id).addEventListener('input', calcular));
+  pintarUnidad();
   calcular();
 </script>
 <script>
