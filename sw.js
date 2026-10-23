@@ -1,5 +1,5 @@
 // Cambiá este número cada vez que subas una versión nueva, para que el celular la actualice.
-const VERSION = 'papel-v5';
+const VERSION = 'papel-v6';
 const ARCHIVOS = ['./', 'index.html', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png'];
 
