@@ -275,11 +275,17 @@
     <div class="grid">
       <div>
         <label for="poAncho">Ancho</label>
-        <div class="field"><input id="poAncho" inputmode="decimal" value="66"><span class="unit">cm</span></div>
+        <div class="field"><input id="poAncho" inputmode="decimal" value="66"><span class="unit" data-u-de="pl">cm</span></div>
       </div>
       <div>
         <label for="poAlto">Alto</label>
-        <div class="field"><input id="poAlto" inputmode="decimal" value="44"><span class="unit">cm</span></div>
+        <div class="field"><input id="poAlto" inputmode="decimal" value="44"><span class="unit" data-u-de="pl">cm</span></div>
+      </div>
+      <div class="full">
+        <div class="mode" role="group" aria-label="Unidad del pliego" id="poUPl" data-grupo="upl">
+          <button type="button" data-u="cm" aria-pressed="false">Centímetros</button>
+          <button type="button" data-u="mm" aria-pressed="false">Milímetros</button>
+        </div>
       </div>
       <div class="full chips" id="poPliegoChips">
         <button type="button" class="chip" data-w="66" data-h="44">66×44</button>
@@ -296,16 +302,16 @@
     <div class="grid">
       <div>
         <label for="poTw">Ancho</label>
-        <div class="field"><input id="poTw" inputmode="decimal" value="210"><span class="unit poTU">mm</span></div>
+        <div class="field"><input id="poTw" inputmode="decimal" value="210"><span class="unit" data-u-de="tr">mm</span></div>
       </div>
       <div>
         <label for="poTh">Alto</label>
-        <div class="field"><input id="poTh" inputmode="decimal" value="297"><span class="unit poTU">mm</span></div>
+        <div class="field"><input id="poTh" inputmode="decimal" value="297"><span class="unit" data-u-de="tr">mm</span></div>
       </div>
       <div class="full">
-        <div class="mode" role="group" aria-label="Unidad del trabajo" id="poUnit">
-          <button type="button" data-u="mm" aria-pressed="true">Milímetros</button>
+        <div class="mode" role="group" aria-label="Unidad del trabajo" id="poUTr">
           <button type="button" data-u="cm" aria-pressed="false">Centímetros</button>
+          <button type="button" data-u="mm" aria-pressed="true">Milímetros</button>
         </div>
       </div>
       <div class="full chips" id="poTrabajoChips">
@@ -321,13 +327,19 @@
 
     <h2 class="sec">Pinza y márgenes</h2>
     <div class="grid">
+      <div class="full">
+        <div class="mode" role="group" aria-label="Unidad de pinza y márgenes" id="poUMg" data-grupo="umg">
+          <button type="button" data-u="cm" aria-pressed="false">Centímetros</button>
+          <button type="button" data-u="mm" aria-pressed="false">Milímetros</button>
+        </div>
+      </div>
       <div>
         <label for="poPinza">Pinza</label>
-        <div class="field"><input id="poPinza" inputmode="decimal" value="10"><span class="unit">mm</span></div>
+        <div class="field"><input id="poPinza" inputmode="decimal" value="10"><span class="unit" data-u-de="mg">mm</span></div>
       </div>
       <div>
         <label for="poCalle">Calle entre poses</label>
-        <div class="field"><input id="poCalle" inputmode="decimal" value="0"><span class="unit">mm</span></div>
+        <div class="field"><input id="poCalle" inputmode="decimal" value="0"><span class="unit" data-u-de="mg">mm</span></div>
       </div>
       <div class="full chips" id="poPinzaChips">
         <button type="button" class="chip" data-pz="0">Sin pinza</button>
@@ -346,7 +358,7 @@
       </div>
       <div>
         <label for="poMargen">Margen otros lados</label>
-        <div class="field"><input id="poMargen" inputmode="decimal" value="0"><span class="unit">mm</span></div>
+        <div class="field"><input id="poMargen" inputmode="decimal" value="0"><span class="unit" data-u-de="mg">mm</span></div>
       </div>
       <div>
         <label for="poQty">Ejemplares</label>
@@ -602,14 +614,24 @@
     const $ = id => document.getElementById(id);
     const num = id => { const n = parseNum($(id).value); return isFinite(n) ? n : NaN; };
     const f = (n, d = 0) => n.toLocaleString('es-AR', { maximumFractionDigits: d, minimumFractionDigits: 0 });
-    const cmTxt = mm => f(mm / 10, 1);
     const KEY = 'poses-v1';
     const fields = ['poAncho', 'poAlto', 'poTw', 'poTh', 'poPinza', 'poCalle', 'poMargen', 'poQty'];
-    let unit = 'mm', side = 'b', selected = 0, options = [];
+    // Unidad de cada bloque: pliego, trabajo y pinza/márgenes (todo se calcula en mm)
+    const U = { pl: 'cm', tr: 'mm', mg: 'mm' };
+    const CAMPOS_DE = { pl: ['poAncho', 'poAlto'], tr: ['poTw', 'poTh'], mg: ['poPinza', 'poCalle', 'poMargen'] };
+    const GRUPO_ID = { pl: 'poUPl', tr: 'poUTr', mg: 'poUMg' };
+    const aMm = u => u === 'cm' ? 10 : 1;
+    const medida = (mm, u) => f(mm / aMm(u), u === 'cm' ? 2 : 1) + ' ' + u;      // texto con unidad
+    const valorCampo = (mm, u) => f(mm / aMm(u), 2).replace(/\./g, '');          // para escribir en un campo
+    let side = 'b', selected = 0, options = [];
 
     try {
       const st = JSON.parse(localStorage.getItem(KEY) || 'null');
-      if (st) { fields.forEach(k => { if (st[k] != null) $(k).value = st[k]; }); unit = st.unit || unit; side = st.side || side; }
+      if (st) {
+        fields.forEach(k => { if (st[k] != null) $(k).value = st[k]; });
+        if (st.U) Object.assign(U, st.U); else if (st.unit) U.tr = st.unit;   // versión anterior
+        side = st.side || side;
+      }
     } catch (e) {}
 
     function grid(x0, y0, AW, AH, w, h, g, rot) {
@@ -678,16 +700,19 @@
     }
 
     function render() {
-      setPressed('poUnit', 'u', unit);
+      for (const gr in U) setPressed(GRUPO_ID[gr], 'u', U[gr]);
       setPressed('poSide', 'side', side);
-      document.querySelectorAll('.poTU').forEach(el => el.textContent = unit);
-      try { const st = { unit, side }; fields.forEach(k => st[k] = $(k).value); localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
+      document.querySelectorAll('[data-u-de]').forEach(el => el.textContent = U[el.dataset.uDe]);
+      document.querySelectorAll('#poPinzaChips [data-pz]').forEach(b => {
+        const v = +b.dataset.pz; if (v) b.textContent = medida(v, U.mg);
+      });
+      try { const st = { U, side }; fields.forEach(k => st[k] = $(k).value); localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {}
 
-      const k = unit === 'cm' ? 10 : 1;
-      const W = num('poAncho') * 10, H = num('poAlto') * 10;
-      const w = num('poTw') * k, h = num('poTh') * k;
-      const g = Math.max(0, num('poCalle') || 0), m = Math.max(0, num('poMargen') || 0);
-      const pz = Math.max(0, num('poPinza') || 0), qty = Math.floor(num('poQty') || 0);
+      const kp = aMm(U.pl), kt = aMm(U.tr), km = aMm(U.mg);
+      const W = num('poAncho') * kp, H = num('poAlto') * kp;
+      const w = num('poTw') * kt, h = num('poTh') * kt;
+      const g = Math.max(0, num('poCalle') * km || 0), m = Math.max(0, num('poMargen') * km || 0);
+      const pz = Math.max(0, num('poPinza') * km || 0), qty = Math.floor(num('poQty') || 0);
       const hint = $('poHint'); hint.hidden = true;
       const svg = $('poSvg');
 
@@ -703,10 +728,10 @@
       options = solve(w, h, g, box);
       if (selected >= options.length) selected = 0;
       const o = options[selected];
-      $('poMesa').textContent = box.w > 0 && box.h > 0 ? `${cmTxt(box.w)} × ${cmTxt(box.h)} cm` : '—';
+      $('poMesa').textContent = box.w > 0 && box.h > 0 ? `${f(box.w / kp, 2)} × ${f(box.h / kp, 2)} ${U.pl}` : '—';
       if (!o) {
-        clear(`El trabajo de ${cmTxt(w)}×${cmTxt(h)} cm no entra en el pliego de ${cmTxt(W)}×${cmTxt(H)} cm con esa pinza y margen.`);
-        $('poMesa').textContent = box.w > 0 && box.h > 0 ? `${cmTxt(box.w)} × ${cmTxt(box.h)} cm` : '—';
+        clear(`El trabajo de ${f(w / kt, 2)}×${f(h / kt, 2)} ${U.tr} no entra en el pliego de ${f(W / kp, 2)}×${f(H / kp, 2)} ${U.pl} con esa pinza y margen.`);
+        $('poMesa').textContent = box.w > 0 && box.h > 0 ? `${f(box.w / kp, 2)} × ${f(box.h / kp, 2)} ${U.pl}` : '—';
         return;
       }
       const n = o.rects.length, rotN = o.rects.filter(r => r.rot).length;
@@ -727,7 +752,7 @@
         const pr = { b: [0, H - P, W, P], t: [0, 0, W, P], l: [0, 0, P, H], r: [W - P, 0, P, H] }[side];
         b += `<rect x="${pr[0]}" y="${pr[1]}" width="${pr[2]}" height="${pr[3]}" style="fill:var(--pinza-soft)"/>`;
         const cx = pr[0] + pr[2] / 2, cy = pr[1] + pr[3] / 2, vert = side === 'l' || side === 'r';
-        b += txt(cx, cy, `PINZA ${f(P, 1)} mm`, '--pinza', Math.min(fs * 0.8, Math.max(P * 0.7, fs * 0.45)), vert ? ` transform="rotate(-90 ${cx} ${cy})"` : '');
+        b += txt(cx, cy, `PINZA ${medida(P, U.mg)}`, '--pinza', Math.min(fs * 0.8, Math.max(P * 0.7, fs * 0.45)), vert ? ` transform="rotate(-90 ${cx} ${cy})"` : '');
       }
       if (P > 0 || m > 0) b += `<rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" style="fill:none;stroke:var(--muted)" stroke-width="${sw * .7}" stroke-dasharray="${fs * .4} ${fs * .3}"/>`;
       const nfs = Math.min(w, h) * 0.24;
@@ -736,8 +761,8 @@
         b += `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" style="fill:var(${fl});stroke:var(${c})" stroke-width="${sw}"/>`;
         if (n <= 120) b += txt(r.x + r.w / 2, r.y + r.h / 2, i + 1, c, nfs);
       });
-      b += `<text x="${W / 2}" y="${-pad * .4}" style="fill:var(--muted)" font-family="JetBrains Mono,monospace" font-size="${fs}" text-anchor="middle">${cmTxt(W)} cm</text>`;
-      b += `<text x="${-pad * .4}" y="${H / 2}" style="fill:var(--muted)" font-family="JetBrains Mono,monospace" font-size="${fs}" text-anchor="middle" transform="rotate(-90 ${-pad * .4} ${H / 2})">${cmTxt(H)} cm</text>`;
+      b += `<text x="${W / 2}" y="${-pad * .4}" style="fill:var(--muted)" font-family="JetBrains Mono,monospace" font-size="${fs}" text-anchor="middle">${medida(W, U.pl)}</text>`;
+      b += `<text x="${-pad * .4}" y="${H / 2}" style="fill:var(--muted)" font-family="JetBrains Mono,monospace" font-size="${fs}" text-anchor="middle" transform="rotate(-90 ${-pad * .4} ${H / 2})">${medida(H, U.pl)}</text>`;
       svg.setAttribute('viewBox', `${-pad} ${-pad} ${W + pad * 1.5} ${H + pad * 1.5}`);
       svg.innerHTML = b;
 
@@ -748,16 +773,17 @@
     }
 
     fields.forEach(id => $(id).addEventListener('input', () => { selected = 0; render(); }));
-    $('poUnit').addEventListener('click', e => {
-      const b = e.target.closest('button'); if (!b || b.dataset.u === unit) return;
-      const factor = b.dataset.u === 'cm' ? 0.1 : 10;
-      ['poTw', 'poTh'].forEach(id => { const v = num(id); if (v > 0) $(id).value = f(v * factor, 2).replace(/\./g, ''); });
-      unit = b.dataset.u; selected = 0; render();
+    // Cambiar unidad de un bloque: convierte lo que ya está cargado
+    for (const gr in GRUPO_ID) $(GRUPO_ID[gr]).addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b || b.dataset.u === U[gr]) return;
+      const desde = aMm(U[gr]);
+      CAMPOS_DE[gr].forEach(id => { const v = num(id); if (v >= 0) $(id).value = valorCampo(v * desde, b.dataset.u); });
+      U[gr] = b.dataset.u; selected = 0; render();
     });
     $('poSide').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { side = b.dataset.side; selected = 0; render(); } });
-    $('poPliegoChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) { $('poAncho').value = b.dataset.w; $('poAlto').value = b.dataset.h; selected = 0; render(); } });
-    $('poTrabajoChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) { unit = 'mm'; $('poTw').value = b.dataset.w; $('poTh').value = b.dataset.h; selected = 0; render(); } });
-    $('poPinzaChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) { $('poPinza').value = b.dataset.pz; selected = 0; render(); } });
+    $('poPliegoChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) { $('poAncho').value = valorCampo(b.dataset.w * 10, U.pl); $('poAlto').value = valorCampo(b.dataset.h * 10, U.pl); selected = 0; render(); } });
+    $('poTrabajoChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) { $('poTw').value = valorCampo(+b.dataset.w, U.tr); $('poTh').value = valorCampo(+b.dataset.h, U.tr); selected = 0; render(); } });
+    $('poPinzaChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) { $('poPinza').value = valorCampo(+b.dataset.pz, U.mg); selected = 0; render(); } });
     $('poAlts').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) { selected = +b.dataset.i; render(); } });
     render();
   })();
