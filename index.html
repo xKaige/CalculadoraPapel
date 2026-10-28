@@ -200,6 +200,8 @@
   .pl-item { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 12px 0; border-top: 1px solid var(--line); }
   .pl-item .t { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
   .pl-item .d { color: var(--muted); font-size: .85rem; min-width: 0; overflow-wrap: anywhere; }
+  .pl-item .d.tr { grid-column: 1 / -1; }
+  .pl-item .d.tr b { color: var(--ink); font-weight: 500; }
   .pl-item .n { text-align: right; font-family: "JetBrains Mono", monospace; font-size: .9rem; white-space: nowrap; }
   .pl-item .acc { grid-column: 1 / -1; display: flex; gap: 6px; justify-content: flex-end; margin-top: 4px; align-items: center; }
   .pl-item.editando { background: var(--accent-soft); margin: 0 -10px; padding: 12px 10px; border-radius: 8px; }
@@ -582,6 +584,11 @@
           <datalist id="plMateriales"></datalist>
         </div>
         <div class="full">
+          <label for="plTrabajo">Trabajo</label>
+          <input id="plTrabajo" list="plTrabajos" placeholder="Ej. Folleto tríptico Cliente X" style="padding-right:12px">
+          <datalist id="plTrabajos"></datalist>
+        </div>
+        <div class="full">
           <label for="plFormato">Formato</label>
           <input id="plFormato" list="plFormatos" placeholder="72×102" style="padding-right:12px">
           <datalist id="plFormatos">
@@ -605,7 +612,7 @@
       </form>
 
       <h2 class="sec">Registros</h2>
-      <div class="field"><input id="plBuscar" placeholder="Buscar por proveedor, material o formato" style="padding-right:12px"></div>
+      <div class="field"><input id="plBuscar" placeholder="Buscar por proveedor, material, trabajo o formato" style="padding-right:12px"></div>
       <div class="pl-tot">
         <div><small>Registros</small><b id="plTotN">0</b></div>
         <div><small>Pliegos</small><b id="plTotP">0</b></div>
@@ -1296,13 +1303,14 @@
 
   function pintar() {
     const q = $('plBuscar').value.trim().toLowerCase();
-    const lista = q ? registros.filter(r => [r.proveedor, r.material, r.formato].join(' ').toLowerCase().includes(q)) : registros;
+    const lista = q ? registros.filter(r => [r.proveedor, r.material, r.trabajo, r.formato].join(' ').toLowerCase().includes(q)) : registros;
     $('plTotN').textContent = fmtN(lista.length);
     $('plTotP').textContent = fmtN(lista.reduce((a, r) => a + (r.pliegos || 0), 0));
     $('plTotK').textContent = fmtN(lista.reduce((a, r) => a + (r.kilos || 0), 0), 2);
     const unicos = k => [...new Set(registros.map(r => r[k]).filter(Boolean))].sort();
     $('plProveedores').innerHTML = unicos('proveedor').map(v => `<option value="${esc(v)}"></option>`).join('');
     $('plMateriales').innerHTML = unicos('material').map(v => `<option value="${esc(v)}"></option>`).join('');
+    $('plTrabajos').innerHTML = unicos('trabajo').map(v => `<option value="${esc(v)}"></option>`).join('');
     if (!lista.length) {
       $('plLista').innerHTML = `<div class="pl-vacio">${registros.length ? 'No hay registros que coincidan.' : 'Todavía no cargaste registros. Completá el formulario y tocá Guardar.'}</div>`;
       return;
@@ -1313,6 +1321,7 @@
         <div class="n">${r.pliegos != null ? fmtN(r.pliegos) + ' pl.' : '—'}</div>
         <div class="d">${esc(fechaTxt(r.fecha))} · ${esc(r.material)}${r.formato ? ' · ' + esc(r.formato) : ''}${r.pendiente ? ' · <i>sin sincronizar</i>' : ''}</div>
         <div class="n">${r.kilos != null ? fmtN(r.kilos, 2) + ' kg' : '—'}</div>
+        ${r.trabajo ? `<div class="d tr">Trabajo: <b>${esc(r.trabajo)}</b></div>` : ''}
         <div class="acc">${borrando === r.id
           ? `<span class="estado">¿Borrar este registro?</span><button type="button" class="btn small danger" data-acc="si">Sí, borrar</button><button type="button" class="btn small" data-acc="no">No</button>`
           : `<button type="button" class="btn small" data-acc="editar">Editar</button><button type="button" class="btn small" data-acc="borrar">Borrar</button>`}
@@ -1341,7 +1350,7 @@
     $('plPliegos').value = p.pliegos != null ? p.pliegos : '';
     $('plKilos').value = p.kilos != null ? String(p.kilos).replace('.', ',') : '';
     $('plFormTitulo').textContent = 'Nuevo registro · desde Peso de papel';
-    estado('Datos cargados. Completá fecha y proveedor, y tocá Guardar.', 10000);
+    estado('Datos cargados. Completá fecha, proveedor y trabajo, y tocá Guardar.', 10000);
     setTimeout(() => $('plProveedor').focus(), 300);
   }
   window.addEventListener('pedido-pendiente', aplicarPendiente);
@@ -1354,6 +1363,7 @@
       fecha: $('plFecha').value || hoy(),
       proveedor: $('plProveedor').value.trim(),
       material: $('plMaterial').value.trim(),
+      trabajo: $('plTrabajo').value.trim(),
       formato: $('plFormato').value.trim().replace(/\s*[xX*]\s*/, '×'),
       pliegos: num('plPliegos') != null ? Math.round(num('plPliegos')) : null,
       kilos: num('plKilos'),
@@ -1371,7 +1381,7 @@
       $('plProveedor').focus();
     } catch (err) { estado('No se pudo guardar (' + (err.code || err.message) + ').'); }
   });
-  $('plCancelar').addEventListener('click', cancelarEdicion);
+  $('plCancelar').addEventListener('click', () => { cancelarEdicion(); pintar(); });
   $('plBuscar').addEventListener('input', pintar);
 
   $('plLista').addEventListener('click', e => {
@@ -1390,6 +1400,7 @@
       $('plFecha').value = r.fecha || hoy();
       $('plProveedor').value = r.proveedor || '';
       $('plMaterial').value = r.material || '';
+      $('plTrabajo').value = r.trabajo || '';
       $('plFormato').value = r.formato || '';
       $('plPliegos').value = r.pliegos != null ? r.pliegos : '';
       $('plKilos').value = r.kilos != null ? String(r.kilos).replace('.', ',') : '';
