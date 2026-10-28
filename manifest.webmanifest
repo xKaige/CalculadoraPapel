@@ -1,7 +1,7 @@
 {
   "name": "Pliego · Herramientas de imprenta",
   "short_name": "Pliego",
-  "description": "Kilos de papel, poses por pliego, presupuestos y planilla de compras para imprenta.",
+  "description": "Kilos de papel, poses por pliego, presupuestos y planilla de pedidos para imprenta.",
   "lang": "es-AR",
   "start_url": "./",
   "scope": "./",

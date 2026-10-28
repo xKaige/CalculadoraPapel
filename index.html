@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Pliego">
 <title>Pliego · Herramientas de imprenta</title>
-<meta name="description" content="Kilos de papel, poses por pliego, presupuestos y planilla de compras para imprenta.">
+<meta name="description" content="Kilos de papel, poses por pliego, presupuestos y planilla de pedidos para imprenta.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -208,7 +208,7 @@
   <header class="top">
     <div>
       <h1>Pliego</h1>
-      <p>Herramientas de imprenta: papel, poses, presupuestos y compras.</p>
+      <p>Herramientas de imprenta: papel, poses, presupuestos y pedidos.</p>
     </div>
     <div class="cuenta" id="cuenta">
       <button type="button" class="btn small btn-google" id="btnLogin" hidden>
@@ -227,7 +227,7 @@
     <button class="tab" role="tab" data-tool="peso-papel" aria-selected="true">Peso de papel</button>
     <button class="tab" role="tab" data-tool="poses" aria-selected="false">Poses por pliego</button>
     <button class="tab" role="tab" data-tool="presupuesto" aria-selected="false">Presupuesto</button>
-    <button class="tab" role="tab" data-tool="planilla" aria-selected="false">Planilla de papel</button>
+    <button class="tab" role="tab" data-tool="planilla" aria-selected="false">Planilla de pedidos</button>
     <button class="tab" role="tab" data-tool="carton" disabled>Cartón montado <small>· próximamente</small></button>
   </nav>
 
@@ -547,7 +547,7 @@
     </details>
   </section>
 
-  <!-- ===== Herramienta: Planilla de papel (datos por usuario, en Firebase) ===== -->
+  <!-- ===== Herramienta: Planilla de pedidos (datos por usuario, en Firebase) ===== -->
   <section class="tool card" id="planilla" hidden>
     <div class="aviso" id="plAviso">
       <span id="plAvisoTxt"><b>Ingresá con Google</b> para usar la planilla. Cada usuario ve y guarda solo sus propios registros.</span>
