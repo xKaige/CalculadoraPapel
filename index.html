@@ -151,6 +151,7 @@
     border: 1px solid var(--line); background: var(--card); color: var(--ink); }
   .btn:hover { border-color: var(--accent); color: var(--accent); }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  .btn:disabled { opacity: .45; cursor: default; filter: none; }
   .btn.primary:hover { color: var(--bg); filter: brightness(1.08); }
   .readout { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .readout div { background: var(--bg); border-radius: 8px; padding: 8px 10px; }
@@ -281,6 +282,10 @@
         <dt>Superficie total</dt><dd id="resM2Total">—</dd>
       </dl>
       <div class="hint" id="hint" hidden></div>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn primary" id="pasarPedido" disabled>Pasar a planilla de pedidos</button>
+      <span class="estado" id="pasarMsg">Completá medida, gramaje y cantidad.</span>
     </div>
 
     <details>
@@ -682,7 +687,16 @@
     });
   });
 
+  // Datos listos para pasar a la Planilla de pedidos (null si falta algo)
+  let pedidoActual = null;
+  function listoParaPedido(p) {
+    pedidoActual = p;
+    $('pasarPedido').disabled = !p;
+    $('pasarMsg').textContent = p ? `${p.formato} · ${p.material} · ${fmt(p.pliegos, 0)} pl. · ${fmt(p.kilos, 2)} kg` : 'Completá medida, gramaje y cantidad.';
+  }
+
   function calcular() {
+    listoParaPedido(null);
     const div = unidad === 'mm' ? 10 : 1;   // todo se calcula en cm
     const ancho = parseNum($('ancho').value) / div;
     const largo = parseNum($('largo').value) / div;
@@ -715,6 +729,8 @@
       const kilos = gHoja * cantidad / 1000;
       $('resBig').textContent = fmt(kilos, 2) + ' kg';
       $('resM2Total').textContent = fmt(m2Hoja * cantidad, 2) + ' m²';
+      listoParaPedido({ formato: `${fmt(ancho, 1)}×${fmt(largo, 1)}`, material: `${fmt(gramaje, 1)} g`,
+        pliegos: Math.round(cantidad), kilos: Math.round(kilos * 100) / 100 });
     } else {
       const hojasExactas = cantidad * 1000 / gHoja;
       const hojas = Math.floor(hojasExactas);
@@ -722,10 +738,19 @@
       $('resM2Total').textContent = fmt(m2Hoja * hojasExactas, 2) + ' m²';
       hint.textContent = 'Valor exacto: ' + fmt(hojasExactas, 2) + ' hojas (se redondea hacia abajo).';
       hint.hidden = false;
+      listoParaPedido({ formato: `${fmt(ancho, 1)}×${fmt(largo, 1)}`, material: `${fmt(gramaje, 1)} g`,
+        pliegos: hojas, kilos: Math.round(cantidad * 100) / 100 });
     }
   }
 
   ['ancho', 'largo', 'gramaje', 'cantidad'].forEach(id => $(id).addEventListener('input', calcular));
+  $('pasarPedido').addEventListener('click', () => {
+    if (!pedidoActual) return;
+    window.pedidoPendiente = { ...pedidoActual };
+    document.querySelector('[data-tool=planilla]').click();
+    window.dispatchEvent(new Event('pedido-pendiente'));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
   pintarUnidad();
   calcular();
 </script>
@@ -1259,6 +1284,7 @@
     if (!u) { aviso('<b>Ingresá con Google</b> para usar la planilla. Cada usuario ve y guarda solo sus propios registros.'); return; }
     $('plAviso').hidden = true; $('plApp').hidden = false;
     $('plLista').innerHTML = '<div class="pl-vacio">Cargando…</div>';
+    aplicarPendiente();
     dejarDeEscuchar = fb.onSnapshot(fb.query(col(), fb.orderBy('fecha', 'desc')), snap => {
       registros = snap.docs.map(d => ({ id: d.id, ...d.data(), pendiente: d.metadata.hasPendingWrites }));
       registros.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || ((b.creado?.seconds || 9e9) - (a.creado?.seconds || 9e9)));
@@ -1302,7 +1328,23 @@
     $('plFormTitulo').textContent = 'Nuevo registro';
     $('plGuardar').textContent = 'Guardar'; $('plCancelar').hidden = true;
   }
-  function estado(t) { $('plEstado').textContent = t; clearTimeout(estado.t); estado.t = setTimeout(() => $('plEstado').textContent = '', 3000); }
+  function estado(t, ms = 3000) { $('plEstado').textContent = t; clearTimeout(estado.t); estado.t = setTimeout(() => $('plEstado').textContent = '', ms); }
+
+  // Datos que llegan desde la pestaña Peso de papel
+  function aplicarPendiente() {
+    const p = window.pedidoPendiente;
+    if (!p || !usuario) return;
+    window.pedidoPendiente = null;
+    cancelarEdicion();
+    $('plFormato').value = p.formato || '';
+    $('plMaterial').value = p.material || '';
+    $('plPliegos').value = p.pliegos != null ? p.pliegos : '';
+    $('plKilos').value = p.kilos != null ? String(p.kilos).replace('.', ',') : '';
+    $('plFormTitulo').textContent = 'Nuevo registro · desde Peso de papel';
+    estado('Datos cargados. Completá fecha y proveedor, y tocá Guardar.', 10000);
+    setTimeout(() => $('plProveedor').focus(), 300);
+  }
+  window.addEventListener('pedido-pendiente', aplicarPendiente);
 
   $('plForm').addEventListener('submit', async e => {
     e.preventDefault();
@@ -1359,6 +1401,7 @@
   });
 
   limpiarForm();
+  aplicarPendiente();
 </script>
 </body>
 </html>
