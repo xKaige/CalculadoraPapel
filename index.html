@@ -34,6 +34,7 @@
     --radius: 14px;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body {
     margin: 0;
     background: var(--bg);
@@ -171,14 +172,53 @@
   .totals .big { margin-bottom: 4px; }
   .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
   .ok-msg { color: var(--accent); font-size: .85rem; align-self: center; }
+  /* ---------- Cuenta (login con Google) ---------- */
+  .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .top > div { min-width: 0; }
+  .cuenta { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+  .cuenta img { width: 30px; height: 30px; border-radius: 50%; display: block; }
+  .cuenta .nombre { font-size: .82rem; color: var(--muted); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .btn-google { display: inline-flex; align-items: center; gap: 8px; }
+  .btn-google svg { width: 16px; height: 16px; flex: 0 0 auto; }
+  .btn.small { padding: 6px 10px; font-size: .8rem; }
+  @media (max-width: 420px) { .cuenta .nombre { display: none; } }
+
+  /* ---------- Planilla ---------- */
+  .aviso { background: var(--bg); border: 1px dashed var(--line); border-radius: 10px; padding: 16px; text-align: center; color: var(--muted); display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .aviso b { color: var(--ink); }
+  .pl-tot { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+  .pl-tot div { background: var(--bg); border-radius: 8px; padding: 8px 10px; }
+  .pl-tot small { display: block; color: var(--muted); font-size: .74rem; }
+  .pl-tot b { font-family: "JetBrains Mono", monospace; font-weight: 500; font-size: 1rem; }
+  .pl-lista { display: flex; flex-direction: column; margin-top: 8px; }
+  .pl-item { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .pl-item .t { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+  .pl-item .d { color: var(--muted); font-size: .85rem; min-width: 0; overflow-wrap: anywhere; }
+  .pl-item .n { text-align: right; font-family: "JetBrains Mono", monospace; font-size: .9rem; white-space: nowrap; }
+  .pl-item .acc { grid-column: 1 / -1; display: flex; gap: 6px; justify-content: flex-end; margin-top: 4px; align-items: center; }
+  .pl-item.editando { background: var(--accent-soft); margin: 0 -10px; padding: 12px 10px; border-radius: 8px; }
+  .pl-vacio { color: var(--muted); text-align: center; padding: 20px 0; font-size: .9rem; }
+  .btn.danger { color: var(--rot); border-color: var(--rot); }
+  .estado { font-size: .8rem; color: var(--muted); }
   footer { margin-top: 28px; text-align: center; color: var(--muted); font-size: .8rem; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <h1>Calculadora de Papel</h1>
-    <p>Herramientas para cálculo de papel y cartón.</p>
+  <header class="top">
+    <div>
+      <h1>Calculadora de Papel</h1>
+      <p>Herramientas para cálculo de papel y cartón.</p>
+    </div>
+    <div class="cuenta" id="cuenta">
+      <button type="button" class="btn small btn-google" id="btnLogin" hidden>
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
+        Ingresar con Google
+      </button>
+      <span class="nombre" id="cuentaNombre"></span>
+      <img id="cuentaFoto" alt="" hidden referrerpolicy="no-referrer">
+      <button type="button" class="btn small" id="btnSalir" hidden>Salir</button>
+    </div>
   </header>
 
   <!-- Para sumar una herramienta nueva: agregá un botón acá con data-tool="id"
@@ -187,6 +227,7 @@
     <button class="tab" role="tab" data-tool="peso-papel" aria-selected="true">Peso de papel</button>
     <button class="tab" role="tab" data-tool="poses" aria-selected="false">Poses por pliego</button>
     <button class="tab" role="tab" data-tool="presupuesto" aria-selected="false">Presupuesto</button>
+    <button class="tab" role="tab" data-tool="planilla" aria-selected="false">Planilla de papel</button>
     <button class="tab" role="tab" data-tool="carton" disabled>Cartón montado <small>· próximamente</small></button>
   </nav>
 
@@ -504,6 +545,64 @@
       <p>Chapas y posturas = colores × caras. Millar de impresión = millares de pliegos × colores × caras. Barniz, UV y laminado se multiplican por las caras que elijas en cada uno. Troquel por millar de pliegos; binder y doblado por millar de ejemplares.</p>
       <p>Los precios en dólares se pasan a pesos con la cotización de venta del Banco Nación (o el valor que cargues a mano).</p>
     </details>
+  </section>
+
+  <!-- ===== Herramienta: Planilla de papel (datos por usuario, en Firebase) ===== -->
+  <section class="tool card" id="planilla" hidden>
+    <div class="aviso" id="plAviso">
+      <span id="plAvisoTxt"><b>Ingresá con Google</b> para usar la planilla. Cada usuario ve y guarda solo sus propios registros.</span>
+      <button type="button" class="btn primary btn-google" id="btnLogin2">Ingresar con Google</button>
+    </div>
+
+    <div id="plApp" hidden>
+      <h2 class="sec" style="margin-top:0" id="plFormTitulo">Nuevo registro</h2>
+      <form id="plForm" class="grid" autocomplete="off">
+        <div class="full">
+          <label for="plFecha">Fecha</label>
+          <input id="plFecha" type="date" style="padding-right:12px" required>
+        </div>
+        <div class="full">
+          <label for="plProveedor">Proveedor</label>
+          <input id="plProveedor" list="plProveedores" placeholder="Ej. Papelera del Sur" style="padding-right:12px" required>
+          <datalist id="plProveedores"></datalist>
+        </div>
+        <div class="full">
+          <label for="plMaterial">Material</label>
+          <input id="plMaterial" list="plMateriales" placeholder="Ej. Ilustración 150 g" style="padding-right:12px" required>
+          <datalist id="plMateriales"></datalist>
+        </div>
+        <div class="full">
+          <label for="plFormato">Formato</label>
+          <input id="plFormato" list="plFormatos" placeholder="72×102" style="padding-right:12px">
+          <datalist id="plFormatos">
+            <option value="66×44"></option><option value="70×100"></option><option value="72×102"></option>
+            <option value="65×95"></option><option value="64×88"></option><option value="50×70"></option><option value="33×48"></option>
+          </datalist>
+        </div>
+        <div>
+          <label for="plPliegos">Pliegos</label>
+          <div class="field"><input id="plPliegos" inputmode="numeric" placeholder="5000"><span class="unit">pl.</span></div>
+        </div>
+        <div>
+          <label for="plKilos">Kilos</label>
+          <div class="field"><input id="plKilos" inputmode="decimal" placeholder="850"><span class="unit">kg</span></div>
+        </div>
+        <div class="full actions" style="margin-top:2px">
+          <button type="submit" class="btn primary" id="plGuardar">Guardar</button>
+          <button type="button" class="btn" id="plCancelar" hidden>Cancelar edición</button>
+          <span class="estado" id="plEstado"></span>
+        </div>
+      </form>
+
+      <h2 class="sec">Registros</h2>
+      <div class="field"><input id="plBuscar" placeholder="Buscar por proveedor, material o formato" style="padding-right:12px"></div>
+      <div class="pl-tot">
+        <div><small>Registros</small><b id="plTotN">0</b></div>
+        <div><small>Pliegos</small><b id="plTotP">0</b></div>
+        <div><small>Kilos</small><b id="plTotK">0</b></div>
+      </div>
+      <div class="pl-lista" id="plLista"></div>
+    </div>
   </section>
 
   <!-- ===== Herramienta: Cartón montado (pendiente) ===== -->
@@ -1070,6 +1169,191 @@
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   }
+</script>
+
+<!-- ---------- Login con Google + Planilla (Firebase) ---------- -->
+<script type="module">
+  const $ = id => document.getElementById(id);
+  const fmtN = (v, d = 0) => v.toLocaleString('es-AR', { maximumFractionDigits: d });
+  const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const hoy = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+  const fechaTxt = f => f ? f.split('-').reverse().join('/') : '';
+
+  function aviso(html, conBoton = true) {
+    $('plAviso').hidden = false; $('plApp').hidden = true;
+    $('plAvisoTxt').innerHTML = html; $('btnLogin2').hidden = !conBoton;
+  }
+
+  let firebaseConfig = null;
+  try { ({ firebaseConfig } = await import('./firebase-config.js')); } catch (e) {}
+  if (!firebaseConfig || !firebaseConfig.apiKey || firebaseConfig.apiKey.startsWith('PEGAR')) {
+    aviso('<b>Falta configurar Firebase.</b> Completá el archivo <code>firebase-config.js</code> con los datos de tu proyecto (ver README).', false);
+    throw new Error('Firebase sin configurar');
+  }
+
+  const V = '10.12.2';
+  let fb;
+  try {
+    const [app, auth, fs] = await Promise.all([
+      import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`),
+      import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`),
+      import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`),
+    ]);
+    fb = { ...app, ...auth, ...fs };
+  } catch (e) {
+    $('btnLogin').hidden = true;
+    aviso('<b>Sin conexión.</b> Para ingresar con Google necesitás internet la primera vez.', false);
+    throw e;
+  }
+
+  const app = fb.initializeApp(firebaseConfig);
+  const auth = fb.getAuth(app);
+  auth.languageCode = 'es';
+  let db;
+  try {
+    db = fb.initializeFirestore(app, { localCache: fb.persistentLocalCache({ tabManager: fb.persistentMultipleTabManager() }) });
+  } catch (e) { db = fb.getFirestore(app); }
+
+  // ----- Login / logout -----
+  async function ingresar() {
+    const prov = new fb.GoogleAuthProvider();
+    prov.setCustomParameters({ prompt: 'select_account' });
+    try { await fb.signInWithPopup(auth, prov); }
+    catch (e) {
+      if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/cancelled-popup-request'].includes(e.code)) {
+        await fb.signInWithRedirect(auth, prov);
+      } else if (e.code !== 'auth/popup-closed-by-user') {
+        alertaLogin(e);
+      }
+    }
+  }
+  function alertaLogin(e) {
+    const msg = e.code === 'auth/unauthorized-domain'
+      ? 'Este dominio no está autorizado en Firebase. Agregalo en Authentication → Settings → Authorized domains.'
+      : 'No se pudo ingresar (' + (e.code || e.message) + ').';
+    aviso('<b>' + esc(msg) + '</b>');
+  }
+  fb.getRedirectResult(auth).catch(alertaLogin);
+  $('btnLogin').addEventListener('click', ingresar);
+  $('btnLogin2').addEventListener('click', ingresar);
+  $('btnSalir').addEventListener('click', () => fb.signOut(auth));
+
+  // ----- Planilla -----
+  let usuario = null, registros = [], dejarDeEscuchar = null, editando = null, borrando = null;
+  const col = () => fb.collection(db, 'usuarios', usuario.uid, 'planilla');
+
+  fb.onAuthStateChanged(auth, u => {
+    usuario = u;
+    $('btnLogin').hidden = !!u;
+    $('btnSalir').hidden = !u;
+    $('cuentaNombre').textContent = u ? (u.displayName || u.email || '') : '';
+    $('cuentaFoto').hidden = !(u && u.photoURL);
+    if (u && u.photoURL) $('cuentaFoto').src = u.photoURL;
+    if (dejarDeEscuchar) { dejarDeEscuchar(); dejarDeEscuchar = null; }
+    registros = []; cancelarEdicion();
+    if (!u) { aviso('<b>Ingresá con Google</b> para usar la planilla. Cada usuario ve y guarda solo sus propios registros.'); return; }
+    $('plAviso').hidden = true; $('plApp').hidden = false;
+    $('plLista').innerHTML = '<div class="pl-vacio">Cargando…</div>';
+    dejarDeEscuchar = fb.onSnapshot(fb.query(col(), fb.orderBy('fecha', 'desc')), snap => {
+      registros = snap.docs.map(d => ({ id: d.id, ...d.data(), pendiente: d.metadata.hasPendingWrites }));
+      registros.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || ((b.creado?.seconds || 9e9) - (a.creado?.seconds || 9e9)));
+      pintar();
+    }, e => {
+      $('plLista').innerHTML = '<div class="pl-vacio">No se pudieron leer los registros (' + esc(e.code || e.message) + ').</div>';
+    });
+  });
+
+  function pintar() {
+    const q = $('plBuscar').value.trim().toLowerCase();
+    const lista = q ? registros.filter(r => [r.proveedor, r.material, r.formato].join(' ').toLowerCase().includes(q)) : registros;
+    $('plTotN').textContent = fmtN(lista.length);
+    $('plTotP').textContent = fmtN(lista.reduce((a, r) => a + (r.pliegos || 0), 0));
+    $('plTotK').textContent = fmtN(lista.reduce((a, r) => a + (r.kilos || 0), 0), 2);
+    const unicos = k => [...new Set(registros.map(r => r[k]).filter(Boolean))].sort();
+    $('plProveedores').innerHTML = unicos('proveedor').map(v => `<option value="${esc(v)}"></option>`).join('');
+    $('plMateriales').innerHTML = unicos('material').map(v => `<option value="${esc(v)}"></option>`).join('');
+    if (!lista.length) {
+      $('plLista').innerHTML = `<div class="pl-vacio">${registros.length ? 'No hay registros que coincidan.' : 'Todavía no cargaste registros. Completá el formulario y tocá Guardar.'}</div>`;
+      return;
+    }
+    $('plLista').innerHTML = lista.map(r => `
+      <div class="pl-item${editando === r.id ? ' editando' : ''}" data-id="${r.id}">
+        <div class="t">${esc(r.proveedor)}</div>
+        <div class="n">${r.pliegos != null ? fmtN(r.pliegos) + ' pl.' : '—'}</div>
+        <div class="d">${esc(fechaTxt(r.fecha))} · ${esc(r.material)}${r.formato ? ' · ' + esc(r.formato) : ''}${r.pendiente ? ' · <i>sin sincronizar</i>' : ''}</div>
+        <div class="n">${r.kilos != null ? fmtN(r.kilos, 2) + ' kg' : '—'}</div>
+        <div class="acc">${borrando === r.id
+          ? `<span class="estado">¿Borrar este registro?</span><button type="button" class="btn small danger" data-acc="si">Sí, borrar</button><button type="button" class="btn small" data-acc="no">No</button>`
+          : `<button type="button" class="btn small" data-acc="editar">Editar</button><button type="button" class="btn small" data-acc="borrar">Borrar</button>`}
+        </div>
+      </div>`).join('');
+  }
+
+  function limpiarForm() {
+    $('plForm').reset(); $('plFecha').value = hoy();
+  }
+  function cancelarEdicion() {
+    editando = null; borrando = null; limpiarForm();
+    $('plFormTitulo').textContent = 'Nuevo registro';
+    $('plGuardar').textContent = 'Guardar'; $('plCancelar').hidden = true;
+  }
+  function estado(t) { $('plEstado').textContent = t; clearTimeout(estado.t); estado.t = setTimeout(() => $('plEstado').textContent = '', 3000); }
+
+  $('plForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!usuario) return;
+    const num = id => { const v = parseNum($(id).value); return isFinite(v) ? v : null; };
+    const datos = {
+      fecha: $('plFecha').value || hoy(),
+      proveedor: $('plProveedor').value.trim(),
+      material: $('plMaterial').value.trim(),
+      formato: $('plFormato').value.trim().replace(/\s*[xX*]\s*/, '×'),
+      pliegos: num('plPliegos') != null ? Math.round(num('plPliegos')) : null,
+      kilos: num('plKilos'),
+      actualizado: fb.serverTimestamp(),
+    };
+    if (!datos.proveedor || !datos.material) return estado('Completá proveedor y material.');
+    if (datos.pliegos == null && datos.kilos == null) return estado('Cargá pliegos o kilos.');
+    const id = editando;
+    cancelarEdicion();
+    try {
+      // sin await: con la base offline se guarda en el teléfono y se sube al volver la conexión
+      if (id) fb.updateDoc(fb.doc(col(), id), datos).catch(err => estado('Error: ' + err.code));
+      else fb.addDoc(col(), { ...datos, creado: fb.serverTimestamp() }).catch(err => estado('Error: ' + err.code));
+      estado(id ? 'Cambios guardados.' : 'Registro guardado.');
+      $('plProveedor').focus();
+    } catch (err) { estado('No se pudo guardar (' + (err.code || err.message) + ').'); }
+  });
+  $('plCancelar').addEventListener('click', cancelarEdicion);
+  $('plBuscar').addEventListener('input', pintar);
+
+  $('plLista').addEventListener('click', e => {
+    const b = e.target.closest('[data-acc]'); if (!b) return;
+    const id = b.closest('.pl-item').dataset.id, r = registros.find(x => x.id === id);
+    if (!r) return;
+    const acc = b.dataset.acc;
+    if (acc === 'borrar') { borrando = id; pintar(); }
+    else if (acc === 'no') { borrando = null; pintar(); }
+    else if (acc === 'si') {
+      borrando = null; if (editando === id) cancelarEdicion();
+      fb.deleteDoc(fb.doc(col(), id)).catch(err => estado('Error: ' + err.code));
+      estado('Registro borrado.');
+    } else if (acc === 'editar') {
+      editando = id; borrando = null;
+      $('plFecha').value = r.fecha || hoy();
+      $('plProveedor').value = r.proveedor || '';
+      $('plMaterial').value = r.material || '';
+      $('plFormato').value = r.formato || '';
+      $('plPliegos').value = r.pliegos != null ? r.pliegos : '';
+      $('plKilos').value = r.kilos != null ? String(r.kilos).replace('.', ',') : '';
+      $('plFormTitulo').textContent = 'Editar registro';
+      $('plGuardar').textContent = 'Guardar cambios'; $('plCancelar').hidden = false;
+      pintar();
+      $('plForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+
+  limpiarForm();
 </script>
 </body>
 </html>
