@@ -1,4 +1,4 @@
-# Calculadora de Papel
+# Pliego · Herramientas de imprenta
 
 App web instalable (PWA) con herramientas para imprenta:
 

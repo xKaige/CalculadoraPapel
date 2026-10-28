@@ -1,7 +1,7 @@
 {
-  "name": "Calculadora de Papel",
-  "short_name": "Papel",
-  "description": "Peso de papel y poses por pliego.",
+  "name": "Pliego · Herramientas de imprenta",
+  "short_name": "Pliego",
+  "description": "Kilos de papel, poses por pliego, presupuestos y planilla de compras para imprenta.",
   "lang": "es-AR",
   "start_url": "./",
   "scope": "./",
