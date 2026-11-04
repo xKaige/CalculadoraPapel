@@ -604,6 +604,7 @@
           <label for="plKilos">Kilos</label>
           <div class="field"><input id="plKilos" inputmode="decimal" placeholder="850"><span class="unit">kg</span></div>
         </div>
+        <div class="full estado" id="plKilosInfo"></div>
         <div class="full actions" style="margin-top:2px">
           <button type="submit" class="btn primary" id="plGuardar">Guardar</button>
           <button type="button" class="btn" id="plCancelar" hidden>Cancelar edición</button>
@@ -1330,7 +1331,7 @@
   }
 
   function limpiarForm() {
-    $('plForm').reset(); $('plFecha').value = hoy();
+    $('plForm').reset(); $('plFecha').value = hoy(); $('plKilosInfo').textContent = '';
   }
   function cancelarEdicion() {
     editando = null; borrando = null; limpiarForm();
@@ -1381,6 +1382,34 @@
       $('plProveedor').focus();
     } catch (err) { estado('No se pudo guardar (' + (err.code || err.message) + ').'); }
   });
+  // ----- Kilos automáticos: formato (cm o mm) × gramaje (del material) × pliegos -----
+  function medidasCm(txt) {
+    const n = String(txt || '').match(/\d+(?:[.,]\d+)?/g);
+    if (!n || n.length < 2) return null;
+    let [a, b] = n.slice(0, 2).map(x => parseFloat(x.replace(',', '.')));
+    if (Math.max(a, b) > 200) { a /= 10; b /= 10; }   // vino en mm
+    return a > 0 && b > 0 ? [a, b] : null;
+  }
+  function gramajeDe(txt) {
+    const m = String(txt || '').match(/(\d+(?:[.,]\d+)?)\s*(?:g|gr|grs|gramos)\b/i);
+    return m ? parseFloat(m[1].replace(',', '.')) : null;
+  }
+  function recalcularKilos() {
+    const med = medidasCm($('plFormato').value), g = gramajeDe($('plMaterial').value);
+    const pl = parseNum($('plPliegos').value);
+    const info = $('plKilosInfo');
+    if (!(pl > 0)) { info.textContent = ''; return; }
+    if (!med || !g) {
+      info.textContent = 'Para calcular los kilos solos, poné el formato (ej. 72×102) y el gramaje en el material (ej. 150 g).';
+      return;
+    }
+    const kg = Math.round(med[0] * med[1] * g * pl / 1e7 * 100) / 100;
+    $('plKilos').value = String(kg).replace('.', ',');
+    info.textContent = `Kilos calculados: ${fmtN(med[0], 1)}×${fmtN(med[1], 1)} cm · ${fmtN(g, 1)} g · ${fmtN(pl)} pliegos.`;
+  }
+  ['plPliegos', 'plFormato', 'plMaterial'].forEach(id => $(id).addEventListener('input', recalcularKilos));
+  $('plKilos').addEventListener('input', () => $('plKilosInfo').textContent = 'Kilos cargados a mano.');
+
   $('plCancelar').addEventListener('click', () => { cancelarEdicion(); pintar(); });
   $('plBuscar').addEventListener('input', pintar);
 
