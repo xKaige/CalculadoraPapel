@@ -488,11 +488,17 @@
       </div>
       <div>
         <label for="prTw">Corte a corte ancho</label>
-        <div class="field"><input id="prTw" inputmode="decimal" placeholder="210"><span class="unit">mm</span></div>
+        <div class="field"><input id="prTw" inputmode="decimal" placeholder="210"><span class="unit prTU">mm</span></div>
       </div>
       <div>
         <label for="prTh">Corte a corte alto</label>
-        <div class="field"><input id="prTh" inputmode="decimal" placeholder="297"><span class="unit">mm</span></div>
+        <div class="field"><input id="prTh" inputmode="decimal" placeholder="297"><span class="unit prTU">mm</span></div>
+      </div>
+      <div class="full">
+        <div class="mode" role="group" aria-label="Unidad del corte a corte" id="prUnidad">
+          <button type="button" data-u="cm" aria-pressed="false">Centímetros</button>
+          <button type="button" data-u="mm" aria-pressed="true">Milímetros</button>
+        </div>
       </div>
       <div>
         <label for="prGram">Gramaje</label>
@@ -553,8 +559,8 @@
 
     <details>
       <summary>¿Cómo se calcula?</summary>
-      <p>Pliegos = cantidad ÷ poses (redondeado para arriba) + demasía. Los millares se redondean para arriba.</p>
-      <p>Chapas y posturas = colores × caras. Millar de impresión = millares de pliegos × colores × caras. Barniz, UV y laminado se multiplican por las caras que elijas en cada uno. Troquel por millar de pliegos; binder y doblado por millar de ejemplares.</p>
+      <p>Pliegos = cantidad ÷ poses (redondeado para arriba) + demasía. El millar de impresión se cobra proporcional a los pliegos (500 pliegos = medio millar); los demás millares se redondean para arriba.</p>
+      <p>Chapas y posturas = colores × caras. Millar de impresión = (pliegos ÷ 1000) × colores × caras. Barniz, UV y laminado se multiplican por las caras que elijas en cada uno. Troquel por millar de pliegos; binder y doblado por millar de ejemplares.</p>
       <p>Los precios en dólares se pasan a pesos con la cotización de venta del Banco Nación (o el valor que cargues a mano).</p>
     </details>
   </section>
@@ -977,7 +983,7 @@
       { g: 'Impresión', id: 'papel', name: 'Papel', u: 'kg', cur: 'USD', q: c => c.kilos, h: c => `${f(c.pliegos)} pliegos · ${f(c.kilos, 1)} kg · precio por kg` },
       { g: 'Impresión', id: 'chapa', name: 'Chapa CTP', u: 'ch.', q: c => c.col * c.caras, h: c => `${c.col} colores × ${c.caras} ${c.caras > 1 ? 'caras' : 'cara'} · precio por chapa` },
       { g: 'Impresión', id: 'postura', name: 'Postura de máquina', u: 'post.', q: c => c.col * c.caras, h: c => `${c.col} colores × ${c.caras} ${c.caras > 1 ? 'caras' : 'cara'} · precio por postura` },
-      { g: 'Impresión', id: 'millar', name: 'Millar de impresión', u: 'mill.', q: c => c.milP * c.col * c.caras, h: c => `${c.milP} mill. × ${c.col} col. × ${c.caras} ${c.caras > 1 ? 'caras' : 'cara'} · precio por millar` },
+      { g: 'Impresión', id: 'millar', name: 'Millar de impresión', u: 'mill.', q: c => c.milImp * c.col * c.caras, h: c => `${f(c.pliegos)} pliegos = ${f(c.milImp, 3)} mill. × ${c.col} col. × ${c.caras} ${c.caras > 1 ? 'caras' : 'cara'} · precio por millar` },
       { g: 'Impresión', id: 'barniz', name: 'Barniz', u: 'mill.', lados: true, q: (c, it) => c.milP * it.lados, h: (c, it) => `${c.milP} mill. de pliegos × ${it.lados} ${it.lados > 1 ? 'caras' : 'cara'} · precio por millar` },
       { g: 'Terminaciones', id: 'uv', name: 'UV', u: 'pl.', lados: true, q: (c, it) => c.pliegos * it.lados, h: (c, it) => `${f(c.pliegos)} pliegos × ${it.lados} ${it.lados > 1 ? 'caras' : 'cara'} · precio por pliego` },
       { g: 'Terminaciones', id: 'laminado', name: 'Laminado', u: 'pl.', lados: true, tipos: ['Brillante', 'Mate'], q: (c, it) => c.pliegos * it.lados, h: (c, it) => `${f(c.pliegos)} pliegos × ${it.lados} ${it.lados > 1 ? 'caras' : 'cara'} · precio por pliego` },
@@ -991,7 +997,7 @@
       { g: 'Entrega', id: 'flete', name: 'Flete', u: 'u.', q: () => 1, h: () => 'precio fijo' },
     ];
     const st = Object.fromEntries(ITEMS.map(it => [it.id, { q: '', p: '', cur: it.cur || 'ARS', lados: 1, tipo: it.tipos ? it.tipos[0] : '' }]));
-    let caras = 1, dolar = null, ultimo = null;
+    let caras = 1, uTr = 'mm', dolar = null, ultimo = null;
 
     // ----- armar filas -----
     let html = '', grupo = '';
@@ -1014,7 +1020,7 @@
     // ----- guardar / cargar -----
     function guardar() {
       try {
-        const d = { caras, items: st }; CAMPOS.forEach(k => d[k] = $(k).value);
+        const d = { caras, uTr, items: st }; CAMPOS.forEach(k => d[k] = $(k).value);
         localStorage.setItem(KEY, JSON.stringify(d));
       } catch (e) {}
     }
@@ -1023,6 +1029,7 @@
       if (d) {
         CAMPOS.forEach(k => { if (d[k] != null) $(k).value = d[k]; });
         caras = d.caras || 1;
+        uTr = d.uTr === 'cm' ? 'cm' : 'mm';
         if (d.items) for (const k in d.items) if (st[k]) Object.assign(st[k], d.items[k]);
       }
       dolar = JSON.parse(localStorage.getItem(KEY_DOLAR) || 'null');
@@ -1087,7 +1094,11 @@
     // ----- cálculo -----
     function calcular() {
       document.querySelectorAll('#prCaras button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.caras === caras));
-      const W = n('prPw') * 10, H = n('prPh') * 10, w = n('prTw'), h = n('prTh');
+      document.querySelectorAll('#prUnidad button').forEach(b => b.setAttribute('aria-pressed', b.dataset.u === uTr));
+      document.querySelectorAll('.prTU').forEach(el => el.textContent = uTr);
+      $('prTw').placeholder = uTr === 'cm' ? '21' : '210'; $('prTh').placeholder = uTr === 'cm' ? '29,7' : '297';
+      const kT = uTr === 'cm' ? 10 : 1;   // corte a corte en mm
+      const W = n('prPw') * 10, H = n('prPh') * 10, w = n('prTw') * kT, h = n('prTh') * kT;
       const gram = n('prGram'), col = Math.max(0, Math.floor(n('prColores') || 0)), cant = Math.floor(n('prCant') || 0);
       const auto = (W > 0 && H > 0 && w > 0 && h > 0 && window.mejorPoses) ? window.mejorPoses(W, H, w, h) : 0;
       $('prPosesAuto').textContent = auto ? f(auto) : '—';
@@ -1096,9 +1107,9 @@
       const dem = Math.max(0, Math.floor(n('prDemasia') || 0));
       const pliegos = poses > 0 && cant > 0 ? Math.ceil(cant / poses) + dem : 0;
       const kilos = pliegos && gram > 0 ? (W / 10) * (H / 10) * gram * pliegos / 1e7 : 0;
-      const c = { col, caras, pliegos, kilos, milP: pliegos ? Math.ceil(pliegos / 1000) : 0, milE: cant ? Math.ceil(cant / 1000) : 0 };
+      const c = { col, caras, pliegos, kilos, milP: pliegos ? Math.ceil(pliegos / 1000) : 0, milImp: pliegos / 1000, milE: cant ? Math.ceil(cant / 1000) : 0 };
       $('prPliegos').textContent = pliegos ? f(pliegos) : '—';
-      $('prMilP').textContent = c.milP ? f(c.milP) : '—';
+      $('prMilP').textContent = pliegos ? f(c.milImp, 3) : '—';
       $('prKilos').textContent = kilos ? f(kilos, 1) + ' kg' : '—';
 
       const dv = valorDolar();
@@ -1107,7 +1118,7 @@
         const it = ITEMS.find(x => x.id === row.dataset.id), s = st[it.id];
         const qAuto = it.q(c, s);
         const qIn = row.querySelector('[data-k=q]');
-        qIn.placeholder = qAuto ? f(qAuto, 2) : '0';
+        qIn.placeholder = qAuto ? f(qAuto, 3) : '0';
         const q = s.q !== '' && isFinite(parseNum(s.q)) ? parseNum(s.q) : qAuto;
         const p = parseNum(s.p) || 0;
         const btn = row.querySelector('.pr-cur');
@@ -1137,6 +1148,12 @@
 
     // ----- eventos -----
     CAMPOS.forEach(k => $(k).addEventListener('input', calcular));
+    $('prUnidad').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b || b.dataset.u === uTr) return;
+      const factor = b.dataset.u === 'cm' ? 0.1 : 10;
+      ['prTw', 'prTh'].forEach(id => { const v = n(id); if (v > 0) $(id).value = f(v * factor, 2).replace(/\./g, ''); });
+      uTr = b.dataset.u; calcular();
+    });
     $('prCaras').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { caras = +b.dataset.caras; calcular(); } });
     $('prItems').addEventListener('input', e => {
       const row = e.target.closest('.pr-row'); if (!row) return;
@@ -1182,7 +1199,7 @@
         `PRESUPUESTO${fe ? ' · ' + fe : ''}`,
         $('prCliente').value && `Cliente: ${$('prCliente').value}`,
         $('prTrabajo').value && `Trabajo: ${$('prTrabajo').value}`,
-        (n('prTw') > 0 && n('prTh') > 0) && `Medida: ${f(n('prTw'), 1)} × ${f(n('prTh'), 1)} mm`,
+        (n('prTw') > 0 && n('prTh') > 0) && `Medida: ${f(n('prTw'), 2)} × ${f(n('prTh'), 2)} ${uTr}`,
         n('prGram') > 0 && `Papel: ${f(n('prGram'))} g/m²`,
         `Impresión: ${n('prColores') || 0} ${n('prColores') == 1 ? 'color' : 'colores'} · ${caras > 1 ? 'frente y dorso' : 'frente'}`,
         term.length && `Terminaciones: ${term.join(', ')}`,
