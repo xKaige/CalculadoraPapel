@@ -480,11 +480,17 @@
     <div class="grid">
       <div>
         <label for="prPw">Pliego ancho</label>
-        <div class="field"><input id="prPw" inputmode="decimal" placeholder="72"><span class="unit">cm</span></div>
+        <div class="field"><input id="prPw" inputmode="decimal" placeholder="72"><span class="unit prPU">cm</span></div>
       </div>
       <div>
         <label for="prPh">Pliego alto</label>
-        <div class="field"><input id="prPh" inputmode="decimal" placeholder="102"><span class="unit">cm</span></div>
+        <div class="field"><input id="prPh" inputmode="decimal" placeholder="102"><span class="unit prPU">cm</span></div>
+      </div>
+      <div class="full">
+        <div class="mode" role="group" aria-label="Unidad del pliego" id="prUnidadPl">
+          <button type="button" data-u="cm" aria-pressed="true">Centímetros</button>
+          <button type="button" data-u="mm" aria-pressed="false">Milímetros</button>
+        </div>
       </div>
       <div>
         <label for="prTw">Corte a corte ancho</label>
@@ -1013,7 +1019,7 @@
       { g: 'Entrega', id: 'flete', name: 'Flete', u: 'u.', q: () => 1, h: () => 'precio fijo' },
     ];
     const st = Object.fromEntries(ITEMS.map(it => [it.id, { q: '', p: '', cur: it.cur || 'ARS', lados: 1, tipo: it.tipos ? it.tipos[0] : '' }]));
-    let caras = 1, uTr = 'mm', dolar = null, ultimo = null;
+    let caras = 1, uTr = 'mm', uPl = 'cm', dolar = null, ultimo = null;
 
     // ----- armar filas -----
     let html = '', grupo = '';
@@ -1036,7 +1042,7 @@
     // ----- guardar / cargar -----
     function guardar() {
       try {
-        const d = { caras, uTr, items: st }; CAMPOS.forEach(k => d[k] = $(k).value);
+        const d = { caras, uTr, uPl, items: st }; CAMPOS.forEach(k => d[k] = $(k).value);
         localStorage.setItem(KEY, JSON.stringify(d));
       } catch (e) {}
     }
@@ -1046,6 +1052,7 @@
         CAMPOS.forEach(k => { if (d[k] != null) $(k).value = d[k]; });
         caras = d.caras || 1;
         uTr = d.uTr === 'cm' ? 'cm' : 'mm';
+        uPl = d.uPl === 'mm' ? 'mm' : 'cm';
         if (d.items) for (const k in d.items) if (st[k]) Object.assign(st[k], d.items[k]);
       }
       dolar = JSON.parse(localStorage.getItem(KEY_DOLAR) || 'null');
@@ -1113,8 +1120,12 @@
       document.querySelectorAll('#prUnidad button').forEach(b => b.setAttribute('aria-pressed', b.dataset.u === uTr));
       document.querySelectorAll('.prTU').forEach(el => el.textContent = uTr);
       $('prTw').placeholder = uTr === 'cm' ? '21' : '210'; $('prTh').placeholder = uTr === 'cm' ? '29,7' : '297';
+      document.querySelectorAll('#prUnidadPl button').forEach(b => b.setAttribute('aria-pressed', b.dataset.u === uPl));
+      document.querySelectorAll('.prPU').forEach(el => el.textContent = uPl);
+      $('prPw').placeholder = uPl === 'mm' ? '720' : '72'; $('prPh').placeholder = uPl === 'mm' ? '1020' : '102';
       const kT = uTr === 'cm' ? 10 : 1;   // corte a corte en mm
-      const W = n('prPw') * 10, H = n('prPh') * 10, w = n('prTw') * kT, h = n('prTh') * kT;
+      const kP = uPl === 'cm' ? 10 : 1;   // pliego en mm
+      const W = n('prPw') * kP, H = n('prPh') * kP, w = n('prTw') * kT, h = n('prTh') * kT;
       const gram = n('prGram'), col = Math.max(0, Math.floor(n('prColores') || 0)), cant = Math.floor(n('prCant') || 0);
       const auto = (W > 0 && H > 0 && w > 0 && h > 0 && window.mejorPoses) ? window.mejorPoses(W, H, w, h) : 0;
       $('prPosesAuto').textContent = auto ? f(auto) : '—';
@@ -1156,6 +1167,7 @@
       const avisos = [];
       if (faltaDolar) avisos.push('Hay precios en dólares sin cotización: cargá el dólar a mano.');
       if (!cant) avisos.push('Cargá la cantidad para ver el precio unitario.');
+      else if (!poses && W > 0 && H > 0 && w > 0 && h > 0) avisos.push('El trabajo no entra en el pliego dejando 10 mm de pinza. Si va a pliego entero (o sin pinza), poné 1 en Poses por pliego.');
       else if (!poses) avisos.push('Cargá pliego y corte a corte (o las poses) para calcular pliegos.');
       hint.textContent = avisos.join(' '); hint.hidden = !avisos.length;
       ultimo = { total, cant, dv, poses, pliegos };
@@ -1169,6 +1181,12 @@
       const factor = b.dataset.u === 'cm' ? 0.1 : 10;
       ['prTw', 'prTh'].forEach(id => { const v = n(id); if (v > 0) $(id).value = f(v * factor, 2).replace(/\./g, ''); });
       uTr = b.dataset.u; calcular();
+    });
+    $('prUnidadPl').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b || b.dataset.u === uPl) return;
+      const factor = b.dataset.u === 'cm' ? 0.1 : 10;
+      ['prPw', 'prPh'].forEach(id => { const v = n(id); if (v > 0) $(id).value = f(v * factor, 2).replace(/\./g, ''); });
+      uPl = b.dataset.u; calcular();
     });
     $('prCaras').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { caras = +b.dataset.caras; calcular(); } });
     $('prItems').addEventListener('input', e => {
@@ -1242,13 +1260,13 @@
           cantidad: u.cant || 0, total: Math.round((u.total || 0) * 100) / 100,
           unitario: u.total && u.cant ? Math.round(u.total / u.cant * 10000) / 10000 : 0,
           dolar: u.dv ? u.dv.v : null, pliegos: u.pliegos || 0,
-          datos: { campos, caras, uTr, items: JSON.parse(JSON.stringify(st)) },
+          datos: { campos, caras, uTr, uPl, items: JSON.parse(JSON.stringify(st)) },
         };
       },
       cargar(d) {
         const x = d.datos || {};
         CAMPOS.forEach(k => { $(k).value = x.campos && x.campos[k] != null ? x.campos[k] : ''; });
-        caras = x.caras || 1; uTr = x.uTr === 'cm' ? 'cm' : 'mm';
+        caras = x.caras || 1; uTr = x.uTr === 'cm' ? 'cm' : 'mm'; uPl = x.uPl === 'mm' ? 'mm' : 'cm';
         if (x.items) for (const k in st) Object.assign(st[k], x.items[k] || { q: '', p: '' });
         document.querySelectorAll('.pr-row').forEach(row => {
           const s2 = st[row.dataset.id];
