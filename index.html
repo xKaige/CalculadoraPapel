@@ -181,6 +181,14 @@
   .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
   .ok-msg { color: var(--accent); font-size: .85rem; align-self: center; }
   /* ---------- Cuenta (login con Google) ---------- */
+  .dolar-bar { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin: -6px 0 16px; }
+  .db-item { flex: 1 1 130px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 0 8px; min-width: 0; }
+  .db-item small { color: var(--muted); font-size: .72rem; grid-column: 1 / -1; }
+  .db-item b { font-family: "JetBrains Mono", monospace; font-size: 1.05rem; color: var(--accent); white-space: nowrap; }
+  .db-sub { grid-column: 1 / -1; color: var(--muted); font-size: .72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .db-act { flex: 0 0 auto; font: inherit; font-size: .76rem; color: var(--muted); background: transparent; border: 1px dashed var(--line); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
+  .db-act:hover { color: var(--accent); border-color: var(--accent); }
+  .db-act.err { color: var(--warn); }
   .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .top > div { min-width: 0; }
   .cuenta { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; margin-top: 2px; }
@@ -278,6 +286,11 @@
       <button type="button" class="btn small" id="btnSalir" hidden>Salir</button>
     </div>
   </header>
+  <div class="dolar-bar" id="dolarBar" aria-live="polite">
+    <div class="db-item"><small>Dólar oficial</small><b id="dbOficial">—</b><span class="db-sub" id="dbOficialC"></span></div>
+    <div class="db-item"><small>Dólar blue</small><b id="dbBlue">—</b><span class="db-sub" id="dbBlueC"></span></div>
+    <button type="button" class="db-act" id="dbActualizar" title="Actualizar cotización"><span id="dbHora">Cargando…</span> ↻</button>
+  </div>
 
   <!-- Para sumar una herramienta nueva: agregá un botón acá con data-tool="id"
        y una <section class="tool" id="id"> abajo. -->
@@ -1239,6 +1252,7 @@
     }
     $('prDolarBtn').addEventListener('click', traerDolar);
     pintarDolar(); traerDolar();
+    window.addEventListener('dolar-actualizado', e => { const o = e.detail?.oficial; if (o) { dolar = { ...o, chequeado: e.detail.chequeado }; pintarDolar(); calcular(); } });
     setInterval(() => { if (document.visibilityState === 'visible') traerDolar(); }, 15 * 60 * 1000);
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible' && (!dolar || Date.now() - (dolar.chequeado || 0) > 15 * 60 * 1000)) traerDolar();
@@ -1414,6 +1428,55 @@
     // recalcular cuando se abre la pestaña (por si cambió algo en otra)
     document.querySelector('[data-tool=presupuesto]').addEventListener('click', calcular);
     calcular();
+  })();
+
+  // ---------- Dólar siempre visible (DolarApi: oficial y blue) ----------
+  (function () {
+    const $ = id => document.getElementById(id);
+    const KEY = 'dolar-todos-v1';
+    const p = v => '$ ' + Number(v).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    let datos = null, cargando = false;
+    try { datos = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+    function hace(ms) {
+      const min = Math.round((Date.now() - ms) / 60000);
+      return min < 1 ? 'recién' : min < 60 ? `hace ${min} min` : new Date(ms).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+    function pintar(error) {
+      const o = datos?.oficial, b = datos?.blue;
+      $('dbOficial').textContent = o ? p(o.venta) : '—';
+      $('dbOficialC').textContent = o ? 'compra ' + p(o.compra) : '';
+      $('dbBlue').textContent = b ? p(b.venta) : '—';
+      $('dbBlueC').textContent = b ? 'compra ' + p(b.compra) : '';
+      const btn = $('dbActualizar');
+      btn.classList.toggle('err', !!error);
+      $('dbHora').textContent = error ? (datos ? 'Sin conexión · ' + hace(datos.chequeado) : 'Sin conexión') : datos ? hace(datos.chequeado) : 'Cargando…';
+      btn.title = datos?.oficial?.fecha ? 'Cotización publicada: ' + new Date(datos.oficial.fecha).toLocaleString('es-AR') + '. Tocá para actualizar.' : 'Tocá para actualizar';
+    }
+    async function traer() {
+      if (cargando) return; cargando = true; $('dbHora').textContent = 'Actualizando…';
+      try {
+        const r = await fetch('https://dolarapi.com/v1/dolares', { cache: 'no-store' });
+        if (!r.ok) throw new Error();
+        const lista = await r.json();
+        const de = casa => { const x = lista.find(d => d.casa === casa); return x && x.venta > 0 ? { compra: x.compra, venta: x.venta, fecha: x.fechaActualizacion } : null; };
+        const nuevo = { oficial: de('oficial'), blue: de('blue'), chequeado: Date.now() };
+        if (!nuevo.oficial) throw new Error();
+        datos = nuevo;
+        try {
+          localStorage.setItem(KEY, JSON.stringify(datos));
+          // la misma cotización la usan Presupuesto y Test
+          localStorage.setItem('dolar-bna-v1', JSON.stringify({ ...datos.oficial, chequeado: datos.chequeado }));
+        } catch (e) {}
+        window.dispatchEvent(new CustomEvent('dolar-actualizado', { detail: datos }));
+        pintar();
+      } catch (e) { pintar(true); }
+      cargando = false;
+    }
+    $('dbActualizar').addEventListener('click', traer);
+    pintar(); traer();
+    setInterval(() => { if (document.visibilityState === 'visible') traer(); else pintar(); }, 10 * 60 * 1000);
+    setInterval(pintar, 60 * 1000);   // refresca el "hace X min"
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && (!datos || Date.now() - datos.chequeado > 10 * 60 * 1000)) traer(); });
   })();
 
   // ---------- Cálculo de horas ----------

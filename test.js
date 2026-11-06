@@ -577,6 +577,7 @@ if (!$('tsFecha').value) $('tsFecha').value = hoy();
 aplicarDefaults(false);
 calcular();
 traerDolar();
+window.addEventListener('dolar-actualizado', e => { const o = e.detail?.oficial; if (o) { dolar = { ...o, chequeado: e.detail.chequeado }; calcular(); } });
 document.querySelector('[data-tool=test]').addEventListener('click', calcular);
 
 function conectar(fbInfo) {
