@@ -166,6 +166,7 @@ sec.innerHTML = `
   <div class="actions">
     <button type="button" class="btn primary" id="tsGuardar">Guardar presupuesto</button>
     <button type="button" class="btn" id="tsVerCliente">Presupuesto para el cliente</button>
+    <button type="button" class="btn" id="tsVerCorte">Diagrama de corte</button>
     <button type="button" class="btn" id="tsNuevo">Nuevo</button>
     <span class="estado" id="tsMsg"></span>
   </div>
@@ -176,6 +177,14 @@ sec.innerHTML = `
       <button type="button" class="btn primary" id="tsImprimir">Imprimir / guardar PDF</button>
       <button type="button" class="btn" id="tsCopiar">Copiar texto</button>
       <button type="button" class="btn" id="tsCerrarDoc">Cerrar</button>
+    </div>
+  </div>
+
+  <div id="tsCorteWrap" hidden>
+    <div id="tsCorteDoc" class="ts-doc"></div>
+    <div class="actions">
+      <button type="button" class="btn primary" id="tsImprimirCorte">Imprimir / guardar PDF</button>
+      <button type="button" class="btn" id="tsCerrarCorte">Cerrar</button>
     </div>
   </div>
 
@@ -412,6 +421,7 @@ function calcular() {
   $('tsHint').textContent = avisos.join(' '); $('tsHint').hidden = !avisos.length;
   guardarLocal();
   if (!$('tsClienteWrap').hidden) pintarDocCliente();
+  if (!$('tsCorteWrap').hidden) pintarDocCorte();
 }
 
 // ---------- Presupuesto para el cliente ----------
@@ -442,6 +452,87 @@ function pintarDocCliente() {
     </table>
     <p class="ts-doc-pie">${im.validez ? `Validez de la oferta: ${esc(im.validez)} días. ` : ''}${im.pago ? `Forma de pago: ${esc(im.pago)}. ` : ''}${b.papel.moneda === 'USD' || b.maquina.moneda === 'USD' || (b.micro.precio && b.micro.moneda === 'USD') ? 'Precios sujetos a la cotización del dólar oficial. ' : ''}${esc(im.notas || '')}</p>`;
 }
+// ---------- Diagrama de corte ----------
+const SVGNS = 'http://www.w3.org/2000/svg';
+function svgCompra(cw, ch, n) {
+  // pliego de compra (cm) con las líneas de corte en n partes
+  const c = { 1: [1, 1], 2: [2, 1], 3: [3, 1], 4: [2, 2], 6: [3, 2], 8: [4, 2], 9: [3, 3] }[n];
+  const W = cw * 10, H = ch * 10, M = Math.max(W, H), pad = M * .09, fs = M * .032, sw = M * .003;
+  const largoEsH = H >= W;
+  const nx = largoEsH ? c[1] : c[0], ny = largoEsH ? c[0] : c[1];   // divisiones en x / y
+  const pw = W / nx, ph = H / ny;
+  let g = `<rect x="0" y="0" width="${W}" height="${H}" fill="#fafafa" stroke="#111" stroke-width="${sw * 1.6}"/>`;
+  for (let i = 1; i < nx; i++) g += `<line x1="${pw * i}" y1="${-pad * .25}" x2="${pw * i}" y2="${H + pad * .25}" stroke="#c0392b" stroke-width="${sw}" stroke-dasharray="${fs * .5} ${fs * .3}"/>`;
+  for (let j = 1; j < ny; j++) g += `<line x1="${-pad * .25}" y1="${ph * j}" x2="${W + pad * .25}" y2="${ph * j}" stroke="#c0392b" stroke-width="${sw}" stroke-dasharray="${fs * .5} ${fs * .3}"/>`;
+  for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) {
+    const k = j * nx + i + 1;
+    g += `<text x="${pw * i + pw / 2}" y="${ph * j + ph / 2 - fs * .5}" font-size="${fs * 1.1}" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" fill="#2f6f4f">${k}</text>`;
+    g += `<text x="${pw * i + pw / 2}" y="${ph * j + ph / 2 + fs * .9}" font-size="${fs * .85}" text-anchor="middle" font-family="Arial,sans-serif" fill="#333">${fmt(pw / 10, 1)} × ${fmt(ph / 10, 1)}</text>`;
+  }
+  g += `<text x="${W / 2}" y="${-pad * .45}" font-size="${fs}" text-anchor="middle" font-family="Arial,sans-serif" fill="#111">${fmt(cw, 1)} cm</text>`;
+  g += `<text x="${-pad * .45}" y="${H / 2}" font-size="${fs}" text-anchor="middle" font-family="Arial,sans-serif" fill="#111" transform="rotate(-90 ${-pad * .45} ${H / 2})">${fmt(ch, 1)} cm</text>`;
+  return `<svg xmlns="${SVGNS}" viewBox="${-pad} ${-pad} ${W + pad * 1.6} ${H + pad * 1.6}">${g}</svg>`;
+}
+function svgMaquina(a, pinzaMm, calleMm) {
+  const { W, H, rects, E } = a, M = Math.max(W, H), pad = M * .1, fs = M * .03, sw = M * .0025;
+  let g = `<rect x="0" y="0" width="${W}" height="${H}" fill="#fff" stroke="#111" stroke-width="${sw * 1.6}"/>`;
+  if (E.b > 0) g += `<rect x="0" y="${H - E.b}" width="${W}" height="${E.b}" fill="#f6e7b0" stroke="#c9a227" stroke-width="${sw * .6}"/><text x="${W / 2}" y="${H + fs * 1.3}" font-size="${fs * .9}" text-anchor="middle" font-family="Arial,sans-serif" fill="#7a5c00">▲ pinza ${fmt(pinzaMm, 0)} mm</text>`;
+  const nfs = Math.min(...rects.map(r => Math.min(r.w, r.h))) * .22;
+  rects.forEach((r, i) => {
+    g += `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="${r.rot ? '#f3e1ea' : '#e3efe8'}" stroke="${r.rot ? '#b4386e' : '#2f6f4f'}" stroke-width="${sw}"/>`;
+    if (rects.length <= 80) g += `<text x="${r.x + r.w / 2}" y="${r.y + r.h / 2}" font-size="${nfs}" text-anchor="middle" dominant-baseline="central" font-family="Arial,sans-serif" font-weight="700" fill="${r.rot ? '#b4386e' : '#2f6f4f'}">${i + 1}</text>`;
+  });
+  // sobrantes alrededor del bloque (para la guillotina)
+  const x1 = Math.min(...rects.map(r => r.x)), y1 = Math.min(...rects.map(r => r.y));
+  const x2 = Math.max(...rects.map(r => r.x + r.w)), y2 = Math.max(...rects.map(r => r.y + r.h));
+  const cota = (xa, ya, xb, yb, t, vert) => {
+    const mx = (xa + xb) / 2, my = (ya + yb) / 2;
+    return `<line x1="${xa}" y1="${ya}" x2="${xb}" y2="${yb}" stroke="#555" stroke-width="${sw * .8}" marker-start="url(#fl)" marker-end="url(#fl)"/>`
+      + `<text x="${mx}" y="${my}" font-size="${fs * .9}" text-anchor="middle" dominant-baseline="${vert ? 'central' : 'auto'}" font-family="Arial,sans-serif" fill="#333" ${vert ? `transform="rotate(-90 ${mx} ${my})" dy="${-fs * .35}"` : `dy="${-fs * .3}"`}>${t}</text>`;
+  };
+  const gy = y1 + (y2 - y1) * .5, gx = x1 + (x2 - x1) * .5;
+  if (x1 > 1) g += cota(0, gy, x1, gy, fmt(x1, 1), false);
+  if (W - x2 > 1) g += cota(x2, gy, W, gy, fmt(W - x2, 1), false);
+  if (y1 > 1) g += cota(gx, 0, gx, y1, fmt(y1, 1), true);
+  if (H - E.b - y2 > 1) g += cota(gx, y2, gx, H - E.b, fmt(H - E.b - y2, 1), true);
+  g += `<text x="${W / 2}" y="${-pad * .45}" font-size="${fs}" text-anchor="middle" font-family="Arial,sans-serif" fill="#111">${fmt(W / 10, 1)} cm</text>`;
+  g += `<text x="${-pad * .45}" y="${H / 2}" font-size="${fs}" text-anchor="middle" font-family="Arial,sans-serif" fill="#111" transform="rotate(-90 ${-pad * .45} ${H / 2})">${fmt(H / 10, 1)} cm</text>`;
+  const defs = `<defs><marker id="fl" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="${4}" markerHeight="${4}" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#555"/></marker></defs>`;
+  return `<svg xmlns="${SVGNS}" viewBox="${-pad} ${-pad} ${W + pad * 1.6} ${H + pad * 1.6}">${defs}${g}</svg>`;
+}
+function pintarDocCorte() {
+  if (!ultimo) return;
+  const { E, res } = ultimo, b = E.base, im = cat.imprenta, r = res[verCant];
+  const doc = $('tsCorteDoc');
+  const calle = num($('tsCalle').value), pinza = num($('tsPinza').value);
+  if (!b.maq || !E.tw || !E.th) { doc.innerHTML = '<p>Cargá el corte a corte y el pliego para ver el diagrama.</p>'; return; }
+  const a = window.armadoPoses ? window.armadoPoses(b.maq.w * 10, b.maq.h * 10, E.tw, E.th, { pinza, calleX: calle, calleY: calle }) : null;
+  const filas = [
+    ['Corte a corte', `${fmt(E.tw, 1)} × ${fmt(E.th, 1)} mm`],
+    b.papel.nombre && ['Papel', b.papel.nombre],
+    b.compra.w && ['Pliego de compra', `${fmt(b.compra.w, 1)} × ${fmt(b.compra.h, 1)} cm`],
+    ['Pliego de máquina', `${fmt(b.maq.w, 1)} × ${fmt(b.maq.h, 1)} cm${E.corte ? ` (${E.corte === 1 ? 'entero' : 'pliego de compra en ' + E.corte})` : ''}`],
+    ['Poses por pliego', String(E.poses) + (a && a.rects.length !== E.poses ? ` (cargadas a mano; el diagrama muestra el armado automático de ${a.rects.length})` : '')],
+    ['Pinza / calle', `${fmt(pinza, 0)} mm / ${calle ? fmt(calle, 1) + ' mm' : 'sin calle'}`],
+    ['Impresión', `${b.colF}/${b.colD}`],
+    r && r.ok && ['Cantidad', `${fmt(r.cant, 0)} ej. → ${fmt(r.netos, 0)} pl. + ${fmt(r.dem, 0)} demasía = ${fmt(r.pm, 0)} pl. de máquina${E.corte ? ` = ${fmt(r.pc, 0)} pl. de compra` : ''}`],
+    b.micro.tipo && ['Microcorrugado', [b.micro.tipo, b.micro.formato].filter(Boolean).join(' · ')],
+  ].filter(Boolean);
+  doc.innerHTML = `
+    <div class="ts-doc-head">
+      <div><div class="ts-doc-imp">Diagrama de corte</div><div class="ts-doc-sub">${[im.nombre && esc(im.nombre), $('tsNumero').value && 'Presupuesto N° ' + esc($('tsNumero').value)].filter(Boolean).join(' · ')}</div></div>
+      <div class="ts-doc-num"><b>${esc($('tsCliente').value || '')}</b><br>${esc($('tsTrabajo').value || '')}<br>${fechaTxt($('tsFecha').value)}</div>
+    </div>
+    <table class="ts-doc-spec">${filas.map(([k, v]) => `<tr><td>${k}</td><td>${esc(v)}</td></tr>`).join('')}</table>
+    <div class="ts-figs">
+      ${E.corte && b.compra.w ? `<div class="ts-fig"><h4>1 · Pliego de compra: cortar en ${E.corte === 1 ? '— (entero)' : E.corte}</h4>${svgCompra(b.compra.w, b.compra.h, E.corte)}<p>Línea roja punteada: corte del pliego de compra. Cada pieza es un pliego de máquina de ${fmt(b.maq.w, 1)} × ${fmt(b.maq.h, 1)} cm.</p></div>` : ''}
+      ${a ? `<div class="ts-fig"><h4>${E.corte && b.compra.w ? '2' : '1'} · Pliego de máquina: ${a.rects.length} poses</h4>${svgMaquina(a, pinza, calle)}<p>Verde: poses derechas · rosa: giradas 90° · amarillo: pinza. Las cotas muestran el sobrante (mm) alrededor del bloque, que va centrado en la mesa.</p></div>` : '<p>El trabajo no entra en el pliego de máquina con esa pinza.</p>'}
+    </div>`;
+}
+$('tsVerCorte').addEventListener('click', () => { pintarDocCorte(); $('tsCorteWrap').hidden = false; $('tsCorteWrap').scrollIntoView({ behavior: 'smooth' }); });
+$('tsCerrarCorte').addEventListener('click', () => $('tsCorteWrap').hidden = true);
+$('tsImprimirCorte').addEventListener('click', () => imprimir('tsCorteDoc', 'Diagrama de corte'));
+
 function textoCliente() {
   const { E, res } = ultimo, b = E.base;
   return [
@@ -458,7 +549,20 @@ function textoCliente() {
 }
 $('tsVerCliente').addEventListener('click', () => { pintarDocCliente(); $('tsClienteWrap').hidden = false; $('tsClienteWrap').scrollIntoView({ behavior: 'smooth' }); });
 $('tsCerrarDoc').addEventListener('click', () => $('tsClienteWrap').hidden = true);
-$('tsImprimir').addEventListener('click', () => { document.body.classList.add('imprimiendo-ts'); window.print(); setTimeout(() => document.body.classList.remove('imprimiendo-ts'), 500); });
+$('tsImprimir').addEventListener('click', () => imprimir('tsClienteDoc', 'Presupuesto'));
+// Copia el documento a un contenedor al nivel del body y oculta todo lo demás al imprimir (así no salen páginas en blanco)
+function imprimir(id, titulo) {
+  let area = document.getElementById('printArea');
+  if (!area) { area = document.createElement('div'); area.id = 'printArea'; document.body.appendChild(area); }
+  area.innerHTML = `<div class="ts-doc">${$(id).innerHTML}</div>`;
+  const t = document.title;
+  document.title = [titulo, $('tsNumero').value && 'N° ' + $('tsNumero').value, $('tsCliente').value].filter(Boolean).join(' - ');   // nombre sugerido del PDF
+  document.body.classList.add('imprimiendo');
+  const fin = () => { document.body.classList.remove('imprimiendo'); document.title = t; window.removeEventListener('afterprint', fin); };
+  window.addEventListener('afterprint', fin);
+  window.print();
+  setTimeout(fin, 1500);
+}
 $('tsCopiar').addEventListener('click', () => {
   const t = textoCliente();
   const ok = () => msg('Copiado. Pegalo en WhatsApp o en un mail.');
@@ -507,7 +611,7 @@ $('tsNuevo').addEventListener('click', () => {
   ['tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsPoses', 'tsMicroTipo', 'tsMicroFormato', 'tsMicroPrecio', 'tsMicroPlanchas', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsNumero'].forEach(id => $(id).value = '');
   $('tsFecha').value = hoy(); $('tsDesc').value = '0'; abierto = null; aplicarDefaults(true);
   for (const k in termSel) delete termSel[k]; pintarTerminaciones();
-  $('tsClienteWrap').hidden = true; $('tsGuardar').textContent = 'Guardar presupuesto';
+  $('tsClienteWrap').hidden = true; $('tsCorteWrap').hidden = true; $('tsGuardar').textContent = 'Guardar presupuesto';
   calcular(); pintarLista(); msg('Presupuesto nuevo.');
 });
 

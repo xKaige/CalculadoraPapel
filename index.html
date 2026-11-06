@@ -261,11 +261,21 @@
   .ts-doc-num { text-align: right; font-size: .85rem; white-space: nowrap; }
   .ts-doc-spec td:first-child { color: #555; width: 35%; }
   .ts-doc-pie { color: #555; font-size: .8rem; margin-bottom: 0; }
+  #printArea { display: none; }
+  .ts-figs { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 8px; }
+  .ts-fig { min-width: 0; }
+  .ts-fig h4 { margin: 4px 0 6px; font-size: .85rem; color: #2f6f4f; }
+  .ts-fig svg { width: 100%; height: auto; max-height: 520px; display: block; }
+  .ts-fig p { font-size: .76rem; color: #555; margin: 6px 0 0; }
+  @media (max-width: 640px) { .ts-figs { grid-template-columns: 1fr; } }
   @media print {
-    body.imprimiendo-ts * { visibility: hidden !important; }
-    body.imprimiendo-ts #tsClienteDoc, body.imprimiendo-ts #tsClienteDoc * { visibility: visible !important; }
-    body.imprimiendo-ts { background: #fff !important; }
-    body.imprimiendo-ts #tsClienteDoc { position: absolute; left: 0; top: 0; width: 100%; margin: 0; border-radius: 0; }
+    @page { size: A4; margin: 12mm; }
+    body.imprimiendo > *:not(#printArea) { display: none !important; }
+    body.imprimiendo { background: #fff !important; padding: 0 !important; }
+    body.imprimiendo #printArea { display: block !important; }
+    #printArea .ts-doc { margin: 0; border-radius: 0; padding: 0; }
+    :root:has(body.imprimiendo) { padding: 0 !important; background: #fff !important; }
+    .ts-fig { break-inside: avoid; }
   }
   footer { margin-top: 28px; text-align: center; color: var(--muted); font-size: .8rem; }
 </style>
@@ -879,6 +889,14 @@
       const E = { t: m, b: m, l: m, r: m }; E[ld] = Math.max(pz, m);
       const r = solve(w, h, o.calleX ?? o.calle ?? 0, o.calleY ?? o.calle ?? 0, { x: E.l, y: E.t, w: W - E.l - E.r, h: H - E.t - E.b });
       return r.length ? r[0].rects.length : 0;
+    };
+    // El armado completo (posiciones de cada pose), para el diagrama de corte
+    window.armadoPoses = (W, H, w, h, o = {}) => {
+      const m = o.margen || 0, pz = o.pinza ?? 10, ld = o.lado || 'b';
+      const E = { t: m, b: m, l: m, r: m }; E[ld] = Math.max(pz, m);
+      const box = { x: E.l, y: E.t, w: W - E.l - E.r, h: H - E.t - E.b };
+      const r = solve(w, h, o.calleX ?? o.calle ?? 0, o.calleY ?? o.calle ?? 0, box);
+      return r.length ? { rects: r[0].rects, label: r[0].label, box, E, W, H } : null;
     };
 
     function setPressed(groupId, attr, val) {
