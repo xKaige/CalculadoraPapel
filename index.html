@@ -67,6 +67,7 @@
     .wrap { max-width: 880px; }
     .tabs { flex-wrap: wrap; overflow: visible; }
   }
+  @media (min-width: 1060px) { .wrap { max-width: 1020px; } }
   .tab small { font-size: .72rem; opacity: .8; }
 
   .card {
@@ -229,7 +230,7 @@
   .dias tr.inc td { color: var(--warn); }
   .dias tr.inc td.f { color: var(--warn); }
   .tabla-wrap { overflow-x: auto; margin-top: 12px; }
-  /* ---------- Test (presupuesto completo) ---------- */
+  /* ---------- Presupuesto ---------- */
   .ts-select { width: 100%; font: inherit; font-size: .95rem; padding: 11px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); }
   .ts-select.ts-mini { width: auto; padding: 4px 6px; font-size: .8rem; border-radius: 6px; }
   .ts-check { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: .92rem; margin: 0; cursor: pointer; }
@@ -300,7 +301,6 @@
     <button class="tab" role="tab" data-tool="presupuesto" aria-selected="false">Presupuesto</button>
     <button class="tab" role="tab" data-tool="planilla" aria-selected="false">Planilla de pedidos</button>
     <button class="tab" role="tab" data-tool="horas" aria-selected="false">Cálculo de horas</button>
-    <button class="tab" role="tab" data-tool="test" aria-selected="false">Test</button>
     <button class="tab" role="tab" data-tool="carton" disabled>Cartón montado <small>· próximamente</small></button>
   </nav>
 
@@ -508,150 +508,6 @@
     </details>
   </section>
 
-  <!-- ===== Herramienta: Presupuesto ===== -->
-  <section class="tool card" id="presupuesto" hidden>
-    <div class="dolar" aria-live="polite">
-      <div>
-        <small>Dólar oficial BNA (venta)</small>
-        <b id="prDolar">—</b>
-        <small id="prDolarInfo">Buscando cotización…</small>
-      </div>
-      <button type="button" class="btn" id="prDolarBtn">Actualizar</button>
-    </div>
-    <div class="grid" style="margin-top:10px">
-      <div class="full">
-        <label for="prDolarManual">Usar otro valor de dólar (opcional)</label>
-        <div class="field"><input id="prDolarManual" inputmode="decimal" placeholder="vacío = cotización BNA"><span class="unit">$</span></div>
-      </div>
-    </div>
-
-    <h2 class="sec">Datos</h2>
-    <div class="grid">
-      <div class="full">
-        <label for="prFecha">Fecha</label>
-        <input id="prFecha" type="date" style="padding-right:12px">
-      </div>
-      <div class="full">
-        <label for="prCliente">Cliente</label>
-        <input id="prCliente" placeholder="Nombre del cliente" style="padding-right:12px">
-      </div>
-      <div class="full">
-        <label for="prTrabajo">Trabajo</label>
-        <input id="prTrabajo" placeholder="Ej. Folleto tríptico" style="padding-right:12px">
-      </div>
-    </div>
-
-    <h2 class="sec">Trabajo</h2>
-    <div class="grid">
-      <div>
-        <label for="prPw">Pliego ancho</label>
-        <div class="field"><input id="prPw" inputmode="decimal" placeholder="72"><span class="unit prPU">cm</span></div>
-      </div>
-      <div>
-        <label for="prPh">Pliego alto</label>
-        <div class="field"><input id="prPh" inputmode="decimal" placeholder="102"><span class="unit prPU">cm</span></div>
-      </div>
-      <div class="full">
-        <div class="mode" role="group" aria-label="Unidad del pliego" id="prUnidadPl">
-          <button type="button" data-u="cm" aria-pressed="true">Centímetros</button>
-          <button type="button" data-u="mm" aria-pressed="false">Milímetros</button>
-        </div>
-      </div>
-      <div>
-        <label for="prTw">Corte a corte ancho</label>
-        <div class="field"><input id="prTw" inputmode="decimal" placeholder="210"><span class="unit prTU">mm</span></div>
-      </div>
-      <div>
-        <label for="prTh">Corte a corte alto</label>
-        <div class="field"><input id="prTh" inputmode="decimal" placeholder="297"><span class="unit prTU">mm</span></div>
-      </div>
-      <div class="full">
-        <div class="mode" role="group" aria-label="Unidad del corte a corte" id="prUnidad">
-          <button type="button" data-u="cm" aria-pressed="false">Centímetros</button>
-          <button type="button" data-u="mm" aria-pressed="true">Milímetros</button>
-        </div>
-      </div>
-      <div>
-        <label for="prGram">Gramaje</label>
-        <div class="field"><input id="prGram" inputmode="decimal" placeholder="150"><span class="unit">g/m²</span></div>
-      </div>
-      <div>
-        <label for="prColores">Colores</label>
-        <div class="field"><input id="prColores" type="number" inputmode="numeric" min="0" step="1" value="4"><span class="unit">col.</span></div>
-      </div>
-      <div class="full">
-        <label>Impresión</label>
-        <div class="mode" role="group" id="prCaras">
-          <button type="button" data-caras="1" aria-pressed="true">Frente solo</button>
-          <button type="button" data-caras="2" aria-pressed="false">Frente y dorso</button>
-        </div>
-      </div>
-      <div class="full">
-        <label for="prCant">Cantidad</label>
-        <div class="field"><input id="prCant" inputmode="numeric" placeholder="1000"><span class="unit">ej.</span></div>
-      </div>
-      <div>
-        <label for="prPoses">Poses por pliego</label>
-        <div class="field"><input id="prPoses" inputmode="numeric" placeholder="auto"><span class="unit">poses</span></div>
-      </div>
-      <div>
-        <label for="prDemasia">Demasía</label>
-        <div class="field"><input id="prDemasia" inputmode="numeric" placeholder="0"><span class="unit">pl.</span></div>
-      </div>
-      <div class="full readout">
-        <div><small>Pliegos a imprimir</small><b id="prPliegos">—</b></div>
-        <div><small>Millares de pliegos</small><b id="prMilP">—</b></div>
-        <div><small>Kilos de papel</small><b id="prKilos">—</b></div>
-        <div><small>Poses (pinza 10 mm)</small><b id="prPosesAuto">—</b></div>
-      </div>
-    </div>
-
-    <h2 class="sec">Costos</h2>
-    <p class="pr-hint" style="margin:0 0 4px">La cantidad se calcula sola (podés pisarla). Tocá <b>$</b> para cargar el precio en dólares.</p>
-    <div id="prItems"></div>
-
-    <div class="result totals" aria-live="polite">
-      <div class="label">Total</div>
-      <div class="big" id="prTotal">—</div>
-      <dl>
-        <dt>Precio unitario</dt><dd id="prUnit">—</dd>
-        <dt>Precio por millar</dt><dd id="prMil">—</dd>
-        <dt>Total en dólares</dt><dd id="prTotalUsd">—</dd>
-      </dl>
-      <div class="hint" id="prHint" hidden></div>
-    </div>
-
-    <div class="actions">
-      <button type="button" class="btn primary" id="prGuardar">Guardar presupuesto</button>
-      <button type="button" class="btn" id="prCopiar">Copiar para el cliente</button>
-      <button type="button" class="btn" id="prNuevo">Nuevo presupuesto</button>
-      <span class="ok-msg" id="prMsg" hidden></span>
-    </div>
-    <div class="estado" id="prGuardadoInfo" style="margin-top:8px"></div>
-    <textarea id="prCopiaTxt" readonly hidden style="width:100%;margin-top:10px;min-height:180px;font:inherit;font-size:.85rem;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)"></textarea>
-
-    <details>
-      <summary>¿Cómo se calcula?</summary>
-      <p>Pliegos = cantidad ÷ poses (redondeado para arriba) + demasía. El millar de impresión se cobra proporcional a los pliegos (500 pliegos = medio millar); los demás millares se redondean para arriba.</p>
-      <p>Chapas y posturas = colores × caras. Millar de impresión = (pliegos ÷ 1000) × colores × caras. Barniz, UV y laminado se multiplican por las caras que elijas en cada uno. Troquel por millar de pliegos; binder y doblado por millar de ejemplares.</p>
-      <p>Los precios en dólares se pasan a pesos con la cotización de venta del Banco Nación (o el valor que cargues a mano).</p>
-    </details>
-  
-    <h2 class="sec">Presupuestos guardados</h2>
-    <div class="aviso" id="prRegAviso">
-      <span id="prRegAvisoTxt"><b>Ingresá con Google</b> para guardar presupuestos. Cada usuario ve solo los suyos.</span>
-    </div>
-    <div id="prRegApp" hidden>
-      <div class="field"><input id="prBuscar" placeholder="Buscar por cliente o trabajo" style="padding-right:12px"></div>
-      <div class="pl-tot">
-        <div><small>Presupuestos</small><b id="prRegN">0</b></div>
-        <div><small>Ejemplares</small><b id="prRegE">0</b></div>
-        <div><small>Total</small><b id="prRegT">$ 0</b></div>
-      </div>
-      <div class="pl-lista" id="prLista"></div>
-    </div>
-  </section>
-
   <!-- ===== Herramienta: Planilla de pedidos (datos por usuario, en Firebase) ===== -->
   <section class="tool card" id="planilla" hidden>
     <div class="aviso" id="plAviso">
@@ -791,8 +647,8 @@
     </div>
   </section>
 
-  <!-- ===== Herramienta: Test (presupuesto completo, en prueba; código en test.js) ===== -->
-  <section class="tool card" id="test" hidden></section>
+  <!-- ===== Herramienta: Presupuesto (código en presupuesto.js y presupuesto-calculo.js) ===== -->
+  <section class="tool card" id="presupuesto" hidden></section>
 
   <!-- ===== Herramienta: Cartón montado (pendiente) ===== -->
   <section class="tool card" id="carton" hidden>
@@ -1133,303 +989,6 @@
     render();
   })();
 
-  // ---------- Presupuesto ----------
-  (function () {
-    const $ = id => document.getElementById(id);
-    const n = id => { const v = parseNum($(id).value); return isFinite(v) ? v : NaN; };
-    const f = (v, d = 0) => v.toLocaleString('es-AR', { maximumFractionDigits: d, minimumFractionDigits: 0 });
-    const pesos = (v, d = 2) => '$ ' + v.toLocaleString('es-AR', { minimumFractionDigits: d, maximumFractionDigits: d });
-    const KEY = 'presupuesto-v1', KEY_DOLAR = 'dolar-bna-v1';
-    const CAMPOS = ['prFecha', 'prCliente', 'prTrabajo', 'prPw', 'prPh', 'prTw', 'prTh', 'prGram', 'prColores', 'prCant', 'prPoses', 'prDemasia', 'prDolarManual'];
-    const DEL_TRABAJO = ['prCliente', 'prTrabajo', 'prCant', 'prPoses', 'prDemasia'];
-
-    // grupo, id, nombre, unidad, cantidad automática, explicación, opciones extra
-    const ITEMS = [
-      { g: 'Impresión', id: 'papel', name: 'Papel', u: 'kg', cur: 'USD', q: c => c.kilos, h: c => `${f(c.pliegos)} pliegos · ${f(c.kilos, 1)} kg · precio por kg` },
-      { g: 'Impresión', id: 'chapa', name: 'Chapa CTP', u: 'ch.', q: c => c.col * c.caras, h: c => `${c.col} colores × ${c.caras} ${c.caras > 1 ? 'caras' : 'cara'} · precio por chapa` },
-      { g: 'Impresión', id: 'postura', name: 'Postura de máquina', u: 'post.', q: c => c.col * c.caras, h: c => `${c.col} colores × ${c.caras} ${c.caras > 1 ? 'caras' : 'cara'} · precio por postura` },
-      { g: 'Impresión', id: 'millar', name: 'Millar de impresión', u: 'mill.', q: c => c.milImp * c.col * c.caras, h: c => `${f(c.pliegos)} pliegos = ${f(c.milImp, 3)} mill. × ${c.col} col. × ${c.caras} ${c.caras > 1 ? 'caras' : 'cara'} · precio por millar` },
-      { g: 'Impresión', id: 'barniz', name: 'Barniz', u: 'mill.', lados: true, q: (c, it) => c.milP * it.lados, h: (c, it) => `${c.milP} mill. de pliegos × ${it.lados} ${it.lados > 1 ? 'caras' : 'cara'} · precio por millar` },
-      { g: 'Terminaciones', id: 'uv', name: 'UV', u: 'pl.', lados: true, q: (c, it) => c.pliegos * it.lados, h: (c, it) => `${f(c.pliegos)} pliegos × ${it.lados} ${it.lados > 1 ? 'caras' : 'cara'} · precio por pliego` },
-      { g: 'Terminaciones', id: 'laminado', name: 'Laminado', u: 'pl.', lados: true, tipos: ['Brillante', 'Mate'], q: (c, it) => c.pliegos * it.lados, h: (c, it) => `${f(c.pliegos)} pliegos × ${it.lados} ${it.lados > 1 ? 'caras' : 'cara'} · precio por pliego` },
-      { g: 'Troquelado', id: 'troqP', name: 'Postura de troquel', u: 'u.', q: () => 1, h: () => 'precio fijo' },
-      { g: 'Troquelado', id: 'troqM', name: 'Millar de troquel', u: 'mill.', q: c => c.milP, h: c => `${c.milP} mill. de pliegos · precio por millar` },
-      { g: 'Encuadernación binder', id: 'binP', name: 'Postura binder', u: 'u.', q: () => 1, h: () => 'precio fijo' },
-      { g: 'Encuadernación binder', id: 'binM', name: 'Millar binder', u: 'mill.', q: c => c.milE, h: c => `${c.milE} mill. de ejemplares · precio por millar` },
-      { g: 'Doblado', id: 'dobP', name: 'Postura de doblado', u: 'u.', tipos: ['Díptico', 'Tríptico'], q: () => 1, h: () => 'precio fijo' },
-      { g: 'Doblado', id: 'dobM', name: 'Millar de doblado', u: 'mill.', q: c => c.milE, h: c => `${c.milE} mill. de ejemplares · precio por millar` },
-      { g: 'Entrega', id: 'cajas', name: 'Cajas', u: 'cajas', q: () => 0, h: () => 'cargá cuántas cajas · precio por caja' },
-      { g: 'Entrega', id: 'flete', name: 'Flete', u: 'u.', q: () => 1, h: () => 'precio fijo' },
-    ];
-    const st = Object.fromEntries(ITEMS.map(it => [it.id, { q: '', p: '', cur: it.cur || 'ARS', lados: 1, tipo: it.tipos ? it.tipos[0] : '' }]));
-    let caras = 1, uTr = 'mm', uPl = 'cm', dolar = null, ultimo = null;
-
-    // ----- armar filas -----
-    let html = '', grupo = '';
-    ITEMS.forEach(it => {
-      if (it.g !== grupo) { grupo = it.g; html += `<div class="pr-group">${grupo}</div>`; }
-      const extra = (it.tipos ? `<select data-k="tipo" aria-label="Tipo de ${it.name.toLowerCase()}">${it.tipos.map(t => `<option>${t}</option>`).join('')}</select>` : '')
-        + (it.lados ? `<select data-k="lados" aria-label="Caras de ${it.name.toLowerCase()}"><option value="1">Frente</option><option value="2">F y D</option></select>` : '');
-      html += `<div class="pr-row" data-id="${it.id}">
-        <div class="pr-head"><span class="pr-name">${it.name}</span>${extra}<span class="pr-sub zero">—</span></div>
-        <div class="pr-inputs">
-          <div class="field"><input data-k="q" inputmode="decimal" aria-label="Cantidad de ${it.name.toLowerCase()}"><span class="unit">${it.u}</span></div>
-          <span class="x">×</span>
-          <div class="field"><input data-k="p" inputmode="decimal" placeholder="precio" aria-label="Precio de ${it.name.toLowerCase()}"><button type="button" class="pr-cur" data-cur="ARS">$</button></div>
-        </div>
-        <div class="pr-hint"></div>
-      </div>`;
-    });
-    $('prItems').innerHTML = html;
-
-    // ----- guardar / cargar -----
-    function guardar() {
-      try {
-        const d = { caras, uTr, uPl, items: st }; CAMPOS.forEach(k => d[k] = $(k).value);
-        localStorage.setItem(KEY, JSON.stringify(d));
-      } catch (e) {}
-    }
-    try {
-      const d = JSON.parse(localStorage.getItem(KEY) || 'null');
-      if (d) {
-        CAMPOS.forEach(k => { if (d[k] != null) $(k).value = d[k]; });
-        caras = d.caras || 1;
-        uTr = d.uTr === 'cm' ? 'cm' : 'mm';
-        uPl = d.uPl === 'mm' ? 'mm' : 'cm';
-        if (d.items) for (const k in d.items) if (st[k]) Object.assign(st[k], d.items[k]);
-      }
-      dolar = JSON.parse(localStorage.getItem(KEY_DOLAR) || 'null');
-    } catch (e) {}
-    if (!$('prFecha').value) $('prFecha').value = hoy();
-    document.querySelectorAll('.pr-row').forEach(row => {
-      const s = st[row.dataset.id];
-      row.querySelector('[data-k=q]').value = s.q;
-      row.querySelector('[data-k=p]').value = s.p;
-      const sl = row.querySelector('[data-k=lados]'); if (sl) sl.value = s.lados;
-      const tp = row.querySelector('[data-k=tipo]'); if (tp) tp.value = s.tipo;
-    });
-
-    function hoy() {
-      const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-      return d.toISOString().slice(0, 10);
-    }
-
-    // ----- dólar BNA -----
-    function valorDolar() {
-      const man = n('prDolarManual');
-      if (man > 0) return { v: man, manual: true };
-      return dolar && dolar.venta > 0 ? { v: dolar.venta, manual: false } : null;
-    }
-    function pintarDolar(error) {
-      const info = $('prDolarInfo');
-      if (dolar && dolar.venta > 0) {
-        $('prDolar').textContent = pesos(dolar.venta, 2);
-        const fe = dolar.fecha ? new Date(dolar.fecha) : null;
-        info.textContent = (fe ? 'Cotización del ' + fe.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '')
-          + (dolar.compra ? ` · compra ${pesos(dolar.compra, 2)}` : '');
-      } else {
-        $('prDolar').textContent = '—';
-        info.textContent = '';
-      }
-      info.classList.toggle('err', !!error);
-      if (error) info.textContent = error + (dolar ? ' Se usa la última guardada.' : ' Cargá el valor a mano.');
-    }
-    async function traerDolar() {
-      $('prDolarBtn').disabled = true; $('prDolarBtn').textContent = 'Actualizando…';
-      try {
-        const r = await fetch('https://dolarapi.com/v1/dolares/oficial', { cache: 'no-store' });
-        if (!r.ok) throw new Error();
-        const j = await r.json();
-        if (!(j.venta > 0)) throw new Error();
-        dolar = { venta: j.venta, compra: j.compra, fecha: j.fechaActualizacion, chequeado: Date.now() };
-        try { localStorage.setItem(KEY_DOLAR, JSON.stringify(dolar)); } catch (e) {}
-        pintarDolar();
-      } catch (e) {
-        pintarDolar('No se pudo actualizar (¿sin conexión?).');
-      }
-      $('prDolarBtn').disabled = false; $('prDolarBtn').textContent = 'Actualizar';
-      calcular();
-    }
-    $('prDolarBtn').addEventListener('click', traerDolar);
-    pintarDolar(); traerDolar();
-    window.addEventListener('dolar-actualizado', e => { const o = e.detail?.oficial; if (o) { dolar = { ...o, chequeado: e.detail.chequeado }; pintarDolar(); calcular(); } });
-    setInterval(() => { if (document.visibilityState === 'visible') traerDolar(); }, 15 * 60 * 1000);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && (!dolar || Date.now() - (dolar.chequeado || 0) > 15 * 60 * 1000)) traerDolar();
-    });
-
-    // ----- cálculo -----
-    function calcular() {
-      document.querySelectorAll('#prCaras button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.caras === caras));
-      document.querySelectorAll('#prUnidad button').forEach(b => b.setAttribute('aria-pressed', b.dataset.u === uTr));
-      document.querySelectorAll('.prTU').forEach(el => el.textContent = uTr);
-      $('prTw').placeholder = uTr === 'cm' ? '21' : '210'; $('prTh').placeholder = uTr === 'cm' ? '29,7' : '297';
-      document.querySelectorAll('#prUnidadPl button').forEach(b => b.setAttribute('aria-pressed', b.dataset.u === uPl));
-      document.querySelectorAll('.prPU').forEach(el => el.textContent = uPl);
-      $('prPw').placeholder = uPl === 'mm' ? '720' : '72'; $('prPh').placeholder = uPl === 'mm' ? '1020' : '102';
-      const kT = uTr === 'cm' ? 10 : 1;   // corte a corte en mm
-      const kP = uPl === 'cm' ? 10 : 1;   // pliego en mm
-      const W = n('prPw') * kP, H = n('prPh') * kP, w = n('prTw') * kT, h = n('prTh') * kT;
-      const gram = n('prGram'), col = Math.max(0, Math.floor(n('prColores') || 0)), cant = Math.floor(n('prCant') || 0);
-      const auto = (W > 0 && H > 0 && w > 0 && h > 0 && window.mejorPoses) ? window.mejorPoses(W, H, w, h) : 0;
-      $('prPosesAuto').textContent = auto ? f(auto) : '—';
-      $('prPoses').placeholder = auto ? String(auto) : 'auto';
-      const poses = n('prPoses') > 0 ? Math.floor(n('prPoses')) : auto;
-      const dem = Math.max(0, Math.floor(n('prDemasia') || 0));
-      const pliegos = poses > 0 && cant > 0 ? Math.ceil(cant / poses) + dem : 0;
-      const kilos = pliegos && gram > 0 ? (W / 10) * (H / 10) * gram * pliegos / 1e7 : 0;
-      const c = { col, caras, pliegos, kilos, milP: pliegos ? Math.ceil(pliegos / 1000) : 0, milImp: pliegos / 1000, milE: cant ? Math.ceil(cant / 1000) : 0 };
-      $('prPliegos').textContent = pliegos ? f(pliegos) : '—';
-      $('prMilP').textContent = pliegos ? f(c.milImp, 3) : '—';
-      $('prKilos').textContent = kilos ? f(kilos, 1) + ' kg' : '—';
-
-      const dv = valorDolar();
-      let total = 0, faltaDolar = false;
-      document.querySelectorAll('.pr-row').forEach(row => {
-        const it = ITEMS.find(x => x.id === row.dataset.id), s = st[it.id];
-        const qAuto = it.q(c, s);
-        const qIn = row.querySelector('[data-k=q]');
-        qIn.placeholder = qAuto ? f(qAuto, 3) : '0';
-        const q = s.q !== '' && isFinite(parseNum(s.q)) ? parseNum(s.q) : qAuto;
-        const p = parseNum(s.p) || 0;
-        const btn = row.querySelector('.pr-cur');
-        btn.dataset.cur = s.cur; btn.textContent = s.cur === 'USD' ? 'US$' : '$';
-        let sub = q * p;
-        if (s.cur === 'USD') { if (dv) sub *= dv.v; else if (sub) { faltaDolar = true; sub = 0; } }
-        total += sub;
-        const el = row.querySelector('.pr-sub');
-        el.textContent = sub ? pesos(sub) : '—'; el.classList.toggle('zero', !sub);
-        row.querySelector('.pr-hint').textContent = (s.q !== '' ? 'Cantidad cargada a mano · auto: ' + f(qAuto, 2) : it.h(c, s))
-          + (s.cur === 'USD' && p && dv ? ` · US$ ${f(p, 2)} = ${pesos(p * dv.v)} c/u` : '');
-      });
-
-      $('prTotal').textContent = total ? pesos(total) : '—';
-      $('prUnit').textContent = total && cant ? pesos(total / cant, 2) : '—';
-      $('prMil').textContent = total && cant ? pesos(total / cant * 1000) : '—';
-      $('prTotalUsd').textContent = total && dv ? 'US$ ' + f(total / dv.v, 2) : '—';
-      const hint = $('prHint');
-      const avisos = [];
-      if (faltaDolar) avisos.push('Hay precios en dólares sin cotización: cargá el dólar a mano.');
-      if (!cant) avisos.push('Cargá la cantidad para ver el precio unitario.');
-      else if (!poses && W > 0 && H > 0 && w > 0 && h > 0) avisos.push('El trabajo no entra en el pliego dejando 10 mm de pinza. Si va a pliego entero (o sin pinza), poné 1 en Poses por pliego.');
-      else if (!poses) avisos.push('Cargá pliego y corte a corte (o las poses) para calcular pliegos.');
-      hint.textContent = avisos.join(' '); hint.hidden = !avisos.length;
-      ultimo = { total, cant, dv, poses, pliegos };
-      guardar();
-    }
-
-    // ----- eventos -----
-    CAMPOS.forEach(k => $(k).addEventListener('input', calcular));
-    $('prUnidad').addEventListener('click', e => {
-      const b = e.target.closest('button'); if (!b || b.dataset.u === uTr) return;
-      const factor = b.dataset.u === 'cm' ? 0.1 : 10;
-      ['prTw', 'prTh'].forEach(id => { const v = n(id); if (v > 0) $(id).value = f(v * factor, 2).replace(/\./g, ''); });
-      uTr = b.dataset.u; calcular();
-    });
-    $('prUnidadPl').addEventListener('click', e => {
-      const b = e.target.closest('button'); if (!b || b.dataset.u === uPl) return;
-      const factor = b.dataset.u === 'cm' ? 0.1 : 10;
-      ['prPw', 'prPh'].forEach(id => { const v = n(id); if (v > 0) $(id).value = f(v * factor, 2).replace(/\./g, ''); });
-      uPl = b.dataset.u; calcular();
-    });
-    $('prCaras').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { caras = +b.dataset.caras; calcular(); } });
-    $('prItems').addEventListener('input', e => {
-      const row = e.target.closest('.pr-row'); if (!row) return;
-      st[row.dataset.id][e.target.dataset.k] = e.target.dataset.k === 'lados' ? +e.target.value : e.target.value;
-      calcular();
-    });
-    $('prItems').addEventListener('change', e => {
-      const row = e.target.closest('.pr-row'); if (!row || e.target.tagName !== 'SELECT') return;
-      st[row.dataset.id][e.target.dataset.k] = e.target.dataset.k === 'lados' ? +e.target.value : e.target.value;
-      calcular();
-    });
-    $('prItems').addEventListener('click', e => {
-      const b = e.target.closest('.pr-cur'); if (!b) return;
-      const s = st[b.closest('.pr-row').dataset.id]; s.cur = s.cur === 'USD' ? 'ARS' : 'USD'; calcular();
-    });
-
-    function aviso(t) { const m = $('prMsg'); m.textContent = t; m.hidden = false; clearTimeout(aviso.t); aviso.t = setTimeout(() => m.hidden = true, 3000); }
-
-    $('prNuevo').addEventListener('click', () => {
-      DEL_TRABAJO.forEach(k => $(k).value = '');
-      $('prFecha').value = hoy();
-      for (const k in st) st[k].q = '';
-      document.querySelectorAll('.pr-row [data-k=q]').forEach(i => i.value = '');
-      $('prCopiaTxt').hidden = true;
-      calcular(); aviso('Listo. Los precios quedaron guardados.');
-    });
-
-    $('prCopiar').addEventListener('click', () => {
-      const u = ultimo || {};
-      const fe = $('prFecha').value ? $('prFecha').value.split('-').reverse().join('/') : '';
-      const term = [];
-      ITEMS.forEach(it => {
-        const s = st[it.id]; if (!(parseNum(s.p) > 0)) return;
-        const lado = it.lados ? (s.lados > 1 ? ' frente y dorso' : ' frente') : '';
-        if (it.id === 'barniz') term.push('Barniz' + lado);
-        if (it.id === 'uv') term.push('UV' + lado);
-        if (it.id === 'laminado') term.push('Laminado ' + s.tipo.toLowerCase() + lado);
-        if ((it.id === 'troqP' || it.id === 'troqM') && !term.includes('Troquelado')) term.push('Troquelado');
-        if (it.id === 'binP' || it.id === 'binM') { if (!term.includes('Encuadernación binder')) term.push('Encuadernación binder'); }
-        if (it.id === 'dobP' || it.id === 'dobM') { const t = 'Doblado ' + st.dobP.tipo.toLowerCase(); if (!term.includes(t)) term.push(t); }
-      });
-      const txt = [
-        `PRESUPUESTO${fe ? ' · ' + fe : ''}`,
-        $('prCliente').value && `Cliente: ${$('prCliente').value}`,
-        $('prTrabajo').value && `Trabajo: ${$('prTrabajo').value}`,
-        (n('prTw') > 0 && n('prTh') > 0) && `Medida: ${f(n('prTw'), 2)} × ${f(n('prTh'), 2)} ${uTr}`,
-        n('prGram') > 0 && `Papel: ${f(n('prGram'))} g/m²`,
-        `Impresión: ${n('prColores') || 0} ${n('prColores') == 1 ? 'color' : 'colores'} · ${caras > 1 ? 'frente y dorso' : 'frente'}`,
-        term.length && `Terminaciones: ${term.join(', ')}`,
-        u.cant && `Cantidad: ${f(u.cant)} ejemplares`,
-        '',
-        u.total ? `TOTAL: ${pesos(u.total)}` : 'TOTAL: —',
-        u.total && u.cant && `Precio unitario: ${pesos(u.total / u.cant, 2)}`,
-        u.dv && `Dólar ${u.dv.manual ? 'tomado' : 'BNA'}: ${pesos(u.dv.v, 2)}`,
-      ].filter(x => x === '' || !!x).join('\n');
-      const area = $('prCopiaTxt'); area.value = txt; area.hidden = false;
-      const fallback = () => { area.focus(); area.select(); aviso('Seleccionado: copialo con el menú del teléfono.'); };
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(() => aviso('Copiado. Pegalo en WhatsApp o en un mail.'), fallback);
-      else fallback();
-    });
-
-    // Puente para guardar/abrir presupuestos desde el registro (Firebase)
-    window.presupuesto = {
-      obtener() {
-        calcular();
-        const campos = {}; CAMPOS.forEach(k => campos[k] = $(k).value);
-        const u = ultimo || {};
-        return {
-          fecha: $('prFecha').value || hoy(), cliente: $('prCliente').value.trim(), trabajo: $('prTrabajo').value.trim(),
-          cantidad: u.cant || 0, total: Math.round((u.total || 0) * 100) / 100,
-          unitario: u.total && u.cant ? Math.round(u.total / u.cant * 10000) / 10000 : 0,
-          dolar: u.dv ? u.dv.v : null, pliegos: u.pliegos || 0,
-          datos: { campos, caras, uTr, uPl, items: JSON.parse(JSON.stringify(st)) },
-        };
-      },
-      cargar(d) {
-        const x = d.datos || {};
-        CAMPOS.forEach(k => { $(k).value = x.campos && x.campos[k] != null ? x.campos[k] : ''; });
-        caras = x.caras || 1; uTr = x.uTr === 'cm' ? 'cm' : 'mm'; uPl = x.uPl === 'mm' ? 'mm' : 'cm';
-        if (x.items) for (const k in st) Object.assign(st[k], x.items[k] || { q: '', p: '' });
-        document.querySelectorAll('.pr-row').forEach(row => {
-          const s2 = st[row.dataset.id];
-          row.querySelector('[data-k=q]').value = s2.q;
-          row.querySelector('[data-k=p]').value = s2.p;
-          const sl = row.querySelector('[data-k=lados]'); if (sl) sl.value = s2.lados;
-          const tp = row.querySelector('[data-k=tipo]'); if (tp) tp.value = s2.tipo;
-        });
-        $('prCopiaTxt').hidden = true;
-        calcular();
-      },
-      aviso,
-    };
-
-    // recalcular cuando se abre la pestaña (por si cambió algo en otra)
-    document.querySelector('[data-tool=presupuesto]').addEventListener('click', calcular);
-    calcular();
-  })();
-
   // ---------- Dólar siempre visible (DolarApi: oficial y blue) ----------
   (function () {
     const $ = id => document.getElementById(id);
@@ -1691,7 +1250,7 @@
     db = fb.initializeFirestore(app, { localCache: fb.persistentLocalCache({ tabManager: fb.persistentMultipleTabManager() }) });
   } catch (e) { db = fb.getFirestore(app); }
 
-  // Puente para módulos externos (test.js)
+  // Puente para módulos externos (presupuesto.js)
   window.pliegoFB = { fb, db, auth, user: null };
   fb.onAuthStateChanged(auth, u => { window.pliegoFB.user = u; window.dispatchEvent(new Event('pliego-auth')); });
 
@@ -1940,93 +1499,7 @@
     pintarHoras();
   });
 
-  // ================= Registro de presupuestos =================
-  const pesos = v => '$ ' + v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  let presupuestos = [], dejarPres = null, presAbierto = null, presBorrando = null;
-  const colP = () => fb.collection(db, 'usuarios', usuario.uid, 'presupuestos');
-
-  function infoAbierto() {
-    const p = presupuestos.find(x => x.id === presAbierto);
-    $('prGuardadoInfo').textContent = presAbierto
-      ? `Abierto: ${p ? (p.cliente || 'sin cliente') + (p.trabajo ? ' · ' + p.trabajo : '') : 'presupuesto guardado'}. "Guardar cambios" actualiza ese registro; "Nuevo presupuesto" empieza otro.`
-      : '';
-    $('prGuardar').textContent = presAbierto ? 'Guardar cambios' : 'Guardar presupuesto';
-  }
-
-  fb.onAuthStateChanged(auth, u => {
-    if (dejarPres) { dejarPres(); dejarPres = null; }
-    presupuestos = []; presAbierto = null; presBorrando = null; infoAbierto();
-    $('prRegAviso').hidden = !!u; $('prRegApp').hidden = !u;
-    if (!u) return;
-    $('prLista').innerHTML = '<div class="pl-vacio">Cargando…</div>';
-    dejarPres = fb.onSnapshot(fb.query(colP(), fb.orderBy('fecha', 'desc')), snap => {
-      presupuestos = snap.docs.map(d => ({ id: d.id, ...d.data(), pendiente: d.metadata.hasPendingWrites }));
-      presupuestos.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || ((b.creado?.seconds || 9e9) - (a.creado?.seconds || 9e9)));
-      pintarPres(); infoAbierto();
-    }, e => { $('prLista').innerHTML = '<div class="pl-vacio">No se pudieron leer los presupuestos (' + esc(e.code || e.message) + ').</div>'; });
-  });
-
-  function pintarPres() {
-    const q = $('prBuscar').value.trim().toLowerCase();
-    const lista = q ? presupuestos.filter(r => [r.cliente, r.trabajo].join(' ').toLowerCase().includes(q)) : presupuestos;
-    $('prRegN').textContent = fmtN(lista.length);
-    $('prRegE').textContent = fmtN(lista.reduce((a, r) => a + (r.cantidad || 0), 0));
-    $('prRegT').textContent = pesos(lista.reduce((a, r) => a + (r.total || 0), 0));
-    if (!lista.length) {
-      $('prLista').innerHTML = `<div class="pl-vacio">${presupuestos.length ? 'No hay presupuestos que coincidan.' : 'Todavía no guardaste presupuestos. Armá uno arriba y tocá "Guardar presupuesto".'}</div>`;
-      return;
-    }
-    $('prLista').innerHTML = lista.map(r => `
-      <div class="pl-item${presAbierto === r.id ? ' editando' : ''}" data-id="${r.id}">
-        <div class="t">${esc(r.cliente || 'Sin cliente')}</div>
-        <div class="n">${r.total ? pesos(r.total) : '—'}</div>
-        <div class="d">${esc(fechaTxt(r.fecha))}${r.trabajo ? ' · ' + esc(r.trabajo) : ''}${r.pendiente ? ' · <i>sin sincronizar</i>' : ''}</div>
-        <div class="n">${r.cantidad ? fmtN(r.cantidad) + ' ej.' : ''}${r.unitario ? ' · ' + pesos(r.unitario) + ' c/u' : ''}</div>
-        <div class="acc">${presBorrando === r.id
-          ? `<span class="estado">¿Borrar este presupuesto?</span><button type="button" class="btn small danger" data-acc="si">Sí, borrar</button><button type="button" class="btn small" data-acc="no">No</button>`
-          : `<button type="button" class="btn small" data-acc="abrir">Abrir</button><button type="button" class="btn small" data-acc="borrar">Borrar</button>`}
-        </div>
-      </div>`).join('');
-  }
-
-  $('prGuardar').addEventListener('click', () => {
-    if (!usuario) { window.presupuesto.aviso('Ingresá con Google para guardar presupuestos.'); return; }
-    const d = window.presupuesto.obtener();
-    if (!d.cliente && !d.trabajo) { window.presupuesto.aviso('Completá el cliente o el trabajo antes de guardar.'); return; }
-    if (!d.total) { window.presupuesto.aviso('El presupuesto todavía no tiene total.'); return; }
-    const datos = { ...d, actualizado: fb.serverTimestamp() };
-    if (presAbierto) {
-      fb.updateDoc(fb.doc(colP(), presAbierto), datos).catch(e => window.presupuesto.aviso('Error: ' + e.code));
-      window.presupuesto.aviso('Cambios guardados.');
-    } else {
-      const ref = fb.doc(colP());
-      presAbierto = ref.id;
-      fb.setDoc(ref, { ...datos, creado: fb.serverTimestamp() }).catch(e => window.presupuesto.aviso('Error: ' + e.code));
-      window.presupuesto.aviso('Presupuesto guardado.');
-    }
-    infoAbierto(); pintarPres();
-  });
-  $('prNuevo').addEventListener('click', () => { presAbierto = null; infoAbierto(); pintarPres(); });
-  $('prBuscar').addEventListener('input', pintarPres);
-  $('prLista').addEventListener('click', e => {
-    const b = e.target.closest('[data-acc]'); if (!b) return;
-    const id = b.closest('.pl-item').dataset.id, r = presupuestos.find(x => x.id === id);
-    if (!r) return;
-    const acc = b.dataset.acc;
-    if (acc === 'borrar') { presBorrando = id; pintarPres(); }
-    else if (acc === 'no') { presBorrando = null; pintarPres(); }
-    else if (acc === 'si') {
-      presBorrando = null; if (presAbierto === id) { presAbierto = null; infoAbierto(); }
-      fb.deleteDoc(fb.doc(colP(), id)).catch(err => window.presupuesto.aviso('Error: ' + err.code));
-      window.presupuesto.aviso('Presupuesto borrado.');
-    } else if (acc === 'abrir') {
-      window.presupuesto.cargar(r);
-      presAbierto = id; presBorrando = null; infoAbierto(); pintarPres();
-      window.presupuesto.aviso('Presupuesto abierto.');
-      document.getElementById('presupuesto').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  });
 </script>
-<script type="module" src="test.js"></script>
+<script type="module" src="presupuesto.js"></script>
 </body>
 </html>

@@ -1,6 +1,8 @@
-// Pestaña "Test": presupuesto completo (prueba). Usa el motor de test-calculo.js.
-// Guarda en Firebase: usuarios/{uid}/config/test (catálogo) y usuarios/{uid}/presupuestosTest.
-import { presupuestar, pliegoMaquina, entraEnMaquina, UNIDADES, fmt } from './test-calculo.js';
+// Pestaña "Presupuesto". Usa el motor de presupuesto-calculo.js.
+// Guarda en Firebase: usuarios/{uid}/config/test (catálogo) y usuarios/{uid}/presupuestosTest (presupuestos).
+// (Los nombres "test" quedaron de cuando era la pestaña de prueba; se mantienen para no perder lo ya guardado.)
+// Los presupuestos de la versión anterior siguen en usuarios/{uid}/presupuestos y se muestran aparte, solo lectura.
+import { presupuestar, pliegoMaquina, entraEnMaquina, UNIDADES, fmt } from './presupuesto-calculo.js';
 
 const $ = id => document.getElementById(id);
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -43,13 +45,9 @@ let lista = [], dejarLista = null, abierto = null, borrando = null, verCant = 0;
 let ultimo = null;   // { entrada, resultados[] }
 
 // ---------- Estructura ----------
-const sec = $('test');
+const sec = $('presupuesto');
 sec.innerHTML = `
-  <div class="aviso" style="text-align:left;align-items:flex-start;gap:6px">
-    <span><b>Pestaña de prueba.</b> Presupuesto completo: pliego de compra y de máquina, máquinas, demasía automática, terminaciones, ganancia, IVA y varias cantidades. Cargá tus precios en <b>Configuración</b> (abajo); los que vienen son de ejemplo.</span>
-  </div>
-
-  <h2 class="sec">Datos</h2>
+  <h2 class="sec" style="margin-top:0">Datos</h2>
   <div class="grid">
     <div><label for="tsFecha">Fecha</label><input id="tsFecha" type="date" style="padding-right:12px"></div>
     <div><label for="tsNumero">N° presupuesto</label><input id="tsNumero" readonly placeholder="al guardar" style="padding-right:12px"></div>
@@ -172,7 +170,7 @@ sec.innerHTML = `
     </div>
   </div>
 
-  <h2 class="sec">Presupuestos guardados (Test)</h2>
+  <h2 class="sec">Presupuestos guardados</h2>
   <div class="aviso" id="tsRegAviso"><span><b>Ingresá con Google</b> para guardar presupuestos y tu catálogo de precios.</span></div>
   <div id="tsRegApp" hidden>
     <div class="grid" style="grid-template-columns:1fr auto">
@@ -180,6 +178,11 @@ sec.innerHTML = `
       <select id="tsFiltro" class="ts-select" style="width:auto"><option value="">Todos</option><option>Pendiente</option><option>Aprobado</option><option>Rechazado</option></select>
     </div>
     <div class="pl-lista" id="tsLista"></div>
+    <details id="tsViejos" hidden style="margin-top:14px">
+      <summary>Presupuestos de la versión anterior (<span id="tsViejosN">0</span>)</summary>
+      <p class="estado">Se armaron con el presupuesto viejo: se pueden consultar y borrar, pero no abrir en esta versión.</p>
+      <div class="pl-lista" id="tsViejosLista"></div>
+    </details>
   </div>
 
   <details class="ts-config" id="tsConfig">
@@ -523,7 +526,7 @@ function pintarLista() {
   const q = $('tsBuscar').value.trim().toLowerCase(), fe = $('tsFiltro').value;
   const l = lista.filter(r => (!fe || r.estado === fe) && (!q || [r.cliente, r.trabajo, r.numero].join(' ').toLowerCase().includes(q)));
   $('tsClientes').innerHTML = [...new Set(lista.map(r => r.cliente).filter(Boolean))].sort().map(c => `<option value="${esc(c)}"></option>`).join('');
-  if (!l.length) { $('tsLista').innerHTML = `<div class="pl-vacio">${lista.length ? 'No hay presupuestos que coincidan.' : 'Todavía no guardaste presupuestos de prueba.'}</div>`; return; }
+  if (!l.length) { $('tsLista').innerHTML = `<div class="pl-vacio">${lista.length ? 'No hay presupuestos que coincidan.' : 'Todavía no guardaste presupuestos. Armá uno arriba y tocá "Guardar presupuesto".'}</div>`; return; }
   $('tsLista').innerHTML = l.map(r => {
     const p = r.resumen?.[0];
     return `<div class="pl-item${abierto === r.id ? ' editando' : ''}" data-id="${r.id}">
@@ -578,11 +581,29 @@ aplicarDefaults(false);
 calcular();
 traerDolar();
 window.addEventListener('dolar-actualizado', e => { const o = e.detail?.oficial; if (o) { dolar = { ...o, chequeado: e.detail.chequeado }; calcular(); } });
-document.querySelector('[data-tool=test]').addEventListener('click', calcular);
+document.querySelector('[data-tool=presupuesto]').addEventListener('click', calcular);
+
+let viejos = [], dejarViejos = null, viejoBorrando = null;
+function pintarViejos() {
+  $('tsViejos').hidden = !viejos.length; $('tsViejosN').textContent = viejos.length;
+  $('tsViejosLista').innerHTML = viejos.map(r => `<div class="pl-item" data-id="${r.id}">
+    <div class="t">${esc(r.cliente || 'Sin cliente')}</div><div class="n">${r.total ? pesos(r.total) : '—'}</div>
+    <div class="d">${esc(fechaTxt(r.fecha))}${r.trabajo ? ' · ' + esc(r.trabajo) : ''}</div><div class="n">${r.cantidad ? fmt(r.cantidad, 0) + ' ej.' : ''}</div>
+    <div class="acc">${viejoBorrando === r.id ? '<span class="estado">¿Borrar?</span><button type="button" class="btn small danger" data-acc="si">Sí</button><button type="button" class="btn small" data-acc="no">No</button>' : '<button type="button" class="btn small" data-acc="borrar">Borrar</button>'}</div></div>`).join('');
+}
+$('tsViejosLista').addEventListener('click', e => {
+  const b = e.target.closest('button[data-acc]'); if (!b) return;
+  const id = b.closest('.pl-item').dataset.id;
+  if (b.dataset.acc === 'borrar') viejoBorrando = id; else if (b.dataset.acc === 'no') viejoBorrando = null;
+  else { viejoBorrando = null; FB.fb.deleteDoc(FB.fb.doc(FB.fb.collection(FB.db, 'usuarios', usuario.uid, 'presupuestos'), id)); }
+  pintarViejos();
+});
 
 function conectar(fbInfo) {
   FB = fbInfo; usuario = fbInfo.user;
   if (dejarLista) { dejarLista(); dejarLista = null; }
+  if (dejarViejos) { dejarViejos(); dejarViejos = null; }
+  viejos = []; pintarViejos();
   lista = []; abierto = null; borrando = null;
   $('tsRegAviso').hidden = !!usuario; $('tsRegApp').hidden = !usuario;
   if (!usuario) { $('tsGuardar').textContent = 'Guardar presupuesto'; return; }
@@ -595,6 +616,10 @@ function conectar(fbInfo) {
     lista = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.numero || 0) - (a.numero || 0));
     pintarLista();
   }, e => { $('tsLista').innerHTML = '<div class="pl-vacio">No se pudo leer (' + esc(e.code || e.message) + ').</div>'; });
+  dejarViejos = FB.fb.onSnapshot(FB.fb.collection(FB.db, 'usuarios', usuario.uid, 'presupuestos'), snap => {
+    viejos = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+    pintarViejos();
+  }, () => {});
 }
 window.addEventListener('pliego-auth', () => conectar(window.pliegoFB));
 if (window.pliegoFB) conectar(window.pliegoFB);
