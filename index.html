@@ -221,6 +221,43 @@
   .dias tr.inc td { color: var(--warn); }
   .dias tr.inc td.f { color: var(--warn); }
   .tabla-wrap { overflow-x: auto; margin-top: 12px; }
+  /* ---------- Test (presupuesto completo) ---------- */
+  .ts-select { width: 100%; font: inherit; font-size: .95rem; padding: 11px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); }
+  .ts-select.ts-mini { width: auto; padding: 4px 6px; font-size: .8rem; border-radius: 6px; }
+  .ts-check { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: .92rem; margin: 0; cursor: pointer; }
+  .ts-check input { width: auto; accent-color: var(--accent); }
+  .ts-terms { display: flex; flex-direction: column; }
+  .ts-term { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 9px 0; border-top: 1px solid var(--line); }
+  .ts-term .estado { flex: 1 1 160px; }
+  .ts-term.on .ts-check { font-weight: 600; color: var(--accent); }
+  .ts-grupo { color: var(--muted); font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; padding-top: 12px !important; }
+  .ts-edit input.ts-cell { font-size: .85rem; padding: 6px 7px; min-width: 70px; border-radius: 6px; }
+  .ts-edit input.ts-cell.n { width: 80px; }
+  .ts-edit td { padding: 4px 3px; }
+  .ts-config { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 6px; }
+  .ts-config summary { padding: 8px 0; }
+  .ts-config h3 { margin: 18px 0 8px; }
+  .ts-estado.aprobado { color: var(--accent); border-color: var(--accent); }
+  .ts-estado.rechazado { color: var(--rot); border-color: var(--rot); }
+  .chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  /* Presupuesto para el cliente: siempre claro, como papel */
+  .ts-doc { background: #fff; color: #1d1d1d; border-radius: 10px; padding: 22px; margin-top: 16px; font-size: .9rem; line-height: 1.5; }
+  .ts-doc table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+  .ts-doc td, .ts-doc th { padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: left; }
+  .ts-doc th { font-size: .78rem; color: #555; font-weight: 600; }
+  .ts-doc .r { text-align: right; font-variant-numeric: tabular-nums; }
+  .ts-doc-head { display: flex; justify-content: space-between; gap: 16px; border-bottom: 2px solid #2f6f4f; padding-bottom: 12px; margin-bottom: 12px; }
+  .ts-doc-imp { font-size: 1.25rem; font-weight: 700; color: #2f6f4f; }
+  .ts-doc-sub { color: #555; font-size: .8rem; }
+  .ts-doc-num { text-align: right; font-size: .85rem; white-space: nowrap; }
+  .ts-doc-spec td:first-child { color: #555; width: 35%; }
+  .ts-doc-pie { color: #555; font-size: .8rem; margin-bottom: 0; }
+  @media print {
+    body.imprimiendo-ts * { visibility: hidden !important; }
+    body.imprimiendo-ts #tsClienteDoc, body.imprimiendo-ts #tsClienteDoc * { visibility: visible !important; }
+    body.imprimiendo-ts { background: #fff !important; }
+    body.imprimiendo-ts #tsClienteDoc { position: absolute; left: 0; top: 0; width: 100%; margin: 0; border-radius: 0; }
+  }
   footer { margin-top: 28px; text-align: center; color: var(--muted); font-size: .8rem; }
 </style>
 </head>
@@ -250,6 +287,7 @@
     <button class="tab" role="tab" data-tool="presupuesto" aria-selected="false">Presupuesto</button>
     <button class="tab" role="tab" data-tool="planilla" aria-selected="false">Planilla de pedidos</button>
     <button class="tab" role="tab" data-tool="horas" aria-selected="false">Cálculo de horas</button>
+    <button class="tab" role="tab" data-tool="test" aria-selected="false">Test</button>
     <button class="tab" role="tab" data-tool="carton" disabled>Cartón montado <small>· próximamente</small></button>
   </nav>
 
@@ -739,6 +777,9 @@
       <div class="pl-lista" id="hoLista"></div>
     </div>
   </section>
+
+  <!-- ===== Herramienta: Test (presupuesto completo, en prueba; código en test.js) ===== -->
+  <section class="tool card" id="test" hidden></section>
 
   <!-- ===== Herramienta: Cartón montado (pendiente) ===== -->
   <section class="tool card" id="carton" hidden>
@@ -1587,6 +1628,10 @@
     db = fb.initializeFirestore(app, { localCache: fb.persistentLocalCache({ tabManager: fb.persistentMultipleTabManager() }) });
   } catch (e) { db = fb.getFirestore(app); }
 
+  // Puente para módulos externos (test.js)
+  window.pliegoFB = { fb, db, auth, user: null };
+  fb.onAuthStateChanged(auth, u => { window.pliegoFB.user = u; window.dispatchEvent(new Event('pliego-auth')); });
+
   // ----- Login / logout -----
   async function ingresar() {
     const prov = new fb.GoogleAuthProvider();
@@ -1685,7 +1730,8 @@
     $('plMaterial').value = p.material || '';
     $('plPliegos').value = p.pliegos != null ? p.pliegos : '';
     $('plKilos').value = p.kilos != null ? String(p.kilos).replace('.', ',') : '';
-    $('plFormTitulo').textContent = 'Nuevo registro · desde Peso de papel';
+    if (p.trabajo) $('plTrabajo').value = p.trabajo;
+    $('plFormTitulo').textContent = p.trabajo ? 'Nuevo registro · desde presupuesto' : 'Nuevo registro · desde Peso de papel';
     estado('Datos cargados. Completá fecha, proveedor y trabajo, y tocá Guardar.', 10000);
     setTimeout(() => $('plProveedor').focus(), 300);
   }
@@ -1918,5 +1964,6 @@
     }
   });
 </script>
+<script type="module" src="test.js"></script>
 </body>
 </html>
