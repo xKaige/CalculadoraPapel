@@ -5,6 +5,7 @@ App web instalable (PWA) con herramientas para imprenta:
 - **Peso de papel**: kilos a partir de hojas, u hojas a partir de kilos.
 - **Poses por pliego**: cuántos trabajos entran en un pliego, centrados en la mesa, con pinza y calle.
 - **Presupuesto**: costos de impresión y terminaciones, con el dólar oficial actualizado, total y precio unitario.
+- **Cálculo de horas**: lee el archivo del reloj de fichadas (`attlog.dat`, Excel o CSV), calcula las horas de un empleado en un rango de fechas y guarda un historial por usuario.
 - **Planilla de pedidos**: registro de proveedor, material, trabajo, formato, pliegos y kilos. Requiere ingresar con Google; cada usuario tiene sus propios datos (guardados en Firebase).
 
 ## Publicar

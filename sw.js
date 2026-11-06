@@ -1,5 +1,5 @@
 // Cambiá este número cada vez que subas una versión nueva, para que el celular la actualice.
-const VERSION = 'papel-v17';
+const VERSION = 'papel-v19';
 const ARCHIVOS = ['./', 'index.html', 'manifest.webmanifest', 'firebase-config.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png'];
 
@@ -37,7 +37,8 @@ self.addEventListener('fetch', e => {
   // Fuentes y librerías de Firebase (no cambian): primero la copia guardada.
   const fuentes = url.hostname.endsWith('fonts.googleapis.com') || url.hostname.endsWith('fonts.gstatic.com');
   const firebase = url.hostname === 'www.gstatic.com' && url.pathname.startsWith('/firebasejs/');
-  if (!fuentes && !firebase) return;
+  const libs = url.hostname === 'cdnjs.cloudflare.com';
+  if (!fuentes && !firebase && !libs) return;
   e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {
     if (res.ok || res.type === 'opaque') { const copia = res.clone(); caches.open(VERSION).then(c => c.put(req, copia)); }
     return res;

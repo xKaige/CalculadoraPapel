@@ -79,6 +79,8 @@
 
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .full { grid-column: 1 / -1; }
+  .grid > * { min-width: 0; }
+  input[type=date] { min-width: 0; max-width: 100%; }
   label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
   .field { position: relative; }
   input {
@@ -208,6 +210,17 @@
   .pl-vacio { color: var(--muted); text-align: center; padding: 20px 0; font-size: .9rem; }
   .btn.danger { color: var(--rot); border-color: var(--rot); }
   .estado { font-size: .8rem; color: var(--muted); }
+  /* ---------- Cálculo de horas ---------- */
+  .archivo { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  .archivo input[type=file] { font: inherit; font-size: .85rem; padding: 10px; width: 100%; }
+  .dias { width: 100%; border-collapse: collapse; font-size: .86rem; font-variant-numeric: tabular-nums; }
+  .dias th { text-align: left; color: var(--muted); font-weight: 500; font-size: .76rem; padding: 6px 6px; border-bottom: 1px solid var(--line); }
+  .dias td { padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .dias td.h { text-align: right; font-family: "JetBrains Mono", monospace; white-space: nowrap; }
+  .dias td.f { font-family: "JetBrains Mono", monospace; font-size: .8rem; color: var(--muted); }
+  .dias tr.inc td { color: var(--warn); }
+  .dias tr.inc td.f { color: var(--warn); }
+  .tabla-wrap { overflow-x: auto; margin-top: 12px; }
   footer { margin-top: 28px; text-align: center; color: var(--muted); font-size: .8rem; }
 </style>
 </head>
@@ -236,6 +249,7 @@
     <button class="tab" role="tab" data-tool="poses" aria-selected="false">Poses por pliego</button>
     <button class="tab" role="tab" data-tool="presupuesto" aria-selected="false">Presupuesto</button>
     <button class="tab" role="tab" data-tool="planilla" aria-selected="false">Planilla de pedidos</button>
+    <button class="tab" role="tab" data-tool="horas" aria-selected="false">Cálculo de horas</button>
     <button class="tab" role="tab" data-tool="carton" disabled>Cartón montado <small>· próximamente</small></button>
   </nav>
 
@@ -648,6 +662,81 @@
         <div><small>Kilos</small><b id="plTotK">0</b></div>
       </div>
       <div class="pl-lista" id="plLista"></div>
+    </div>
+  </section>
+
+  <!-- ===== Herramienta: Cálculo de horas (fichadas del reloj) ===== -->
+  <section class="tool card" id="horas" hidden>
+    <div class="archivo">
+      <label for="hoArchivo">Archivo del reloj</label>
+      <input id="hoArchivo" type="file" accept=".dat,.txt,.csv,.xls,.xlsx">
+      <span class="estado" id="hoArchivoInfo">Subí el archivo de fichadas (por ejemplo <code>123_attlog.dat</code>, o el Excel). Se lee en tu navegador, no se sube a ningún lado.</span>
+    </div>
+
+    <div id="hoForm" hidden>
+      <h2 class="sec">Qué revisar</h2>
+      <div class="grid">
+        <div>
+          <label for="hoEmpleado">Empleado n°</label>
+          <select id="hoEmpleado" style="width:100%;font:inherit;font-size:1.05rem;padding:11px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)"></select>
+        </div>
+        <div>
+          <label for="hoNombre">Nombre</label>
+          <input id="hoNombre" placeholder="Nombre del empleado" style="padding-right:12px">
+        </div>
+        <div>
+          <label for="hoDesde">Desde</label>
+          <input id="hoDesde" type="date" style="padding-right:12px">
+        </div>
+        <div>
+          <label for="hoHasta">Hasta</label>
+          <input id="hoHasta" type="date" style="padding-right:12px">
+        </div>
+        <div class="full">
+          <label for="hoCompletar">Si falta la entrada o la salida, contar el día como</label>
+          <div class="field"><input id="hoCompletar" inputmode="decimal" value="8"><span class="unit">horas</span></div>
+        </div>
+        <div class="full chips" id="hoRangos">
+          <button type="button" class="chip" data-r="mes">Este mes</button>
+          <button type="button" class="chip" data-r="mesant">Mes anterior</button>
+          <button type="button" class="chip" data-r="q1">1ª quincena</button>
+          <button type="button" class="chip" data-r="q2">2ª quincena</button>
+          <button type="button" class="chip" data-r="7">Últimos 7 días</button>
+        </div>
+      </div>
+
+      <div class="result" aria-live="polite">
+        <div class="label">Horas trabajadas</div>
+        <div class="big" id="hoTotal">—</div>
+        <dl>
+          <dt>Días trabajados</dt><dd id="hoDias">—</dd>
+          <dt>Promedio por día</dt><dd id="hoProm">—</dd>
+          <dt>En decimal</dt><dd id="hoDec">—</dd>
+        </dl>
+        <div class="hint" id="hoHint" hidden></div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn primary" id="hoGuardar">Guardar en el historial</button>
+        <span class="estado" id="hoMsg"></span>
+      </div>
+
+      <div class="tabla-wrap"><table class="dias" id="hoTabla"></table></div>
+
+      <details>
+        <summary>¿Cómo se calcula?</summary>
+        <p>Se toman las fichadas del empleado de cada día en orden: la 1ª es entrada y la 2ª salida, la 3ª entrada y la 4ª salida, y así. Las fichadas repetidas con menos de 3 minutos de diferencia se cuentan como una sola.</p>
+        <p>Si un día tiene una cantidad impar de fichadas (falta una entrada o una salida), ese día se cuenta con las horas que elijas (8 por defecto) y queda marcado como <b>completado</b>.</p>
+      </details>
+    </div>
+
+    <h2 class="sec">Historial</h2>
+    <div class="aviso" id="hoRegAviso">
+      <span><b>Ingresá con Google</b> para guardar el historial de horas. Cada usuario ve solo el suyo.</span>
+    </div>
+    <div id="hoRegApp" hidden>
+      <div class="field"><input id="hoBuscar" placeholder="Buscar por nombre o número" style="padding-right:12px"></div>
+      <div class="pl-lista" id="hoLista"></div>
     </div>
   </section>
 
@@ -1286,6 +1375,169 @@
     calcular();
   })();
 
+  // ---------- Cálculo de horas ----------
+  (function () {
+    const $ = id => document.getElementById(id);
+    const KEY = 'horas-v1';
+    let fichadas = [];        // { emp, t: Date }
+    let ultimo = null;        // último cálculo, para guardar
+    const pad = x => String(x).padStart(2, '0');
+    const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const hhmm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const durTxt = min => { const m = Math.floor(min + 1e-9); return `${Math.floor(m / 60)} h ${pad(m % 60)} min`; };   // como Excel: sin redondear para arriba
+    const hms = min => { const t = Math.round(min * 60); return `${Math.floor(t / 3600)}:${pad(Math.floor(t % 3600 / 60))}:${pad(t % 60)}`; };
+    const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+    let nombres = {};
+    try { nombres = JSON.parse(localStorage.getItem(KEY) || '{}').nombres || {}; } catch (e) {}
+
+    // ----- Lectura del archivo -----
+    // Fecha y hora: "2018-06-04 17:18:00" (archivo .dat) o "4/6/2018 17:18" (día/mes/año, como lo muestra Excel)
+    function fechaDe(txt) {
+      let m = txt.match(/(\d{4})-(\d{1,2})-(\d{1,2})[ T]+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+      if (m) return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+      m = txt.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})[ T,]+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+      if (m) { const y = +m[3] < 100 ? 2000 + +m[3] : +m[3]; return new Date(y, +m[2] - 1, +m[1], +m[4], +m[5], +(m[6] || 0)); }
+      return null;
+    }
+    // Número de serie de Excel (días desde 30/12/1899) → fecha local
+    function fechaSerial(n) {
+      const ms = Math.round((n - 25569) * 86400 * 1000);   // 25569 = 1/1/1970
+      const u = new Date(ms);
+      return new Date(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate(), u.getUTCHours(), u.getUTCMinutes(), u.getUTCSeconds());
+    }
+    function filasAFichadas(filas) {
+      const out = [];
+      for (const f of filas) {
+        if (!f || f.length < 2) continue;
+        const emp = parseInt(String(f[0]).trim(), 10);
+        if (!(emp >= 0)) continue;
+        let t = null;
+        for (let i = 1; i < f.length && !t; i++) {
+          const c = f[i];
+          if (c instanceof Date) t = c;
+          else if (typeof c === 'number' && c > 20000 && c < 80000 && c % 1 !== 0) t = fechaSerial(c);
+          else if (c != null) t = fechaDe(String(c));
+        }
+        if (t && !isNaN(t)) out.push({ emp, t });
+      }
+      return out;
+    }
+    function cargarXlsx() {
+      if (window.XLSX) return Promise.resolve();
+      return new Promise((ok, mal) => {
+        const sc = document.createElement('script');
+        sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        sc.onload = ok; sc.onerror = () => mal(new Error('No se pudo cargar el lector de Excel (¿sin conexión?).'));
+        document.head.appendChild(sc);
+      });
+    }
+    async function leerArchivo(file) {
+      const nombre = file.name.toLowerCase();
+      if (/\.xlsx?$/.test(nombre)) {
+        await cargarXlsx();
+        const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+        let todas = [];
+        for (const n of wb.SheetNames) todas = todas.concat(XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: null }));
+        return filasAFichadas(todas);
+      }
+      const txt = await file.text();
+      // .dat del reloj (separado por tabulaciones) o CSV (; o ,)
+      return filasAFichadas(txt.split(/\r?\n/).map(l => (/[\t;]/.test(l) ? l.split(/[\t;]/) : l.split(',')).map(x => x.trim())));
+    }
+
+    $('hoArchivo').addEventListener('change', async e => {
+      const file = e.target.files[0]; if (!file) return;
+      const info = $('hoArchivoInfo');
+      info.textContent = 'Leyendo…';
+      try {
+        fichadas = await leerArchivo(file);
+      } catch (err) { fichadas = []; info.textContent = err.message || 'No se pudo leer el archivo.'; $('hoForm').hidden = true; return; }
+      if (!fichadas.length) { info.textContent = 'No encontré fichadas en ese archivo. Tiene que tener el número de empleado y la fecha con hora en cada fila.'; $('hoForm').hidden = true; return; }
+      fichadas.sort((a, b) => a.t - b.t);
+      const emps = [...new Set(fichadas.map(f => f.emp))].sort((a, b) => a - b);
+      const ini = fichadas[0].t, fin = fichadas[fichadas.length - 1].t;
+      info.textContent = `${file.name}: ${fichadas.length.toLocaleString('es-AR')} fichadas de ${emps.length} empleado${emps.length > 1 ? 's' : ''}, del ${iso(ini).split('-').reverse().join('/')} al ${iso(fin).split('-').reverse().join('/')}.`;
+      const sel = $('hoEmpleado'), prev = sel.value;
+      sel.innerHTML = emps.map(n => `<option value="${n}">${n}${nombres[n] ? ' · ' + nombres[n] : ''}</option>`).join('');
+      if (emps.includes(+prev)) sel.value = prev;
+      // Rango por defecto: el mes de la última fichada
+      $('hoDesde').value = iso(new Date(fin.getFullYear(), fin.getMonth(), 1));
+      $('hoHasta').value = iso(fin);
+      $('hoNombre').value = nombres[sel.value] || '';
+      $('hoForm').hidden = false;
+      calcular();
+    });
+
+    // ----- Cálculo -----
+    function calcular() {
+      const emp = +$('hoEmpleado').value, desde = $('hoDesde').value, hasta = $('hoHasta').value;
+      const hint = $('hoHint'); hint.hidden = true; $('hoMsg').textContent = '';
+      ultimo = null;
+      if (!desde || !hasta || desde > hasta) {
+        $('hoTotal').textContent = '—'; ['hoDias', 'hoProm', 'hoDec'].forEach(i => $(i).textContent = '—'); $('hoTabla').innerHTML = '';
+        if (desde > hasta) { hint.textContent = 'La fecha "desde" es posterior a "hasta".'; hint.hidden = false; }
+        return;
+      }
+      const porDia = {};
+      for (const f of fichadas) {
+        if (f.emp !== emp) continue;
+        const d = iso(f.t); if (d < desde || d > hasta) continue;
+        (porDia[d] ||= []).push(f.t);
+      }
+      const hsInc = Math.max(0, parseNum($('hoCompletar').value) || 0);
+      let total = 0, diasOk = 0, incompletos = 0, filas = '';
+      for (const d of Object.keys(porDia).sort()) {
+        // quitar repetidas (menos de 3 minutos de la anterior)
+        const ts = [];
+        for (const t of porDia[d]) if (!ts.length || t - ts[ts.length - 1] >= 3 * 60000) ts.push(t);
+        let min = 0;
+        for (let i = 0; i + 1 < ts.length; i += 2) min += (ts[i + 1] - ts[i]) / 60000;
+        const inc = ts.length % 2 === 1;
+        const fd = new Date(d + 'T00:00');
+        const pares = [];
+        for (let i = 0; i < ts.length; i += 2) pares.push(hhmm(ts[i]) + (ts[i + 1] ? '–' + hhmm(ts[i + 1]) : '–?'));
+        if (inc) { incompletos++; min = hsInc * 60; }   // día incompleto: se completa con las horas elegidas
+        total += min; diasOk++;
+        filas += `<tr class="${inc ? 'inc' : ''}"><td>${DIAS[fd.getDay()]} ${d.split('-').reverse().join('/')}</td><td class="f">${pares.join('  ')}</td>`
+          + `<td class="h">${hms(min)}${inc ? '<br><small>completado</small>' : ''}</td></tr>`;
+      }
+      $('hoTabla').innerHTML = filas ? `<thead><tr><th>Día</th><th>Fichadas</th><th style="text-align:right">Horas</th></tr></thead><tbody>${filas}</tbody>` : '';
+      $('hoTotal').textContent = diasOk ? durTxt(total) : '0 h 00 min';
+      $('hoDias').textContent = String(diasOk);
+      $('hoProm').textContent = diasOk ? durTxt(total / diasOk) : '—';
+      $('hoDec').textContent = (Math.round(total / 60 * 100) / 100).toLocaleString('es-AR') + ' h';
+      const avisos = [];
+      if (!filas) avisos.push('No hay fichadas de este empleado en ese rango.');
+      if (incompletos) avisos.push(`${incompletos} día${incompletos > 1 ? 's' : ''} con una fichada faltante: se ${incompletos > 1 ? 'contaron' : 'contó'} como ${String(hsInc).replace('.', ',')} h. Están marcados en la tabla.`);
+      if (avisos.length) { hint.textContent = avisos.join(' '); hint.hidden = false; }
+      ultimo = { empleado: emp, nombre: $('hoNombre').value.trim(), desde, hasta, minutos: Math.floor(total + 1e-9), segundos: Math.round(total * 60), dias: diasOk, incompletos, horasCompletado: hsInc };
+    }
+    ['hoEmpleado', 'hoDesde', 'hoHasta'].forEach(id => $(id).addEventListener('change', calcular));
+    $('hoCompletar').addEventListener('input', calcular);
+    $('hoEmpleado').addEventListener('change', () => { $('hoNombre').value = nombres[$('hoEmpleado').value] || ''; calcular(); });
+    $('hoNombre').addEventListener('input', () => {
+      const n = $('hoEmpleado').value; nombres[n] = $('hoNombre').value.trim();
+      try { localStorage.setItem(KEY, JSON.stringify({ nombres })); } catch (e) {}
+      const opt = $('hoEmpleado').selectedOptions[0]; if (opt) opt.textContent = n + (nombres[n] ? ' · ' + nombres[n] : '');
+      if (ultimo) ultimo.nombre = nombres[n];
+    });
+    $('hoRangos').addEventListener('click', e => {
+      const b = e.target.closest('.chip'); if (!b) return;
+      // tomando como referencia la última fichada del archivo si es anterior a hoy
+      const ref = fichadas.length ? new Date(Math.min(Date.now(), fichadas[fichadas.length - 1].t)) : new Date();
+      const y = ref.getFullYear(), m = ref.getMonth();
+      let d1, d2;
+      if (b.dataset.r === 'mes') { d1 = new Date(y, m, 1); d2 = new Date(y, m + 1, 0); }
+      if (b.dataset.r === 'mesant') { d1 = new Date(y, m - 1, 1); d2 = new Date(y, m, 0); }
+      if (b.dataset.r === 'q1') { d1 = new Date(y, m, 1); d2 = new Date(y, m, 15); }
+      if (b.dataset.r === 'q2') { d1 = new Date(y, m, 16); d2 = new Date(y, m + 1, 0); }
+      if (b.dataset.r === '7') { d2 = new Date(ref); d1 = new Date(ref); d1.setDate(d1.getDate() - 6); }
+      $('hoDesde').value = iso(d1); $('hoHasta').value = iso(d2); calcular();
+    });
+
+    window.horas = { obtener: () => ultimo, nombres: () => nombres, durTxt };
+  })();
+
   // ---------- App instalable (funciona sin internet) ----------
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
@@ -1525,6 +1777,59 @@
 
   limpiarForm();
   aplicarPendiente();
+
+  // ================= Historial de horas =================
+  let horasReg = [], dejarHoras = null, horasBorrando = null;
+  const colH = () => fb.collection(db, 'usuarios', usuario.uid, 'horas');
+  fb.onAuthStateChanged(auth, u => {
+    if (dejarHoras) { dejarHoras(); dejarHoras = null; }
+    horasReg = []; horasBorrando = null;
+    $('hoRegAviso').hidden = !!u; $('hoRegApp').hidden = !u;
+    if (!u) return;
+    $('hoLista').innerHTML = '<div class="pl-vacio">Cargando…</div>';
+    dejarHoras = fb.onSnapshot(colH(), snap => {
+      horasReg = snap.docs.map(d => ({ id: d.id, ...d.data(), pendiente: d.metadata.hasPendingWrites }));
+      horasReg.sort((a, b) => (b.hasta || '').localeCompare(a.hasta || '') || ((b.creado?.seconds || 9e9) - (a.creado?.seconds || 9e9)));
+      pintarHoras();
+    }, e => { $('hoLista').innerHTML = '<div class="pl-vacio">No se pudo leer el historial (' + esc(e.code || e.message) + ').</div>'; });
+  });
+  function pintarHoras() {
+    const q = $('hoBuscar').value.trim().toLowerCase();
+    const lista = q ? horasReg.filter(r => (r.nombre + ' ' + r.empleado).toLowerCase().includes(q)) : horasReg;
+    if (!lista.length) {
+      $('hoLista').innerHTML = `<div class="pl-vacio">${horasReg.length ? 'No hay registros que coincidan.' : 'Todavía no guardaste cálculos. Subí el archivo, elegí empleado y fechas, y tocá "Guardar en el historial".'}</div>`;
+      return;
+    }
+    $('hoLista').innerHTML = lista.map(r => `
+      <div class="pl-item" data-id="${r.id}">
+        <div class="t">${esc(r.nombre || 'Empleado ' + r.empleado)} <span class="calle-sub">· n° ${esc(r.empleado)}</span></div>
+        <div class="n">${window.horas.durTxt(r.minutos || 0)}</div>
+        <div class="d">${esc(fechaTxt(r.desde))} al ${esc(fechaTxt(r.hasta))}${r.pendiente ? ' · <i>sin sincronizar</i>' : ''}</div>
+        <div class="n">${r.dias || 0} días${r.incompletos ? ` · ${r.incompletos} compl.` : ''}</div>
+        <div class="acc">${horasBorrando === r.id
+          ? `<span class="estado">¿Borrar este registro?</span><button type="button" class="btn small danger" data-acc="si">Sí, borrar</button><button type="button" class="btn small" data-acc="no">No</button>`
+          : `<button type="button" class="btn small" data-acc="borrar">Borrar</button>`}
+        </div>
+      </div>`).join('');
+  }
+  $('hoBuscar').addEventListener('input', pintarHoras);
+  $('hoGuardar').addEventListener('click', () => {
+    const msg = t => { $('hoMsg').textContent = t; };
+    if (!usuario) return msg('Ingresá con Google para guardar.');
+    const d = window.horas.obtener();
+    if (!d) return msg('Elegí un rango de fechas válido.');
+    if (!d.nombre) { $('hoNombre').focus(); return msg('Poné el nombre del empleado.'); }
+    fb.addDoc(colH(), { ...d, creado: fb.serverTimestamp() }).catch(e => msg('Error: ' + e.code));
+    msg(`Guardado: ${d.nombre}, ${window.horas.durTxt(d.minutos)}.`);
+  });
+  $('hoLista').addEventListener('click', e => {
+    const b = e.target.closest('[data-acc]'); if (!b) return;
+    const id = b.closest('.pl-item').dataset.id;
+    if (b.dataset.acc === 'borrar') horasBorrando = id;
+    else if (b.dataset.acc === 'no') horasBorrando = null;
+    else if (b.dataset.acc === 'si') { horasBorrando = null; fb.deleteDoc(fb.doc(colH(), id)); }
+    pintarHoras();
+  });
 
   // ================= Registro de presupuestos =================
   const pesos = v => '$ ' + v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
