@@ -113,6 +113,15 @@ sec.innerHTML = `
   <h2 class="sec">Terminaciones</h2>
   <div id="tsTerms" class="ts-terms"></div>
 
+  <h2 class="sec">Microcorrugado</h2>
+  <div class="grid">
+    <div><label for="tsMicroTipo">Tipo de micro</label><input id="tsMicroTipo" placeholder="Ej. Onda E blanco" style="padding-right:12px"></div>
+    <div><label for="tsMicroFormato">Formato</label><input id="tsMicroFormato" placeholder="Ej. 70×100" style="padding-right:12px"></div>
+    <div><label for="tsMicroPrecio">Precio por plancha</label><div class="field"><input id="tsMicroPrecio" inputmode="decimal"><button type="button" class="pr-cur" id="tsMicroMon" data-cur="ARS">$</button></div></div>
+    <div><label for="tsMicroPlanchas">Planchas</label><div class="field"><input id="tsMicroPlanchas" inputmode="numeric" placeholder="auto"><span class="unit">pl.</span></div></div>
+    <div class="full estado">Si dejás "Planchas" vacío, se cuenta una plancha por pliego de máquina (incluida la demasía).</div>
+  </div>
+
   <h2 class="sec">Otros costos</h2>
   <div class="grid">
     <div><label for="tsPreimp">Diseño / preimpresión</label><div class="field"><input id="tsPreimp" inputmode="decimal"><span class="unit">$</span></div></div>
@@ -203,20 +212,20 @@ sec.innerHTML = `
 `;
 
 // ---------- Estado de la UI ----------
-let uTr = 'mm', demModo = 'auto', iva = 21, papelMon = 'USD';
+let uTr = 'mm', demModo = 'auto', iva = 21, papelMon = 'USD', microMon = 'ARS';
 const termSel = {};   // id → { on, lados }
 const CAMPOS = ['tsFecha', 'tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsCalle', 'tsPinza', 'tsPoses', 'tsPapelSel', 'tsPapelNombre', 'tsGramaje',
   'tsPapelPrecio', 'tsPapelUnidad', 'tsCw', 'tsCh', 'tsCorte', 'tsMw', 'tsMh', 'tsMaquina', 'tsColF', 'tsColD', 'tsDemColor', 'tsDemPct', 'tsDemManual',
-  'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsMargen', 'tsDesc'];
+  'tsMicroTipo', 'tsMicroFormato', 'tsMicroPrecio', 'tsMicroPlanchas', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsMargen', 'tsDesc'];
 
 function snapshot() {
   const c = {}; CAMPOS.forEach(k => c[k] = $(k).value);
-  return { campos: c, uTr, demModo, iva, papelMon, mismaChapa: $('tsMismaChapa').checked, termSel: structuredClone(termSel) };
+  return { campos: c, uTr, demModo, iva, papelMon, microMon, mismaChapa: $('tsMismaChapa').checked, termSel: structuredClone(termSel) };
 }
 function restaurar(s) {
   if (!s) return;
   CAMPOS.forEach(k => { if (s.campos && s.campos[k] != null) $(k).value = s.campos[k]; });
-  uTr = s.uTr || 'mm'; demModo = s.demModo || 'auto'; iva = s.iva ?? 21; papelMon = s.papelMon || 'USD';
+  uTr = s.uTr || 'mm'; demModo = s.demModo || 'auto'; iva = s.iva ?? 21; papelMon = s.papelMon || 'USD'; microMon = s.microMon || 'ARS';
   $('tsMismaChapa').checked = !!s.mismaChapa;
   for (const k in termSel) delete termSel[k];
   Object.assign(termSel, s.termSel || {});
@@ -342,6 +351,7 @@ function entrada() {
       maquina: maquina || {},
       demasia: { modo: demModo, porColor: num($('tsDemColor').value), pct: num($('tsDemPct').value), manual: num($('tsDemManual').value) },
       terminaciones, otros,
+      micro: { tipo: $('tsMicroTipo').value.trim(), formato: $('tsMicroFormato').value.trim(), precio: num($('tsMicroPrecio').value), planchas: num($('tsMicroPlanchas').value), moneda: microMon },
       cajas: { porCaja: num($('tsPorCaja').value), precio: num($('tsCajaPrecio').value), moneda: 'ARS' },
       margen: num($('tsMargen').value), descuento: num($('tsDesc').value), iva, dolar: dolar?.venta || 0,
     },
@@ -356,6 +366,7 @@ function calcular() {
   document.querySelectorAll('.ts-dem-man').forEach(el => el.hidden = demModo !== 'manual');
   document.querySelectorAll('#tsIva button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.iva === iva));
   $('tsPapelMon').dataset.cur = papelMon; $('tsPapelMon').textContent = papelMon === 'USD' ? 'US$' : '$';
+  $('tsMicroMon').dataset.cur = microMon; $('tsMicroMon').textContent = microMon === 'USD' ? 'US$' : '$';
   $('tsMaqManual').hidden = $('tsCorte').value !== '0';
   $('tsTotalLabel').textContent = iva ? 'Total con IVA' : 'Total';
   $('tsDolarInfo').textContent = dolar?.venta ? `Dólar oficial (venta) para los precios en US$: ${pesos(dolar.venta)}` : 'Sin cotización del dólar: los precios en US$ no se pueden pasar a pesos.';
@@ -375,6 +386,7 @@ function calcular() {
   const res = cants.map(cant => presupuestar({ ...b, cant }));
   if (res.some(r => r.faltas?.dolar)) avisos.push('Hay precios en dólares y no hay cotización: esos ítems quedaron en 0.');
   if (verCant >= res.length) verCant = 0;
+  $('tsMicroPlanchas').placeholder = res[verCant]?.ok ? String(res[verCant].pm) : 'auto';
   ultimo = { E, cants, res };
 
   const chipsHtml = res.length > 1 ? res.map((r, i) => `<button type="button" class="chip" data-i="${i}" aria-pressed="${i === verCant}">${fmt(r.cant, 0)} ej.</button>`).join('') : '';
@@ -421,13 +433,14 @@ function pintarDocCliente() {
       ${medida ? `<tr><td>Medida terminada</td><td>${medida}</td></tr>` : ''}
       ${b.papel.nombre ? `<tr><td>Papel</td><td>${esc(b.papel.nombre)}</td></tr>` : ''}
       <tr><td>Impresión</td><td>${colTxt(b.colF, b.colD)}</td></tr>
+      ${b.micro.tipo || b.micro.formato ? `<tr><td>Microcorrugado</td><td>${esc([b.micro.tipo, b.micro.formato].filter(Boolean).join(' · '))}</td></tr>` : ''}
       ${terms ? `<tr><td>Terminaciones</td><td>${esc(terms)}</td></tr>` : ''}
     </table>
     <table class="ts-doc-precios">
       <thead><tr><th>Cantidad</th><th class="r">Precio unitario</th><th class="r">Subtotal${iva ? ' sin IVA' : ''}</th>${iva ? `<th class="r">Total con IVA ${fmt(iva, 1)} %</th>` : ''}</tr></thead>
       <tbody>${filas || '<tr><td colspan="4">—</td></tr>'}</tbody>
     </table>
-    <p class="ts-doc-pie">${im.validez ? `Validez de la oferta: ${esc(im.validez)} días. ` : ''}${im.pago ? `Forma de pago: ${esc(im.pago)}. ` : ''}${b.papel.moneda === 'USD' || b.maquina.moneda === 'USD' ? 'Precios sujetos a la cotización del dólar oficial. ' : ''}${esc(im.notas || '')}</p>`;
+    <p class="ts-doc-pie">${im.validez ? `Validez de la oferta: ${esc(im.validez)} días. ` : ''}${im.pago ? `Forma de pago: ${esc(im.pago)}. ` : ''}${b.papel.moneda === 'USD' || b.maquina.moneda === 'USD' || (b.micro.precio && b.micro.moneda === 'USD') ? 'Precios sujetos a la cotización del dólar oficial. ' : ''}${esc(im.notas || '')}</p>`;
 }
 function textoCliente() {
   const { E, res } = ultimo, b = E.base;
@@ -437,6 +450,7 @@ function textoCliente() {
     `Cliente: ${$('tsCliente').value || '—'}`, `Trabajo: ${$('tsTrabajo').value || '—'}`,
     E.tw ? `Medida: ${fmt(E.tw / 10, 1)} × ${fmt(E.th / 10, 1)} cm` : '',
     b.papel.nombre ? `Papel: ${b.papel.nombre}` : '', `Impresión: ${b.colF}/${b.colD}`,
+    b.micro.tipo || b.micro.formato ? `Microcorrugado: ${[b.micro.tipo, b.micro.formato].filter(Boolean).join(' · ')}` : '',
     b.terminaciones.length ? `Terminaciones: ${b.terminaciones.map(t => t.nombre + (t.lados > 1 ? ' F y D' : '')).join(', ')}` : '', '',
     ...res.filter(r => r.ok).map(r => `${fmt(r.cant, 0)} ej.: ${pesos(r.subtotal)}${iva ? ` + IVA = ${pesos(r.total)}` : ''} (${pesos(r.unitario)} c/u)`), '',
     cat.imprenta.validez ? `Validez: ${cat.imprenta.validez} días.` : '', cat.imprenta.pago ? `Forma de pago: ${cat.imprenta.pago}.` : '',
@@ -465,6 +479,7 @@ $('tsUTr').addEventListener('click', e => {
 $('tsDemModo').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { demModo = b.dataset.m; calcular(); } });
 $('tsIva').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { iva = +b.dataset.iva; calcular(); } });
 $('tsPapelMon').addEventListener('click', () => { papelMon = papelMon === 'USD' ? 'ARS' : 'USD'; calcular(); });
+$('tsMicroMon').addEventListener('click', () => { microMon = microMon === 'USD' ? 'ARS' : 'USD'; calcular(); });
 $('tsColChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; const [f, d] = b.dataset.c.split('/'); $('tsColF').value = f; $('tsColD').value = d; calcular(); });
 $('tsCantChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) { verCant = +b.dataset.i; calcular(); } });
 $('tsPapelSel').addEventListener('change', () => {
@@ -489,7 +504,7 @@ function aplicarDefaults(todo) {
   if (todo) { $('tsPinza').value = d.pinza; iva = d.iva; }
 }
 $('tsNuevo').addEventListener('click', () => {
-  ['tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsPoses', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsNumero'].forEach(id => $(id).value = '');
+  ['tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsPoses', 'tsMicroTipo', 'tsMicroFormato', 'tsMicroPrecio', 'tsMicroPlanchas', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsNumero'].forEach(id => $(id).value = '');
   $('tsFecha').value = hoy(); $('tsDesc').value = '0'; abierto = null; aplicarDefaults(true);
   for (const k in termSel) delete termSel[k]; pintarTerminaciones();
   $('tsClienteWrap').hidden = true; $('tsGuardar').textContent = 'Guardar presupuesto';

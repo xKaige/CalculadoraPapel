@@ -111,6 +111,14 @@ export function presupuestar(e) {
     add('Terminaciones', t.nombre + (t.lados > 1 ? ' (F y D)' : ''), det, q * precio + post);
   }
 
+  // Microcorrugado: una plancha por pliego de máquina (o la cantidad cargada a mano)
+  const mc = e.micro || {};
+  if (mc.precio > 0) {
+    const pr = aPesos(mc.precio, mc.moneda, e.dolar, faltas);
+    const planchas = mc.planchas > 0 ? Math.ceil(mc.planchas) : pm;
+    add('Microcorrugado', ['Microcorrugado', mc.tipo, mc.formato].filter(Boolean).join(' · '), `${planchas} planchas × ${fmt(pr)}`, planchas * pr);
+  }
+
   // Otros
   for (const o of e.otros || []) add('Otros', o.nombre, 'fijo', aPesos(o.precio || 0, o.moneda, e.dolar, faltas));
   const cj = e.cajas || {};
