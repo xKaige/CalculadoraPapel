@@ -388,6 +388,7 @@ function calcular() {
   const avisos = [];
   if (E.maquinaObj && b.maq && !entraEnMaquina(b.maq, E.maquinaObj)) avisos.push(`El pliego de máquina (${fmt(b.maq.w, 1)}×${fmt(b.maq.h, 1)}) no entra en la ${E.maquinaObj.nombre} (máx. ${E.maquinaObj.anchoMax}×${E.maquinaObj.altoMax}). Cortá el pliego en más partes o elegí otra máquina.`);
   if (E.maquinaObj && E.maquinaObj.colores && Math.max(b.colF, b.colD) > E.maquinaObj.colores) avisos.push(`La máquina es de ${E.maquinaObj.colores} color${E.maquinaObj.colores > 1 ? 'es' : ''}: se va a necesitar más de una pasada por lado.`);
+  if (num($('tsPoses').value) > 0 && E.autoPoses > 0 && E.poses > E.autoPoses) avisos.push(`Cargaste ${E.poses} poses, pero con estas medidas entran como máximo ${E.autoPoses}.`);
   const cants = cantidades();
   if (!cants.length) avisos.push('Cargá la cantidad (podés poner varias separadas por coma).');
   if (!E.poses) avisos.push(E.tw && b.maq ? 'El trabajo no entra en el pliego de máquina con esa pinza. Revisá medidas o cargá las poses a mano.' : 'Cargá el corte a corte y el pliego de compra para calcular las poses.');
@@ -506,13 +507,13 @@ function pintarDocCorte() {
   const doc = $('tsCorteDoc');
   const calle = num($('tsCalle').value), pinza = num($('tsPinza').value);
   if (!b.maq || !E.tw || !E.th) { doc.innerHTML = '<p>Cargá el corte a corte y el pliego para ver el diagrama.</p>'; return; }
-  const a = window.armadoPoses ? window.armadoPoses(b.maq.w * 10, b.maq.h * 10, E.tw, E.th, { pinza, calleX: calle, calleY: calle }) : null;
+  const a = window.armadoPoses ? window.armadoPoses(b.maq.w * 10, b.maq.h * 10, E.tw, E.th, { pinza, calleX: calle, calleY: calle, poses: E.poses }) : null;
   const filas = [
     ['Corte a corte', `${fmt(E.tw, 1)} × ${fmt(E.th, 1)} mm`],
     b.papel.nombre && ['Papel', b.papel.nombre],
     b.compra.w && ['Pliego de compra', `${fmt(b.compra.w, 1)} × ${fmt(b.compra.h, 1)} cm`],
     ['Pliego de máquina', `${fmt(b.maq.w, 1)} × ${fmt(b.maq.h, 1)} cm${E.corte ? ` (${E.corte === 1 ? 'entero' : 'pliego de compra en ' + E.corte})` : ''}`],
-    ['Poses por pliego', String(E.poses) + (a && a.rects.length !== E.poses ? ` (cargadas a mano; el diagrama muestra el armado automático de ${a.rects.length})` : '')],
+    ['Poses por pliego', String(E.poses) + (a && E.poses > a.maximo ? ` (ojo: con estas medidas entran como máximo ${a.maximo}; el dibujo muestra ${a.maximo})` : '')],
     ['Pinza / calle', `${fmt(pinza, 0)} mm / ${calle ? fmt(calle, 1) + ' mm' : 'sin calle'}`],
     ['Impresión', `${b.colF}/${b.colD}`],
     r && r.ok && ['Cantidad', `${fmt(r.cant, 0)} ej. → ${fmt(r.netos, 0)} pl. + ${fmt(r.dem, 0)} demasía = ${fmt(r.pm, 0)} pl. de máquina${E.corte ? ` = ${fmt(r.pc, 0)} pl. de compra` : ''}`],
@@ -526,7 +527,7 @@ function pintarDocCorte() {
     <table class="ts-doc-spec">${filas.map(([k, v]) => `<tr><td>${k}</td><td>${esc(v)}</td></tr>`).join('')}</table>
     <div class="ts-figs">
       ${E.corte && b.compra.w ? `<div class="ts-fig"><h4>1 · Pliego de compra: cortar en ${E.corte === 1 ? '— (entero)' : E.corte}</h4>${svgCompra(b.compra.w, b.compra.h, E.corte)}<p>Línea roja punteada: corte del pliego de compra. Cada pieza es un pliego de máquina de ${fmt(b.maq.w, 1)} × ${fmt(b.maq.h, 1)} cm.</p></div>` : ''}
-      ${a ? `<div class="ts-fig"><h4>${E.corte && b.compra.w ? '2' : '1'} · Pliego de máquina: ${a.rects.length} poses</h4>${svgMaquina(a, pinza, calle)}<p>Verde: poses derechas · rosa: giradas 90° · amarillo: pinza. Las cotas muestran el sobrante (mm) alrededor del bloque, que va centrado en la mesa.</p></div>` : '<p>El trabajo no entra en el pliego de máquina con esa pinza.</p>'}
+      ${a ? `<div class="ts-fig"><h4>${E.corte && b.compra.w ? '2' : '1'} · Pliego de máquina: ${a.rects.length} pose${a.rects.length === 1 ? '' : 's'}</h4>${svgMaquina(a, pinza, calle)}<p>Verde: poses derechas · rosa: giradas 90° · amarillo: pinza. Las cotas muestran el sobrante (mm) alrededor del bloque, que va centrado en la mesa.</p></div>` : '<p>El trabajo no entra en el pliego de máquina con esa pinza.</p>'}
     </div>`;
 }
 $('tsVerCorte').addEventListener('click', () => { pintarDocCorte(); $('tsCorteWrap').hidden = false; $('tsCorteWrap').scrollIntoView({ behavior: 'smooth' }); });

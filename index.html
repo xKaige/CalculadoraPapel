@@ -896,7 +896,24 @@
       const E = { t: m, b: m, l: m, r: m }; E[ld] = Math.max(pz, m);
       const box = { x: E.l, y: E.t, w: W - E.l - E.r, h: H - E.t - E.b };
       const r = solve(w, h, o.calleX ?? o.calle ?? 0, o.calleY ?? o.calle ?? 0, box);
-      return r.length ? { rects: r[0].rects, label: r[0].label, box, E, W, H } : null;
+      if (!r.length) return null;
+      let elegido = r[0];
+      const n = Math.floor(o.poses || 0);
+      // Si se pidieron menos poses que el máximo: un armado que tenga exactamente esas (prefiere grilla pareja)
+      if (n > 0 && n < r[0].rects.length) {
+        const exacto = r.find(x => x.rects.length === n && !/mixt/i.test(x.label)) || r.find(x => x.rects.length === n);
+        if (exacto) elegido = exacto;
+        else {
+          // si no hay ninguno exacto, se toman las primeras n del armado más chico que alcance, y se centran
+          const base = r.filter(x => x.rects.length >= n).sort((a, b) => a.rects.length - b.rects.length)[0];
+          const rs = [...base.rects].sort((a, b) => a.y - b.y || a.x - b.x).slice(0, n);
+          const x1 = Math.min(...rs.map(q => q.x)), y1 = Math.min(...rs.map(q => q.y));
+          const x2 = Math.max(...rs.map(q => q.x + q.w)), y2 = Math.max(...rs.map(q => q.y + q.h));
+          const dx = box.x + (box.w - (x2 - x1)) / 2 - x1, dy = box.y + (box.h - (y2 - y1)) / 2 - y1;
+          elegido = { rects: rs.map(q => ({ ...q, x: q.x + dx, y: q.y + dy })), label: base.label };
+        }
+      }
+      return { rects: elegido.rects, label: elegido.label, box, E, W, H, maximo: r[0].rects.length, pedido: n };
     };
 
     function setPressed(groupId, attr, val) {
