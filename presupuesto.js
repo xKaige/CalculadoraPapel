@@ -743,3 +743,18 @@ function conectar(fbInfo) {
 }
 window.addEventListener('pliego-auth', () => conectar(window.pliegoFB));
 if (window.pliegoFB) conectar(window.pliegoFB);
+
+// ---------- Para otras pestañas (Comparar → orden de trabajo) ----------
+// Recalcula un presupuesto guardado a partir de su snapshot, sin tocar lo que hay en pantalla.
+export function calcularDesdeSnapshot(snap) {
+  const prev = snapshot(), prevNum = $('tsNumero').value;
+  try {
+    restaurar(snap);
+    const E = entrada();
+    const res = cantidades().map(cant => presupuestar({ ...E.base, cant }));
+    return { E, res, calle: num($('tsCalle').value), pinza: num($('tsPinza').value), imprenta: { ...cat.imprenta } };
+  } finally {
+    restaurar(prev); $('tsNumero').value = prevNum; calcular();
+  }
+}
+export { svgCompra, svgMaquina };

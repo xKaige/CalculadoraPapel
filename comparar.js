@@ -1,6 +1,7 @@
 // Pestaña "Comparar": PDF de una orden de trabajo recibida vs. un presupuesto propio guardado.
 import { leerOrden, comparar, CAMPOS, numero } from './comparar-lector.js';
-import { pliegoMaquina } from './presupuesto-calculo.js';
+import { pliegoMaquina, fmt } from './presupuesto-calculo.js';
+import { calcularDesdeSnapshot, svgCompra, svgMaquina } from './presupuesto.js';
 
 const $ = id => document.getElementById(id);
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -12,6 +13,8 @@ let FB = null, usuario = null, presupuestos = [], dejar = null;
 let orden = {};        // campo → valor (lo leído del PDF, editable)
 let mio = {};          // campo → valor (del presupuesto elegido)
 let leidos = {};       // campo → línea del PDF de donde salió
+let ultimaComp = { ok: 0, no: 0 }, confirmarRojo = false;
+let ordenes = [], dejarOT = null, otBorrando = null;
 
 const sec = $('comparar');
 sec.innerHTML = `
@@ -39,6 +42,34 @@ sec.innerHTML = `
 
   <details style="margin-top:14px"><summary>Texto leído del PDF</summary><pre id="cmpTexto" class="cmp-pre">Todavía no subiste ningún PDF.</pre></details>
   <div class="actions"><button type="button" class="btn" id="cmpLimpiar">Limpiar orden</button></div>
+
+  <h2 class="sec">Orden de trabajo</h2>
+  <p class="estado" id="otEstado">Elegí un presupuesto para generar la orden de trabajo.</p>
+  <div class="grid">
+    <div><label for="otEntrega">Fecha de entrega</label><input id="otEntrega" type="date" style="padding-right:12px"></div>
+    <div><label for="otRef">Referencia del cliente</label><input id="otRef" placeholder="Ej. OC 4521" style="padding-right:12px"></div>
+    <div class="full"><label for="otObs">Observaciones para producción</label><textarea id="otObs" rows="3" class="ts-select" style="resize:vertical" placeholder="Ej. respetar pantone 485 · entregar en cajas de 500"></textarea></div>
+    <label class="full ts-check"><input type="checkbox" id="otDiagrama" checked> Incluir el diagrama de corte</label>
+    <label class="full ts-check"><input type="checkbox" id="otAprobar" checked> Marcar el presupuesto como aprobado</label>
+  </div>
+  <div class="actions">
+    <button type="button" class="btn primary" id="otGenerar" disabled>Generar orden de trabajo</button>
+    <span class="estado" id="otMsg"></span>
+  </div>
+  <div id="otWrap" hidden>
+    <div id="otDoc" class="ts-doc"></div>
+    <div class="actions">
+      <button type="button" class="btn primary" id="otImprimir">Imprimir / guardar PDF</button>
+      <button type="button" class="btn" id="otCerrar">Cerrar</button>
+    </div>
+  </div>
+
+  <h2 class="sec">Órdenes de trabajo generadas</h2>
+  <div class="aviso" id="otRegAviso"><span><b>Ingresá con Google</b> para generar y guardar órdenes de trabajo.</span></div>
+  <div id="otRegApp" hidden>
+    <div class="field"><input id="otBuscar" placeholder="Buscar por número, cliente o trabajo" style="padding-right:12px"></div>
+    <div class="pl-lista" id="otLista"></div>
+  </div>
 `;
 
 // ---------- Lectura del PDF (pdf.js) ----------
@@ -93,6 +124,7 @@ $('cmpPdf').addEventListener('change', async e => {
       orden = {}; leidos = {};
       for (const [k, v] of Object.entries(r)) { orden[k] = v.valor; leidos[k] = v.txt; }
       const n = CAMPOS.filter(([k]) => orden[k] != null).length;
+      if (orden.referencia) $('otRef').value = refCorta(orden.referencia);
       info.textContent = `${f.name}: reconocí ${n} de ${CAMPOS.length} datos. Revisalos y corregí lo que haga falta.`;
     }
   } catch (err) {
@@ -105,6 +137,15 @@ $('cmpLimpiar').addEventListener('click', () => {
   $('cmpPdfInfo').textContent = 'Subí el PDF de la orden o presupuesto que te mandaron. Se lee en tu navegador, no se sube a ningún lado.';
   pintar();
 });
+
+// "ORDEN DE COMPRA Nro. 118" → "OC 118"
+function refCorta(t) {
+  const m = String(t).match(/(?:nro\.?|n[uú]mero|n[°º.]*|#)\s*[:\-]?\s*(\S*\d\S*)/i);
+  if (!m) return t;
+  const n = t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const tipo = /compra/.test(n) ? 'OC' : /trabajo|o\.?\s?t\b/.test(n) ? 'OT' : /pedido/.test(n) ? 'Pedido' : /presupuesto/.test(n) ? 'Presup.' : '';
+  return (tipo ? tipo + ' ' : '') + m[1];
+}
 
 // ---------- Mi presupuesto ----------
 function cargarMio() {
@@ -211,6 +252,8 @@ function pintar() {
       row.querySelectorAll('.cmp-cell')[1].innerHTML = nueva.innerHTML;
     });
   }
+  ultimaComp = { ok, no };
+  estadoOT();
   const total = ok + no;
   $('cmpScore').textContent = total ? `${ok} de ${total}` : '—';
   $('cmpScore').style.color = !total ? '' : no ? 'var(--rot)' : 'var(--accent)';
@@ -244,3 +287,137 @@ function conectar(info) {
 window.addEventListener('pliego-auth', () => conectar(window.pliegoFB));
 if (window.pliegoFB) conectar(window.pliegoFB);
 pintar();
+
+
+// ================= Orden de trabajo =================
+function presupuestoElegido() { return presupuestos.find(x => x.id === $('cmpSel').value); }
+function estadoOT() {
+  const r = presupuestoElegido(), btn = $('otGenerar'), e = $('otEstado');
+  confirmarRojo = false; btn.textContent = 'Generar orden de trabajo';
+  btn.disabled = !r || !usuario;
+  if (!usuario) e.textContent = 'Ingresá con Google para generar órdenes de trabajo.';
+  else if (!r) e.textContent = 'Elegí un presupuesto para generar la orden de trabajo.';
+  else if (!ultimaComp.ok && !ultimaComp.no) e.textContent = `Se va a generar con los datos del presupuesto N° ${r.numero}. (No hay orden del cliente para comparar.)`;
+  else if (ultimaComp.no) e.innerHTML = `<span style="color:var(--rot)">Hay ${ultimaComp.no} dato${ultimaComp.no > 1 ? 's' : ''} que no coincide${ultimaComp.no > 1 ? 'n' : ''}.</span> Revisalo antes de generar la orden; si igual querés seguir, se usan los datos de tu presupuesto.`;
+  else e.innerHTML = `<span style="color:var(--accent)">Todo coincide.</span> La orden se genera con los datos del presupuesto N° ${r.numero}.`;
+}
+
+const pesos = v => '$ ' + fmt(v, 2);
+function htmlOT(numero, r, q, calc, extra) {
+  const { E, res, calle, pinza, imprenta: im } = calc, b = E.base;
+  const x = res.find(z => z.ok && z.cant === q.cant) || res.find(z => z.ok);
+  const terms = b.terminaciones.map(t => t.nombre + (t.lados > 1 ? ' (frente y dorso)' : '')).join(', ');
+  const filas = [
+    ['Cantidad', `${fmtN(q.cant)} ejemplares`],
+    E.tw && ['Medida terminada', `${fmt(E.tw, 1)} × ${fmt(E.th, 1)} mm`],
+    b.papel.nombre && ['Papel', b.papel.nombre],
+    ['Impresión', `${b.colF}/${b.colD}${b.mismaChapa ? ' · tira y retira' : ''}`],
+    b.maquina?.nombre && ['Máquina', b.maquina.nombre],
+    b.compra.w && ['Pliego de compra', `${fmt(b.compra.w, 1)} × ${fmt(b.compra.h, 1)} cm${E.corte > 1 ? ` · cortar en ${E.corte}` : ''}`],
+    b.maq && ['Pliego de máquina', `${fmt(b.maq.w, 1)} × ${fmt(b.maq.h, 1)} cm · ${E.poses} pose${E.poses === 1 ? '' : 's'} · pinza ${fmt(pinza, 0)} mm${calle ? ` · calle ${fmt(calle, 1)} mm` : ''}`],
+    x && ['Pliegos a imprimir', `${fmtN(x.netos)} + ${fmtN(x.dem)} de demasía = ${fmtN(x.pm)} pliegos de máquina`],
+    x && E.corte && ['Papel a pedir', `${fmtN(x.pc)} pliegos de compra${x.kilos ? ` · ${fmt(x.kilos, 1)} kg` : ''}`],
+    terms && ['Terminaciones', terms],
+    (b.micro.tipo || b.micro.formato) && ['Microcorrugado', [b.micro.tipo, b.micro.formato].filter(Boolean).join(' · ')],
+    b.cajas?.porCaja > 0 && ['Embalaje', `cajas de ${fmtN(b.cajas.porCaja)} ejemplares`],
+  ].filter(Boolean);
+  const pasos = ['Preimpresión / CTP', 'Impresión', ...b.terminaciones.map(t => t.nombre), ...(b.micro.precio ? ['Microcorrugado'] : []), 'Corte final', 'Empaque', 'Entrega'];
+  let diagrama = '';
+  if (extra.diagrama && b.maq && E.tw && window.armadoPoses) {
+    const a = window.armadoPoses(b.maq.w * 10, b.maq.h * 10, E.tw, E.th, { pinza, calleX: calle, calleY: calle, poses: E.poses });
+    diagrama = `<div class="ot-salto"></div><h3 class="ot-h3">Diagrama de corte · OT N° ${numero}</h3><div class="ts-figs">
+      ${E.corte && b.compra.w ? `<div class="ts-fig"><h4>Pliego de compra: cortar en ${E.corte}</h4>${svgCompra(b.compra.w, b.compra.h, E.corte)}</div>` : ''}
+      ${a ? `<div class="ts-fig"><h4>Pliego de máquina: ${a.rects.length} pose${a.rects.length === 1 ? '' : 's'}</h4>${svgMaquina(a, pinza, calle)}</div>` : ''}</div>`;
+  }
+  return `
+    <div class="ts-doc-head">
+      <div><div class="ts-doc-imp">ORDEN DE TRABAJO N° ${numero}</div>
+        <div class="ts-doc-sub">${[im.nombre && esc(im.nombre), 'Presupuesto N° ' + esc(r.numero), extra.ref && 'Ref. cliente: ' + esc(extra.ref)].filter(Boolean).join(' · ')}</div></div>
+      <div class="ts-doc-num">Emitida: <b>${fechaTxt(extra.fecha)}</b><br>Entrega: <b>${extra.entrega ? fechaTxt(extra.entrega) : 'a definir'}</b></div>
+    </div>
+    <p><b>Cliente:</b> ${esc(r.cliente) || '—'}<br><b>Trabajo:</b> ${esc(r.trabajo) || '—'}</p>
+    <table class="ts-doc-spec">${filas.map(([k, v]) => `<tr><td>${k}</td><td>${esc(v)}</td></tr>`).join('')}</table>
+    <table class="ts-doc-precios"><thead><tr><th>Precio acordado</th><th class="r">Unitario s/IVA</th><th class="r">Total s/IVA</th><th class="r">Total c/IVA</th></tr></thead>
+      <tbody><tr><td>${fmtN(q.cant)} ej.</td><td class="r">${pesos(q.unitario)}</td><td class="r">${pesos(q.subtotal)}</td><td class="r">${pesos(q.total)}</td></tr></tbody></table>
+    ${extra.obs ? `<p><b>Observaciones:</b><br>${esc(extra.obs).replace(/\n/g, '<br>')}</p>` : ''}
+    <table class="ts-doc-precios ot-control"><thead><tr><th>Control de producción</th><th>Fecha</th><th>Responsable</th><th>OK</th></tr></thead>
+      <tbody>${pasos.map(p => `<tr><td>${esc(p)}</td><td></td><td></td><td class="ot-box">☐</td></tr>`).join('')}</tbody></table>
+    ${diagrama}`;
+}
+
+$('otGenerar').addEventListener('click', () => {
+  const r = presupuestoElegido(); if (!r || !usuario || !FB) return;
+  if (ultimaComp.no && !confirmarRojo) {
+    confirmarRojo = true; $('otGenerar').textContent = 'Generar igual (hay diferencias)';
+    $('otMsg').textContent = 'Tocá de nuevo para confirmar.'; return;
+  }
+  const q = (r.resumen || [])[+$('cmpCant').value || 0]; if (!q) return;
+  const calc = calcularDesdeSnapshot(r.snapshot);
+  const hoy = new Date(); hoy.setMinutes(hoy.getMinutes() - hoy.getTimezoneOffset());
+  const extra = { fecha: hoy.toISOString().slice(0, 10), entrega: $('otEntrega').value, ref: $('otRef').value.trim(), obs: $('otObs').value.trim(), diagrama: $('otDiagrama').checked };
+  const numero = ordenes.reduce((m, o) => Math.max(m, o.numero || 0), 0) + 1;
+  const html = htmlOT(numero, r, q, calc, extra);
+  $('otDoc').innerHTML = html; $('otWrap').hidden = false;
+  const col = FB.fb.collection(FB.db, 'usuarios', usuario.uid, 'ordenes');
+  FB.fb.addDoc(col, { numero, ...extra, cliente: r.cliente || '', trabajo: r.trabajo || '', presupuestoId: r.id, presupuestoNumero: r.numero,
+    cantidad: q.cant, total: q.total, html, creado: FB.fb.serverTimestamp() }).catch(e => $('otMsg').textContent = 'Error al guardar: ' + e.code);
+  if ($('otAprobar').checked && r.estado !== 'Aprobado')
+    FB.fb.updateDoc(FB.fb.doc(FB.fb.collection(FB.db, 'usuarios', usuario.uid, 'presupuestosTest'), r.id), { estado: 'Aprobado' }).catch(() => {});
+  $('otMsg').textContent = `Orden de trabajo N° ${numero} generada y guardada.`;
+  confirmarRojo = false; $('otGenerar').textContent = 'Generar orden de trabajo';
+  $('otWrap').scrollIntoView({ behavior: 'smooth' });
+});
+$('otCerrar').addEventListener('click', () => $('otWrap').hidden = true);
+function imprimirOT(html, titulo) {
+  let area = document.getElementById('printArea');
+  if (!area) { area = document.createElement('div'); area.id = 'printArea'; document.body.appendChild(area); }
+  area.innerHTML = `<div class="ts-doc">${html}</div>`;
+  const t = document.title; document.title = titulo;
+  document.body.classList.add('imprimiendo');
+  const fin = () => { document.body.classList.remove('imprimiendo'); document.title = t; window.removeEventListener('afterprint', fin); };
+  window.addEventListener('afterprint', fin);
+  window.print();
+  setTimeout(fin, 1500);
+}
+$('otImprimir').addEventListener('click', () => {
+  const n = ($('otDoc').querySelector('.ts-doc-imp')?.textContent || 'Orden de trabajo');
+  imprimirOT($('otDoc').innerHTML, n.replace('ORDEN DE TRABAJO', 'Orden de trabajo'));
+});
+
+function pintarOT() {
+  const q = $('otBuscar').value.trim().toLowerCase();
+  const l = ordenes.filter(o => !q || [o.numero, o.cliente, o.trabajo, o.ref].join(' ').toLowerCase().includes(q));
+  if (!l.length) { $('otLista').innerHTML = `<div class="pl-vacio">${ordenes.length ? 'No hay órdenes que coincidan.' : 'Todavía no generaste órdenes de trabajo.'}</div>`; return; }
+  $('otLista').innerHTML = l.map(o => `<div class="pl-item" data-id="${o.id}">
+    <div class="t">OT N° ${esc(o.numero)} · ${esc(o.cliente || 'Sin cliente')}</div>
+    <div class="n">${o.total ? '$ ' + fmtN(o.total, 2) : ''}</div>
+    <div class="d">${fechaTxt(o.fecha)}${o.trabajo ? ' · ' + esc(o.trabajo) : ''} · presupuesto N° ${esc(o.presupuestoNumero)}${o.ref ? ' · ref. ' + esc(o.ref) : ''}</div>
+    <div class="n">${o.cantidad ? fmtN(o.cantidad) + ' ej.' : ''}${o.entrega ? ' · entrega ' + fechaTxt(o.entrega) : ''}</div>
+    <div class="acc">${otBorrando === o.id
+      ? '<span class="estado">¿Borrar esta orden?</span><button type="button" class="btn small danger" data-acc="si">Sí, borrar</button><button type="button" class="btn small" data-acc="no">No</button>'
+      : '<button type="button" class="btn small" data-acc="ver">Ver / imprimir</button><button type="button" class="btn small" data-acc="borrar">Borrar</button>'}</div>
+  </div>`).join('');
+}
+$('otBuscar').addEventListener('input', pintarOT);
+$('otLista').addEventListener('click', e => {
+  const b = e.target.closest('button[data-acc]'); if (!b) return;
+  const id = b.closest('.pl-item').dataset.id, o = ordenes.find(x => x.id === id); if (!o) return;
+  const a = b.dataset.acc;
+  if (a === 'ver') { $('otDoc').innerHTML = o.html || ''; $('otWrap').hidden = false; $('otWrap').scrollIntoView({ behavior: 'smooth' }); return; }
+  if (a === 'borrar') otBorrando = id; else if (a === 'no') otBorrando = null;
+  else if (a === 'si') { otBorrando = null; FB.fb.deleteDoc(FB.fb.doc(FB.fb.collection(FB.db, 'usuarios', usuario.uid, 'ordenes'), id)); }
+  pintarOT();
+});
+function conectarOT(info) {
+  if (dejarOT) { dejarOT(); dejarOT = null; }
+  ordenes = [];
+  $('otRegAviso').hidden = !!info.user; $('otRegApp').hidden = !info.user;
+  estadoOT();
+  if (!info.user) return;
+  dejarOT = info.fb.onSnapshot(info.fb.collection(info.db, 'usuarios', info.user.uid, 'ordenes'), snap => {
+    ordenes = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.numero || 0) - (a.numero || 0));
+    pintarOT();
+  }, () => {});
+}
+window.addEventListener('pliego-auth', () => conectarOT(window.pliegoFB));
+if (window.pliegoFB) conectarOT(window.pliegoFB);

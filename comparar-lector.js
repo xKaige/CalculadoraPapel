@@ -58,6 +58,12 @@ export function leerOrden(texto) {
     if (m) poner('trabajo', m[1].replace(/\s{2,}.*$/, '').trim(), l);
   }
 
+  // --- Número de orden / referencia del cliente
+  for (const { l, n } of L) {
+    const m = n.match(/(?:orden(?: de (?:trabajo|compra|produccion))?|o\.?\s?[tc]\.?|pedido|presupuesto|nota de pedido)\s*(?:nro\.?|numero|n[°ºo.]*|#)\s*[:\-]?\s*([a-z0-9][\w\-\/]*)/);
+    if (m && /\d/.test(m[1])) { poner('referencia', l.slice(0, 60).trim(), l); break; }
+  }
+
   // --- Medidas (pliego y trabajo)
   const todas = [];
   for (const { l, n } of L) for (const md of medidasDe(l)) {
