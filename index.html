@@ -277,6 +277,34 @@
     :root:has(body.imprimiendo) { padding: 0 !important; background: #fff !important; }
     .ts-fig { break-inside: avoid; }
   }
+  /* ---------- Comparar ---------- */
+  .cmp-top { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .cmp-box { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-width: 0; }
+  .cmp-box input[type=file] { width: 100%; font: inherit; font-size: .85rem; padding: 8px; }
+  .cmp-res { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
+  .cmp-res .big { margin: 0; }
+  .cmp-ley { flex-basis: 100%; font-size: .8rem; color: var(--muted); display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .cmp-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--line); margin-right: 6px; flex: 0 0 auto; }
+  .cmp-ley .cmp-dot { margin-left: 8px; }
+  .cmp-dot.ok { background: var(--accent); }
+  .cmp-dot.no { background: var(--rot); }
+  .cmp-tabla { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+  .cmp-row { display: grid; grid-template-columns: 170px 1fr 1fr; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); border-left-width: 4px; }
+  .cmp-row.ok { background: var(--accent-soft); border-color: var(--accent); }
+  .cmp-row.no { background: var(--rot-soft); border-color: var(--rot); }
+  .cmp-lab { font-weight: 600; font-size: .9rem; display: flex; align-items: center; min-width: 0; }
+  .cmp-cell { min-width: 0; }
+  .cmp-cell small { display: none; color: var(--muted); font-size: .7rem; }
+  .cmp-cell input { font-size: .95rem; padding: 8px 10px; background: var(--card); }
+  .cmp-dif { font-size: .76rem; color: var(--rot); margin-top: 3px; font-weight: 600; }
+  .cmp-mio { font-family: "JetBrains Mono", monospace; font-size: .88rem; overflow-wrap: anywhere; }
+  .cmp-pre { white-space: pre-wrap; font-size: .78rem; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; max-height: 320px; overflow: auto; }
+  @media (max-width: 640px) {
+    .cmp-top { grid-template-columns: 1fr; }
+    .cmp-row { grid-template-columns: 1fr 1fr; }
+    .cmp-lab { grid-column: 1 / -1; }
+    .cmp-cell small { display: block; }
+  }
   footer { margin-top: 28px; text-align: center; color: var(--muted); font-size: .8rem; }
 </style>
 </head>
@@ -311,6 +339,7 @@
     <button class="tab" role="tab" data-tool="presupuesto" aria-selected="false">Presupuesto</button>
     <button class="tab" role="tab" data-tool="planilla" aria-selected="false">Planilla de pedidos</button>
     <button class="tab" role="tab" data-tool="horas" aria-selected="false">Cálculo de horas</button>
+    <button class="tab" role="tab" data-tool="comparar" aria-selected="false">Comparar</button>
     <button class="tab" role="tab" data-tool="carton" disabled>Cartón montado <small>· próximamente</small></button>
   </nav>
 
@@ -659,6 +688,9 @@
 
   <!-- ===== Herramienta: Presupuesto (código en presupuesto.js y presupuesto-calculo.js) ===== -->
   <section class="tool card" id="presupuesto" hidden></section>
+
+  <!-- ===== Herramienta: Comparar orden recibida vs. presupuesto (código en comparar.js) ===== -->
+  <section class="tool card" id="comparar" hidden></section>
 
   <!-- ===== Herramienta: Cartón montado (pendiente) ===== -->
   <section class="tool card" id="carton" hidden>
@@ -1536,5 +1568,6 @@
 
 </script>
 <script type="module" src="presupuesto.js"></script>
+<script type="module" src="comparar.js"></script>
 </body>
 </html>
