@@ -312,8 +312,8 @@ const ETIQ = { kg: 'kilo', pliego: 'pliego', ARS: '$', USD: 'US$', ...UNIDADES }
 function pintarConfig() {
   for (const tipo of Object.keys(ESQ)) {
     const id = 'tsCat' + tipo[0].toUpperCase() + tipo.slice(1);
-    $(id).innerHTML = `<thead><tr>${ESQ[tipo].map(c => `<th>${c[1]}</th>`).join('')}<th></th></tr></thead><tbody>` +
-      cat[tipo].map((row, i) => `<tr data-tipo="${tipo}" data-i="${i}">${ESQ[tipo].map(([k, , t]) => {
+    $(id).innerHTML = `<thead><tr><th></th>${ESQ[tipo].map(c => `<th>${c[1]}</th>`).join('')}<th></th></tr></thead><tbody>` +
+      cat[tipo].map((row, i) => `<tr data-tipo="${tipo}" data-i="${i}"><td class="ts-drag" tabindex="0" title="Arrastrá para cambiar el orden (o usá las flechas ↑ ↓ del teclado)" aria-label="Mover">⠿</td>${ESQ[tipo].map(([k, , t]) => {
         if (Array.isArray(t)) return `<td><select data-k="${k}" class="ts-select ts-mini">${t.map(o => `<option value="${o}" ${row[k] === o ? 'selected' : ''}>${esc(ETIQ[o] || o)}</option>`).join('')}</select></td>`;
         if (t === 'b') return `<td><input type="checkbox" data-k="${k}" ${row[k] ? 'checked' : ''}></td>`;
         return `<td><input data-k="${k}" class="ts-cell${t === 'n' ? ' n' : ''}" value="${esc(t === 'n' ? String(row[k] ?? '').replace('.', ',') : row[k] ?? '')}"></td>`;
@@ -326,6 +326,54 @@ function pintarConfig() {
   $('tsDefaults').innerHTML = campo('defaults', 'demFrente', 'Demasía frente (pl.)') + campo('defaults', 'demDorso', 'Demasía dorso (pl.)') + campo('defaults', 'demPct', 'Demasía % del tiraje')
     + campo('defaults', 'margen', 'Ganancia %') + campo('defaults', 'iva', 'IVA %') + campo('defaults', 'pinza', 'Pinza mm');
 }
+// ---------- Ordenar filas del catálogo arrastrando (mouse y dedo) ----------
+function moverFila(tipo, de, a) {
+  const lista = cat[tipo];
+  if (de === a || de < 0 || a < 0 || de >= lista.length || a >= lista.length) return;
+  const [x] = lista.splice(de, 1); lista.splice(a, 0, x);
+  pintarConfig(); catCambiado();
+}
+let arrastre = null;
+const cfg = $('tsConfig');
+cfg.addEventListener('pointerdown', e => {
+  const h = e.target.closest('.ts-drag'); if (!h) return;
+  e.preventDefault();
+  const tr = h.closest('tr');
+  arrastre = { tipo: tr.dataset.tipo, de: +tr.dataset.i, a: +tr.dataset.i, tr, tbody: tr.parentElement };
+  tr.classList.add('arrastrando');
+  h.setPointerCapture(e.pointerId);
+});
+cfg.addEventListener('pointermove', e => {
+  if (!arrastre) return;
+  const filas = [...arrastre.tbody.querySelectorAll('tr')];
+  let a = filas.length - 1;
+  for (let i = 0; i < filas.length; i++) {
+    const r = filas[i].getBoundingClientRect();
+    if (e.clientY < r.top + r.height / 2) { a = i; break; }
+  }
+  // la fila se ubica en el lugar de destino (antes de esa fila)
+  if (a > arrastre.de) a = Math.max(arrastre.de, a - 1);
+  arrastre.a = a;
+  filas.forEach((f, i) => { f.classList.toggle('drop-antes', i === a && a < arrastre.de); f.classList.toggle('drop-despues', i === a && a > arrastre.de); });
+  // si está cerca del borde de la pantalla, desplazar
+  if (e.clientY < 60) window.scrollBy(0, -12); else if (e.clientY > innerHeight - 60) window.scrollBy(0, 12);
+});
+const soltar = () => {
+  if (!arrastre) return;
+  const { tipo, de, a, tr, tbody } = arrastre; arrastre = null;
+  tr.classList.remove('arrastrando'); tbody.querySelectorAll('tr').forEach(f => f.classList.remove('drop-antes', 'drop-despues'));
+  moverFila(tipo, de, a);
+};
+cfg.addEventListener('pointerup', soltar);
+cfg.addEventListener('pointercancel', soltar);
+cfg.addEventListener('keydown', e => {
+  const h = e.target.closest('.ts-drag'); if (!h || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+  e.preventDefault();
+  const tr = h.closest('tr'), tipo = tr.dataset.tipo, de = +tr.dataset.i, a = de + (e.key === 'ArrowUp' ? -1 : 1);
+  moverFila(tipo, de, a);
+  $('tsConfig').querySelector(`tr[data-tipo="${tipo}"][data-i="${a}"] .ts-drag`)?.focus();
+});
+
 let guardarCatT = null;
 function catCambiado() {
   llenarSelects(); pintarTerminaciones(); calcular();
