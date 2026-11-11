@@ -593,8 +593,8 @@
           </datalist>
         </div>
         <div>
-          <label for="plPliegos">Pliegos</label>
-          <div class="field"><input id="plPliegos" inputmode="numeric" placeholder="5000"><span class="unit">pl.</span></div>
+          <label for="plPliegos">Hojas</label>
+          <div class="field"><input id="plPliegos" inputmode="numeric" placeholder="5000"><span class="unit">hojas</span></div>
         </div>
         <div>
           <label for="plKilos">Kilos</label>
@@ -612,7 +612,7 @@
       <div class="field"><input id="plBuscar" placeholder="Buscar por proveedor, material, trabajo o formato" style="padding-right:12px"></div>
       <div class="pl-tot">
         <div><small>Registros</small><b id="plTotN">0</b></div>
-        <div><small>Pliegos</small><b id="plTotP">0</b></div>
+        <div><small>Hojas</small><b id="plTotP">0</b></div>
         <div><small>Kilos</small><b id="plTotK">0</b></div>
       </div>
       <div class="pl-lista" id="plLista"></div>
@@ -777,7 +777,7 @@
   function listoParaPedido(p) {
     pedidoActual = p;
     $('pasarPedido').disabled = !p;
-    $('pasarMsg').textContent = p ? `${p.formato} · ${p.material} · ${fmt(p.pliegos, 0)} pl. · ${fmt(p.kilos, 2)} kg` : 'Completá medida, gramaje y cantidad.';
+    $('pasarMsg').textContent = p ? `${p.formato} · ${p.material} · ${fmt(p.pliegos, 0)} hojas · ${fmt(p.kilos, 2)} kg` : 'Completá medida, gramaje y cantidad.';
   }
 
   function calcular() {
@@ -1396,7 +1396,7 @@
     $('plLista').innerHTML = lista.map(r => `
       <div class="pl-item${editando === r.id ? ' editando' : ''}" data-id="${r.id}">
         <div class="t">${esc(r.proveedor)}</div>
-        <div class="n">${r.pliegos != null ? fmtN(r.pliegos) + ' pl.' : '—'}</div>
+        <div class="n">${r.pliegos != null ? fmtN(r.pliegos) + ' hojas' : '—'}</div>
         <div class="d">${esc(fechaTxt(r.fecha))} · ${esc(r.material)}${r.formato ? ' · ' + esc(r.formato) : ''}${r.pendiente ? ' · <i>sin sincronizar</i>' : ''}</div>
         <div class="n">${r.kilos != null ? fmtN(r.kilos, 2) + ' kg' : '—'}</div>
         ${r.trabajo ? `<div class="d tr">Trabajo: <b>${esc(r.trabajo)}</b></div>` : ''}
@@ -1449,7 +1449,7 @@
       actualizado: fb.serverTimestamp(),
     };
     if (!datos.proveedor || !datos.material) return estado('Completá proveedor y material.');
-    if (datos.pliegos == null && datos.kilos == null) return estado('Cargá pliegos o kilos.');
+    if (datos.pliegos == null && datos.kilos == null) return estado('Cargá hojas o kilos.');
     const id = editando;
     cancelarEdicion();
     try {
@@ -1483,7 +1483,7 @@
     }
     const kg = Math.round(med[0] * med[1] * g * pl / 1e7 * 100) / 100;
     $('plKilos').value = String(kg).replace('.', ',');
-    info.textContent = `Kilos calculados: ${fmtN(med[0], 1)}×${fmtN(med[1], 1)} cm · ${fmtN(g, 1)} g · ${fmtN(pl)} pliegos.`;
+    info.textContent = `Kilos calculados: ${fmtN(med[0], 1)}×${fmtN(med[1], 1)} cm · ${fmtN(g, 1)} g · ${fmtN(pl)} hojas.`;
   }
   ['plPliegos', 'plFormato', 'plMaterial'].forEach(id => $(id).addEventListener('input', recalcularKilos));
   $('plKilos').addEventListener('input', () => $('plKilosInfo').textContent = 'Kilos cargados a mano.');
