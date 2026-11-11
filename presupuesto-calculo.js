@@ -14,6 +14,16 @@ export function pliegoMaquina(cw, ch, n, manual) {
   return { w: Math.round(Math.min(a, b) * 10) / 10, h: Math.round(Math.max(a, b) * 10) / 10 };
 }
 
+// Pliegos de máquina por pliego de compra: el corte elegido (½, ¼…) o, con "otra medida", cuántos entran
+export function piezasPorCompra(cw, ch, corte, maq) {
+  if (corte) return corte;
+  if (!(cw > 0 && ch > 0 && maq && maq.w > 0 && maq.h > 0)) return 1;
+  const e = 1e-9;
+  const a = Math.floor(cw / maq.w + e) * Math.floor(ch / maq.h + e);
+  const b = Math.floor(cw / maq.h + e) * Math.floor(ch / maq.w + e);
+  return Math.max(1, a, b);
+}
+
 export function entraEnMaquina(pm, maq) {
   if (!pm || !maq || !(maq.anchoMax > 0 && maq.altoMax > 0)) return true;
   const A = Math.min(maq.anchoMax, maq.altoMax), B = Math.max(maq.anchoMax, maq.altoMax);
@@ -74,11 +84,13 @@ export function presupuestar(e) {
   const demP = Math.max(0, (d.pct || 0) / 100 * netos);
   const dem = Math.ceil(demF + demD + demP);
   const pm = netos + dem;                          // pliegos de máquina
-  const pc = Math.ceil(pm / (e.corte ? n : 1));    // pliegos de compra
   const cw = e.compra?.w || 0, ch = e.compra?.h || 0;
+  // cuántos pliegos de máquina salen de cada pliego de compra
+  const piezas = piezasPorCompra(cw, ch, e.corte, e.maq);
+  const pc = Math.ceil(pm / piezas);               // pliegos de compra
   const g = e.papel?.gramaje || 0;
   const kilos = cw && ch && g ? cw * ch * g * pc / 1e7 : 0;
-  Object.assign(r, { netos, dem, demF, demD, demP: Math.ceil(demP), pm, pc, kilos });
+  Object.assign(r, { netos, dem, demF, demD, demP: Math.ceil(demP), pm, pc, piezas, kilos });
   const c = { cant, pm, maqW: e.maq?.w || 0, maqH: e.maq?.h || 0 };
 
   // Papel

@@ -316,7 +316,7 @@ function htmlOT(numero, r, q, calc, extra) {
     b.compra.w && ['Pliego de compra', `${fmt(b.compra.w, 1)} × ${fmt(b.compra.h, 1)} cm${E.corte > 1 ? ` · cortar en ${E.corte}` : ''}`],
     b.maq && ['Pliego de máquina', `${fmt(b.maq.w, 1)} × ${fmt(b.maq.h, 1)} cm · ${E.poses} pose${E.poses === 1 ? '' : 's'} · pinza ${fmt(pinza, 0)} mm${calle ? ` · calle ${fmt(calle, 1)} mm` : ''}`],
     x && ['Pliegos a imprimir', `${fmtN(x.netos)} + ${fmtN(x.dem)} de demasía = ${fmtN(x.pm)} pliegos de máquina`],
-    x && E.corte && ['Papel a pedir', `${fmtN(x.pc)} pliegos de compra${x.kilos ? ` · ${fmt(x.kilos, 1)} kg` : ''}`],
+    x && b.compra.w && ['Papel a pedir', `${fmtN(x.pc)} pliegos de compra${x.piezas > 1 ? ` (salen ${x.piezas} de máquina por pliego)` : ''}${x.kilos ? ` · ${fmt(x.kilos, 1)} kg` : ''}`],
     terms && ['Terminaciones', terms],
     (b.micro.tipo || b.micro.formato) && ['Microcorrugado', [b.micro.tipo, b.micro.formato].filter(Boolean).join(' · ')],
     b.cajas?.porCaja > 0 && ['Embalaje', `cajas de ${fmtN(b.cajas.porCaja)} ejemplares`],

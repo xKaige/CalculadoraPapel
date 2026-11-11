@@ -2,7 +2,7 @@
 // Guarda en Firebase: usuarios/{uid}/config/test (catálogo) y usuarios/{uid}/presupuestosTest (presupuestos).
 // (Los nombres "test" quedaron de cuando era la pestaña de prueba; se mantienen para no perder lo ya guardado.)
 // Los presupuestos de la versión anterior siguen en usuarios/{uid}/presupuestos y se muestran aparte, solo lectura.
-import { presupuestar, pliegoMaquina, entraEnMaquina, UNIDADES, fmt } from './presupuesto-calculo.js';
+import { presupuestar, pliegoMaquina, entraEnMaquina, piezasPorCompra, UNIDADES, fmt } from './presupuesto-calculo.js';
 
 const $ = id => document.getElementById(id);
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -69,6 +69,7 @@ let dolar = null;
 let usuario = null, FB = null;
 let lista = [], dejarLista = null, abierto = null, borrando = null, verCant = 0;
 let pedidos = [], dejarPedidos = null;   // pedidos de la Planilla, para traer el papel
+let pidiendo = null;                     // presupuesto que está eligiendo cantidad para el pedido de papel
 let ultimo = null;   // { entrada, resultados[] }
 
 // ---------- Estructura ----------
@@ -425,7 +426,7 @@ function calcular() {
   $('tsDolarInfo').textContent = dolar?.venta ? `Dólar oficial (venta) para los precios en US$: ${pesos(dolar.venta)}` : 'Sin cotización del dólar: los precios en US$ no se pueden pasar a pesos.';
 
   const E = entrada(), b = E.base;
-  $('tsPmTxt').textContent = b.maq ? `${fmt(b.maq.w, 1)} × ${fmt(b.maq.h, 1)} cm` : '—';
+  $('tsPmTxt').textContent = b.maq ? `${fmt(b.maq.w, 1)} × ${fmt(b.maq.h, 1)} cm${!E.corte && b.compra.w ? ` · salen ${piezasPorCompra(b.compra.w, b.compra.h, 0, b.maq)} por pliego de compra` : ''}` : '—';
   $('tsPosesTxt').textContent = E.poses ? String(E.poses) + (num($('tsPoses').value) > 0 ? ' (a mano)' : '') : '—';
   $('tsPoses').placeholder = E.autoPoses ? String(E.autoPoses) : 'auto';
 
@@ -557,11 +558,11 @@ function pintarDocCorte() {
     ['Corte a corte', `${fmt(E.tw, 1)} × ${fmt(E.th, 1)} mm`],
     b.papel.nombre && ['Papel', b.papel.nombre],
     b.compra.w && ['Pliego de compra', `${fmt(b.compra.w, 1)} × ${fmt(b.compra.h, 1)} cm`],
-    ['Pliego de máquina', `${fmt(b.maq.w, 1)} × ${fmt(b.maq.h, 1)} cm${E.corte ? ` (${E.corte === 1 ? 'entero' : 'pliego de compra en ' + E.corte})` : ''}`],
+    ['Pliego de máquina', `${fmt(b.maq.w, 1)} × ${fmt(b.maq.h, 1)} cm${E.corte ? ` (${E.corte === 1 ? 'entero' : 'pliego de compra en ' + E.corte})` : r && r.piezas ? ` (salen ${r.piezas} por pliego de compra)` : ''}`],
     ['Poses por pliego', String(E.poses) + (a && E.poses > a.maximo ? ` (ojo: con estas medidas entran como máximo ${a.maximo}; el dibujo muestra ${a.maximo})` : '')],
     ['Pinza / calle', `${fmt(pinza, 0)} mm / ${calle ? fmt(calle, 1) + ' mm' : 'sin calle'}`],
     ['Impresión', `${b.colF}/${b.colD}`],
-    r && r.ok && ['Cantidad', `${fmt(r.cant, 0)} ej. → ${fmt(r.netos, 0)} pl. + ${fmt(r.dem, 0)} demasía = ${fmt(r.pm, 0)} pl. de máquina${E.corte ? ` = ${fmt(r.pc, 0)} pl. de compra` : ''}`],
+    r && r.ok && ['Cantidad', `${fmt(r.cant, 0)} ej. → ${fmt(r.netos, 0)} pl. + ${fmt(r.dem, 0)} demasía = ${fmt(r.pm, 0)} pl. de máquina${b.compra.w ? ` = ${fmt(r.pc, 0)} pl. de compra` : ''}`],
     b.micro.tipo && ['Microcorrugado', [b.micro.tipo, b.micro.formato].filter(Boolean).join(' · ')],
   ].filter(Boolean);
   doc.innerHTML = `
@@ -714,7 +715,9 @@ function pintarLista() {
       <div class="n">${p ? fmt(p.cant, 0) + ' ej.' : ''}</div>
       <div class="acc">
         <select data-acc="estado" class="ts-select ts-mini ts-estado ${String(r.estado || '').toLowerCase()}">${['Pendiente', 'Aprobado', 'Rechazado'].map(e => `<option ${r.estado === e ? 'selected' : ''}>${e}</option>`).join('')}</select>
-        ${borrando === r.id
+        ${pidiendo === r.id
+          ? `<span class="estado">Pedir papel para:</span>${(r.resumen || []).map((x, i) => `<button type="button" class="btn small" data-acc="pedido-cant" data-i="${i}">${fmt(x.cant, 0)} ej.</button>`).join('')}<button type="button" class="btn small" data-acc="no">Cancelar</button>`
+          : borrando === r.id
           ? `<span class="estado">¿Borrar?</span><button type="button" class="btn small danger" data-acc="si">Sí</button><button type="button" class="btn small" data-acc="no">No</button>`
           : `<button type="button" class="btn small" data-acc="abrir">Abrir</button>${r.estado === 'Aprobado' ? '<button type="button" class="btn small" data-acc="pedido">Pedido de papel</button>' : ''}<button type="button" class="btn small" data-acc="borrar">Borrar</button>`}
       </div></div>`;
@@ -732,15 +735,21 @@ $('tsLista').addEventListener('click', e => {
   const id = b.closest('.pl-item').dataset.id, r = lista.find(x => x.id === id); if (!r) return;
   const a = b.dataset.acc;
   if (a === 'borrar') borrando = id;
-  else if (a === 'no') borrando = null;
+  else if (a === 'no') { borrando = null; pidiendo = null; }
   else if (a === 'si') { borrando = null; if (abierto === id) abierto = null; FB.fb.deleteDoc(FB.fb.doc(col(), id)); msg('Presupuesto borrado.'); }
   else if (a === 'abrir') {
     restaurar(r.snapshot); $('tsNumero').value = r.numero || ''; abierto = id; verCant = 0;
     $('tsGuardar').textContent = 'Guardar cambios'; calcular();
     sec.scrollIntoView({ behavior: 'smooth' }); msg(`Presupuesto N° ${r.numero} abierto.`);
-  } else if (a === 'pedido') {
-    const p = r.resumen?.[0]; if (!p) return;
-    window.pedidoPendiente = { formato: r.compra, material: r.papel, pliegos: p.pc, kilos: p.kilos, trabajo: [r.trabajo, r.cliente].filter(Boolean).join(' · ') };
+  } else if (a === 'pedido' || a === 'pedido-cant') {
+    // se recalcula desde lo guardado (así los presupuestos viejos también piden bien el papel)
+    let res = [];
+    try { res = calcularDesdeSnapshot(r.snapshot).res.filter(x => x.ok); } catch (err) {}
+    if (!res.length) res = (r.resumen || []).map(x => ({ ...x, ok: true }));
+    if (res.length > 1 && a === 'pedido') { pidiendo = id; pintarLista(); return; }
+    const p = res[a === 'pedido-cant' ? +b.dataset.i : 0]; if (!p) return;
+    pidiendo = null;
+    window.pedidoPendiente = { formato: r.compra, material: r.papel, pliegos: p.pc, kilos: Math.round(p.kilos * 100) / 100, trabajo: [r.trabajo, r.cliente, fmt(p.cant, 0) + ' ej.'].filter(Boolean).join(' · ') };
     document.querySelector('[data-tool=planilla]').click();
     window.dispatchEvent(new Event('pedido-pendiente'));
     window.scrollTo({ top: 0, behavior: 'smooth' });
