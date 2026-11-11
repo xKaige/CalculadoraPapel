@@ -42,6 +42,7 @@ let cat = structuredClone(CATALOGO_INICIAL);
 let dolar = null;
 let usuario = null, FB = null;
 let lista = [], dejarLista = null, abierto = null, borrando = null, verCant = 0;
+let pedidos = [], dejarPedidos = null;   // pedidos de la Planilla, para traer el papel
 let ultimo = null;   // { entrada, resultados[] }
 
 // ---------- Estructura ----------
@@ -69,7 +70,9 @@ sec.innerHTML = `
 
   <h2 class="sec">Papel</h2>
   <div class="grid">
-    <div class="full"><label for="tsPapelSel">Papel</label><select id="tsPapelSel" class="ts-select"></select></div>
+    <div class="full"><label for="tsPedidoSel">Traer el papel de un pedido</label><select id="tsPedidoSel" class="ts-select"><option value="">— Ingresá con Google para ver tus pedidos —</option></select>
+      <span class="estado" id="tsPedidoInfo"></span></div>
+    <div class="full"><label for="tsPapelSel">Papel del catálogo</label><select id="tsPapelSel" class="ts-select"></select></div>
     <div><label for="tsPapelNombre">Tipo</label><input id="tsPapelNombre" placeholder="Ilustración" style="padding-right:12px"></div>
     <div><label for="tsGramaje">Gramaje</label><div class="field"><input id="tsGramaje" inputmode="decimal"><span class="unit">g/m²</span></div></div>
     <div><label for="tsPapelPrecio">Precio</label><div class="field"><input id="tsPapelPrecio" inputmode="decimal"><button type="button" class="pr-cur" id="tsPapelMon" data-cur="USD">US$</button></div></div>
@@ -721,6 +724,12 @@ $('tsViejosLista').addEventListener('click', e => {
 
 function conectar(fbInfo) {
   FB = fbInfo; usuario = fbInfo.user;
+  if (dejarPedidos) { dejarPedidos(); dejarPedidos = null; }
+  pedidos = []; llenarPedidos();
+  if (usuario) dejarPedidos = FB.fb.onSnapshot(FB.fb.collection(FB.db, 'usuarios', usuario.uid, 'planilla'), snap => {
+    pedidos = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+    const prev = $('tsPedidoSel').value; llenarPedidos(); if (pedidos.some(p => p.id === prev)) $('tsPedidoSel').value = prev;
+  }, () => {});
   if (dejarLista) { dejarLista(); dejarLista = null; }
   if (dejarViejos) { dejarViejos(); dejarViejos = null; }
   viejos = []; pintarViejos();
@@ -743,6 +752,39 @@ function conectar(fbInfo) {
 }
 window.addEventListener('pliego-auth', () => conectar(window.pliegoFB));
 if (window.pliegoFB) conectar(window.pliegoFB);
+
+// ---------- Traer el papel desde la Planilla de pedidos ----------
+const sinT = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+function llenarPedidos() {
+  const sel = $('tsPedidoSel');
+  if (!usuario) { sel.innerHTML = '<option value="">— Ingresá con Google para ver tus pedidos —</option>'; return; }
+  sel.innerHTML = `<option value="">${pedidos.length ? '— Elegí un pedido de la planilla —' : '— No hay pedidos en la planilla —'}</option>` + pedidos.map(p =>
+    `<option value="${p.id}">${fechaTxt(p.fecha)} · ${esc(p.proveedor || '')} · ${esc(p.material || '')}${p.formato ? ' · ' + esc(p.formato) : ''}${p.trabajo ? ' · ' + esc(p.trabajo) : ''}</option>`).join('');
+}
+$('tsPedidoSel').addEventListener('change', () => {
+  const p = pedidos.find(x => x.id === $('tsPedidoSel').value);
+  if (!p) { $('tsPedidoInfo').textContent = ''; return; }
+  // Material: "Ilustración 150 g" → tipo + gramaje
+  const g = String(p.material || '').match(/(\d+(?:[.,]\d+)?)\s*(?:g|gr|grs|gramos)\b/i);
+  const tipo = String(p.material || '').replace(/(\d+(?:[.,]\d+)?)\s*(?:g|gr|grs|gramos)\b.*$/i, '').trim();
+  if (tipo) $('tsPapelNombre').value = tipo;
+  if (g) $('tsGramaje').value = g[1];
+  // Formato: "72×102" (cm, o mm si es grande)
+  const f = String(p.formato || '').match(/(\d+(?:[.,]\d+)?)\s*[xX×*]\s*(\d+(?:[.,]\d+)?)/);
+  if (f) {
+    let a = num(f[1]), b = num(f[2]);
+    if (Math.max(a, b) > 200) { a /= 10; b /= 10; }
+    $('tsCw').value = String(a).replace('.', ','); $('tsCh').value = String(b).replace('.', ',');
+  }
+  // Si el mismo papel está en el catálogo, se toma su precio
+  const enCat = cat.papeles.find(x => sinT(x.nombre) === sinT(tipo) && (!g || num(x.gramaje) === num(g[1])));
+  if (enCat) {
+    $('tsPapelSel').value = enCat.id;
+    $('tsPapelPrecio').value = String(enCat.precio).replace('.', ','); $('tsPapelUnidad').value = enCat.unidad; papelMon = enCat.moneda;
+  } else $('tsPapelSel').value = '';
+  $('tsPedidoInfo').textContent = `Papel cargado del pedido a ${p.proveedor || 'proveedor'}${enCat ? ', con el precio del catálogo' : '. Ese papel no está en tu catálogo: cargá el precio'}.`;
+  calcular();
+});
 
 // ---------- Para otras pestañas (Comparar → orden de trabajo) ----------
 // Recalcula un presupuesto guardado a partir de su snapshot, sin tocar lo que hay en pantalla.

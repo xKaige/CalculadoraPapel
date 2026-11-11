@@ -66,6 +66,8 @@
   @media (min-width: 920px) {
     .wrap { max-width: 880px; }
     .tabs { flex-wrap: wrap; overflow: visible; }
+    .tabs { gap: 6px; }
+    .tab { padding: 7px 11px; font-size: .86rem; }
   }
   @media (min-width: 1060px) { .wrap { max-width: 1020px; } }
   .tab small { font-size: .72rem; opacity: .8; }
@@ -339,12 +341,12 @@
        y una <section class="tool" id="id"> abajo. -->
   <nav class="tabs" role="tablist">
     <button class="tab" role="tab" data-tool="peso-papel" aria-selected="true">Peso de papel</button>
-    <button class="tab" role="tab" data-tool="poses" aria-selected="false">Poses por pliego</button>
-    <button class="tab" role="tab" data-tool="presupuesto" aria-selected="false">Presupuesto</button>
     <button class="tab" role="tab" data-tool="planilla" aria-selected="false">Planilla de pedidos</button>
-    <button class="tab" role="tab" data-tool="horas" aria-selected="false">Cálculo de horas</button>
+    <button class="tab" role="tab" data-tool="presupuesto" aria-selected="false">Presupuesto</button>
     <button class="tab" role="tab" data-tool="comparar" aria-selected="false">Comparar</button>
-    <button class="tab" role="tab" data-tool="carton" disabled>Cartón montado <small>· próximamente</small></button>
+    <button class="tab" role="tab" data-tool="poses" aria-selected="false">Poses por pliego</button>
+    <button class="tab" role="tab" data-tool="horas" aria-selected="false">Cálculo de horas</button>
+    <button class="tab" role="tab" data-tool="carton" disabled>Cartón montado <small>· pronto</small></button>
   </nav>
 
   <!-- ===== Herramienta: Peso de papel ===== -->
