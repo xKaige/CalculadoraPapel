@@ -49,7 +49,7 @@ export const UNIDADES = {
    papel: { nombre, gramaje, precio, unidad: 'kg'|'pliego', moneda },
    compra: { w, h } (cm), corte: n, maq: { w, h } (cm, pliego de máquina),
    maquina: { nombre, chapa, postura, millar, minMillar, moneda },
-   demasia: { modo: 'auto'|'manual', porColor, pct, manual },
+   demasia: { frente, dorso, pct }   (pliegos para el frente, para el dorso si lleva, y % del tiraje)
    terminaciones: [{ nombre, unidad, precio, postura, moneda, lados }],
    otros: [{ nombre, precio, moneda }],
    cajas: { porCaja, precio, moneda },
@@ -69,15 +69,16 @@ export function presupuestar(e) {
 
   const netos = Math.ceil(cant / poses);
   const d = e.demasia || {};
-  const dem = d.modo === 'manual'
-    ? Math.max(0, Math.floor(d.manual || 0))
-    : Math.ceil((d.porColor || 0) * colores + (d.pct || 0) / 100 * netos);
+  const demF = (e.colF || 0) > 0 ? Math.max(0, d.frente || 0) : 0;
+  const demD = (e.colD || 0) > 0 ? Math.max(0, d.dorso || 0) : 0;
+  const demP = Math.max(0, (d.pct || 0) / 100 * netos);
+  const dem = Math.ceil(demF + demD + demP);
   const pm = netos + dem;                          // pliegos de máquina
   const pc = Math.ceil(pm / (e.corte ? n : 1));    // pliegos de compra
   const cw = e.compra?.w || 0, ch = e.compra?.h || 0;
   const g = e.papel?.gramaje || 0;
   const kilos = cw && ch && g ? cw * ch * g * pc / 1e7 : 0;
-  Object.assign(r, { netos, dem, pm, pc, kilos });
+  Object.assign(r, { netos, dem, demF, demD, demP: Math.ceil(demP), pm, pc, kilos });
   const c = { cant, pm, maqW: e.maq?.w || 0, maqH: e.maq?.h || 0 };
 
   // Papel

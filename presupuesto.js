@@ -16,7 +16,7 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 const CATALOGO_INICIAL = {
   version: 2,
   imprenta: { nombre: '', cuit: '', telefono: '', email: '', direccion: '', validez: 15, pago: 'Contado', notas: '' },
-  defaults: { demColor: 25, demPct: 2, margen: 40, iva: 21, pinza: 10 },
+  defaults: { demFrente: 100, demDorso: 100, demPct: 0, margen: 40, iva: 21, pinza: 10 },
   papeles: [
     { id: 'p1', nombre: 'Ilustración', gramaje: 150, precio: 1.6, unidad: 'kg', moneda: 'USD', w: 72, h: 102 },
     { id: 'p2', nombre: 'Ilustración', gramaje: 300, precio: 1.6, unidad: 'kg', moneda: 'USD', w: 72, h: 102 },
@@ -49,6 +49,10 @@ function actualizarCatalogo(c, versionGuardada) {
   for (let n = v + 1; n <= VERSION_CATALOGO; n++) for (const id of NUEVAS_TERMINACIONES[n] || []) {
     const t = CATALOGO_INICIAL.terminaciones.find(x => x.id === id);
     if (t && !c.terminaciones.some(x => x.id === id || x.nombre.toLowerCase() === t.nombre.toLowerCase())) c.terminaciones.push(structuredClone(t));
+  }
+  if (c.defaults && c.defaults.demFrente == null) {
+    const pc = c.defaults.demColor ?? 25;
+    c.defaults.demFrente = pc * 4; c.defaults.demDorso = pc * 4;
   }
   c.version = VERSION_CATALOGO;
   return c;
@@ -121,10 +125,11 @@ sec.innerHTML = `
     </div>
     <label class="full ts-check"><input type="checkbox" id="tsMismaChapa"> El dorso usa las mismas chapas (tira y retira)</label>
     <div class="full"><label>Demasía</label>
-      <div class="mode" role="group" id="tsDemModo"><button type="button" data-m="auto" aria-pressed="true">Automática</button><button type="button" data-m="manual" aria-pressed="false">A mano</button></div></div>
-    <div class="ts-dem-auto"><label for="tsDemColor">Por color</label><div class="field"><input id="tsDemColor" inputmode="numeric"><span class="unit">pl.</span></div></div>
-    <div class="ts-dem-auto"><label for="tsDemPct">Más % del tiraje</label><div class="field"><input id="tsDemPct" inputmode="decimal"><span class="unit">%</span></div></div>
-    <div class="full ts-dem-man" hidden><label for="tsDemManual">Demasía</label><div class="field"><input id="tsDemManual" inputmode="numeric" value="0"><span class="unit">pl.</span></div></div>
+      <span class="estado">Pliegos de más para todo el trabajo, por lado (no por color).</span></div>
+    <div><label for="tsDemFrente">Frente</label><div class="field"><input id="tsDemFrente" inputmode="numeric"><span class="unit">pl.</span></div></div>
+    <div id="tsDemDorsoBox"><label for="tsDemDorso">Dorso</label><div class="field"><input id="tsDemDorso" inputmode="numeric"><span class="unit">pl.</span></div></div>
+    <div class="full"><label for="tsDemPct">Además, % del tiraje (opcional)</label><div class="field"><input id="tsDemPct" inputmode="decimal"><span class="unit">%</span></div></div>
+    <div class="full estado" id="tsDemInfo"></div>
   </div>
 
   <h2 class="sec">Terminaciones</h2>
@@ -241,7 +246,7 @@ sec.innerHTML = `
 let uTr = 'mm', demModo = 'auto', iva = 21, papelMon = 'USD', microMon = 'ARS';
 const termSel = {};   // id → { on, lados }
 const CAMPOS = ['tsFecha', 'tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsCalle', 'tsPinza', 'tsPoses', 'tsPapelSel', 'tsPapelNombre', 'tsGramaje',
-  'tsPapelPrecio', 'tsPapelUnidad', 'tsCw', 'tsCh', 'tsCorte', 'tsMw', 'tsMh', 'tsMaquina', 'tsColF', 'tsColD', 'tsDemColor', 'tsDemPct', 'tsDemManual',
+  'tsPapelPrecio', 'tsPapelUnidad', 'tsCw', 'tsCh', 'tsCorte', 'tsMw', 'tsMh', 'tsMaquina', 'tsColF', 'tsColD', 'tsDemFrente', 'tsDemDorso', 'tsDemPct',
   'tsMicroTipo', 'tsMicroFormato', 'tsMicroPrecio', 'tsMicroPlanchas', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsMargen', 'tsDesc'];
 
 function snapshot() {
@@ -253,6 +258,12 @@ function restaurar(s) {
   CAMPOS.forEach(k => { if (s.campos && s.campos[k] != null) $(k).value = s.campos[k]; });
   uTr = s.uTr || 'mm'; demModo = s.demModo || 'auto'; iva = s.iva ?? 21; papelMon = s.papelMon || 'USD'; microMon = s.microMon || 'ARS';
   $('tsMismaChapa').checked = !!s.mismaChapa;
+  // presupuestos guardados con la demasía vieja (por color o a mano)
+  if (s.campos && s.campos.tsDemFrente == null) {
+    const cf = parseInt(s.campos.tsColF) || 0, cd = parseInt(s.campos.tsColD) || 0;
+    if (s.demModo === 'manual') { $('tsDemFrente').value = s.campos.tsDemManual || 0; $('tsDemDorso').value = 0; $('tsDemPct').value = 0; }
+    else { const pc = num(s.campos.tsDemColor); $('tsDemFrente').value = Math.round(pc * cf); $('tsDemDorso').value = Math.round(pc * cd); }
+  }
   for (const k in termSel) delete termSel[k];
   Object.assign(termSel, s.termSel || {});
   pintarTerminaciones();
@@ -298,7 +309,7 @@ function pintarConfig() {
   $('tsImprenta').innerHTML = campo('imprenta', 'nombre', 'Nombre de la imprenta', true) + campo('imprenta', 'cuit', 'CUIT') + campo('imprenta', 'telefono', 'Teléfono')
     + campo('imprenta', 'email', 'Email') + campo('imprenta', 'direccion', 'Dirección') + campo('imprenta', 'validez', 'Validez (días)') + campo('imprenta', 'pago', 'Forma de pago')
     + campo('imprenta', 'notas', 'Observaciones fijas', true);
-  $('tsDefaults').innerHTML = campo('defaults', 'demColor', 'Demasía por color (pl.)') + campo('defaults', 'demPct', 'Demasía % del tiraje')
+  $('tsDefaults').innerHTML = campo('defaults', 'demFrente', 'Demasía frente (pl.)') + campo('defaults', 'demDorso', 'Demasía dorso (pl.)') + campo('defaults', 'demPct', 'Demasía % del tiraje')
     + campo('defaults', 'margen', 'Ganancia %') + campo('defaults', 'iva', 'IVA %') + campo('defaults', 'pinza', 'Pinza mm');
 }
 let guardarCatT = null;
@@ -375,7 +386,7 @@ function entrada() {
       papel: { nombre: `${$('tsPapelNombre').value.trim()} ${num($('tsGramaje').value) ? fmt(num($('tsGramaje').value), 0) + ' g' : ''}`.trim(), gramaje: num($('tsGramaje').value), precio: num($('tsPapelPrecio').value), unidad: $('tsPapelUnidad').value, moneda: papelMon },
       compra: { w: cw, h: ch }, corte: corte || 0, maq,
       maquina: maquina || {},
-      demasia: { modo: demModo, porColor: num($('tsDemColor').value), pct: num($('tsDemPct').value), manual: num($('tsDemManual').value) },
+      demasia: { frente: num($('tsDemFrente').value), dorso: num($('tsDemDorso').value), pct: num($('tsDemPct').value) },
       terminaciones, otros,
       micro: { tipo: $('tsMicroTipo').value.trim(), formato: $('tsMicroFormato').value.trim(), precio: num($('tsMicroPrecio').value), planchas: num($('tsMicroPlanchas').value), moneda: microMon },
       cajas: { porCaja: num($('tsPorCaja').value), precio: num($('tsCajaPrecio').value), moneda: 'ARS' },
@@ -387,9 +398,9 @@ function entrada() {
 function calcular() {
   document.querySelectorAll('#tsUTr button').forEach(b => b.setAttribute('aria-pressed', b.dataset.u === uTr));
   document.querySelectorAll('.tsUT').forEach(el => el.textContent = uTr);
-  document.querySelectorAll('#tsDemModo button').forEach(b => b.setAttribute('aria-pressed', b.dataset.m === demModo));
-  document.querySelectorAll('.ts-dem-auto').forEach(el => el.hidden = demModo !== 'auto');
-  document.querySelectorAll('.ts-dem-man').forEach(el => el.hidden = demModo !== 'manual');
+  const conDorso = Math.floor(num($('tsColD').value)) > 0;
+  $('tsDemDorsoBox').classList.toggle('calle-campo', true); $('tsDemDorsoBox').classList.toggle('off', !conDorso);
+  $('tsDemDorso').disabled = !conDorso;
   document.querySelectorAll('#tsIva button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.iva === iva));
   $('tsPapelMon').dataset.cur = papelMon; $('tsPapelMon').textContent = papelMon === 'USD' ? 'US$' : '$';
   $('tsMicroMon').dataset.cur = microMon; $('tsMicroMon').textContent = microMon === 'USD' ? 'US$' : '$';
@@ -424,7 +435,8 @@ function calcular() {
     set('tsTotal', pesos(r.total)); set('tsCosto', pesos(r.costo)); set('tsGan', `${pesos(r.ganancia)} (${fmt(b.margen, 1)} %)`);
     set('tsDescV', r.descuento ? `− ${pesos(r.descuento)}` : '—'); set('tsSub', pesos(r.subtotal)); set('tsIvaV', iva ? `${pesos(r.iva)} (${fmt(iva, 1)} %)` : '—');
     set('tsUnit', pesos(r.unitario)); set('tsUnitIva', pesos(r.unitarioIva));
-    set('tsPliegos', `${fmt(r.pm, 0)} / ${fmt(r.pc, 0)}  (demasía ${fmt(r.dem, 0)})`); set('tsKilos', r.kilos ? fmt(r.kilos, 2) + ' kg' : '—');
+    set('tsPliegos', `${fmt(r.pm, 0)} / ${fmt(r.pc, 0)}  (demasía ${fmt(r.dem, 0)})`);
+    $('tsDemInfo').textContent = `Demasía total: ${[r.demF && `frente ${fmt(r.demF, 0)}`, r.demD && `dorso ${fmt(r.demD, 0)}`, r.demP && `${fmt(b.demasia.pct, 1)} % del tiraje ${fmt(r.demP, 0)}`].filter(Boolean).join(' + ') || '0'} = ${fmt(r.dem, 0)} pliegos.`; set('tsKilos', r.kilos ? fmt(r.kilos, 2) + ' kg' : '—');
     let grupo = '';
     $('tsDetalle').innerHTML = '<thead><tr><th>Ítem</th><th>Cálculo</th><th style="text-align:right">Subtotal</th></tr></thead><tbody>' + r.lineas.map(l => {
       const g = l.grupo !== grupo ? (grupo = l.grupo, `<tr><td colspan="3" class="ts-grupo">${esc(l.grupo)}</td></tr>`) : '';
@@ -598,7 +610,6 @@ $('tsUTr').addEventListener('click', e => {
   ['tsTw', 'tsTh'].forEach(id => { const v = num($(id).value); if (v > 0) $(id).value = fmt(v * f, 2).replace(/\./g, '').replace(/,00$/, ''); });
   uTr = b.dataset.u; calcular();
 });
-$('tsDemModo').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { demModo = b.dataset.m; calcular(); } });
 $('tsIva').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { iva = +b.dataset.iva; calcular(); } });
 $('tsPapelMon').addEventListener('click', () => { papelMon = papelMon === 'USD' ? 'ARS' : 'USD'; calcular(); });
 $('tsMicroMon').addEventListener('click', () => { microMon = microMon === 'USD' ? 'ARS' : 'USD'; calcular(); });
@@ -620,7 +631,8 @@ $('tsTerms').addEventListener('change', e => {
 });
 function aplicarDefaults(todo) {
   const d = cat.defaults;
-  if (todo || $('tsDemColor').value === '') $('tsDemColor').value = d.demColor;
+  if (todo || $('tsDemFrente').value === '') $('tsDemFrente').value = d.demFrente ?? 100;
+  if (todo || $('tsDemDorso').value === '') $('tsDemDorso').value = d.demDorso ?? 100;
   if (todo || $('tsDemPct').value === '') $('tsDemPct').value = String(d.demPct).replace('.', ',');
   if (todo || $('tsMargen').value === '') $('tsMargen').value = String(d.margen).replace('.', ',');
   if (todo) { $('tsPinza').value = d.pinza; iva = d.iva; }
