@@ -14,6 +14,7 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 
 // ---------- Catálogo por defecto (precios de EJEMPLO) ----------
 const CATALOGO_INICIAL = {
+  version: 2,
   imprenta: { nombre: '', cuit: '', telefono: '', email: '', direccion: '', validez: 15, pago: 'Contado', notas: '' },
   defaults: { demColor: 25, demPct: 2, margen: 40, iva: 21, pinza: 10 },
   papeles: [
@@ -36,9 +37,22 @@ const CATALOGO_INICIAL = {
     { id: 't7', nombre: 'Doblado tríptico', unidad: 'millarEj', precio: 12000, postura: 15000, moneda: 'ARS', porLado: false },
     { id: 't8', nombre: 'Encuadernación binder', unidad: 'millarEj', precio: 60000, postura: 40000, moneda: 'ARS', porLado: false },
     { id: 't9', nombre: 'Corte final guillotina', unidad: 'fijo', precio: 15000, postura: 0, moneda: 'ARS', porLado: false },
+    { id: 't10', nombre: 'Pegado', unidad: 'millarEj', precio: 10000, postura: 15000, moneda: 'ARS', porLado: false },
   ],
 };
 let cat = structuredClone(CATALOGO_INICIAL);
+// Catálogos guardados antes de que existieran algunas terminaciones: se les agregan una sola vez
+const NUEVAS_TERMINACIONES = { 2: ['t10'] };   // versión → ids agregados
+const VERSION_CATALOGO = 2;
+function actualizarCatalogo(c, versionGuardada) {
+  const v = versionGuardada || 1;
+  for (let n = v + 1; n <= VERSION_CATALOGO; n++) for (const id of NUEVAS_TERMINACIONES[n] || []) {
+    const t = CATALOGO_INICIAL.terminaciones.find(x => x.id === id);
+    if (t && !c.terminaciones.some(x => x.id === id || x.nombre.toLowerCase() === t.nombre.toLowerCase())) c.terminaciones.push(structuredClone(t));
+  }
+  c.version = VERSION_CATALOGO;
+  return c;
+}
 let dolar = null;
 let usuario = null, FB = null;
 let lista = [], dejarLista = null, abierto = null, borrando = null, verCant = 0;
@@ -695,7 +709,7 @@ $('tsLista').addEventListener('click', e => {
 });
 
 // ---------- Inicio ----------
-try { const c = JSON.parse(localStorage.getItem('test-catalogo') || 'null'); if (c) cat = { ...structuredClone(CATALOGO_INICIAL), ...c }; } catch (e) {}
+try { const c = JSON.parse(localStorage.getItem('test-catalogo') || 'null'); if (c) { cat = actualizarCatalogo({ ...structuredClone(CATALOGO_INICIAL), ...c }, c.version); if ((c.version || 1) < VERSION_CATALOGO) localStorage.setItem('test-catalogo', JSON.stringify(cat)); } } catch (e) {}
 pintarConfig(); llenarSelects();
 let local = null; try { local = JSON.parse(localStorage.getItem('test-v1') || 'null'); } catch (e) {}
 if (local) restaurar(local); else { pintarTerminaciones(); $('tsPapelSel').value = 'p1'; $('tsPapelSel').dispatchEvent(new Event('change')); $('tsCorte').value = '2'; }
@@ -739,7 +753,7 @@ function conectar(fbInfo) {
   $('tsLista').innerHTML = '<div class="pl-vacio">Cargando…</div>';
   // catálogo de la cuenta
   FB.fb.getDoc(FB.fb.doc(FB.db, 'usuarios', usuario.uid, 'config', 'test')).then(d => {
-    if (d.exists() && d.data().catalogo) { cat = { ...structuredClone(CATALOGO_INICIAL), ...d.data().catalogo }; pintarConfig(); llenarSelects(); pintarTerminaciones(); calcular(); $('tsConfigInfo').textContent = 'Catálogo cargado de tu cuenta.'; }
+    if (d.exists() && d.data().catalogo) { const v0 = d.data().catalogo.version || 1; cat = actualizarCatalogo({ ...structuredClone(CATALOGO_INICIAL), ...d.data().catalogo }, v0); pintarConfig(); llenarSelects(); pintarTerminaciones(); calcular(); $('tsConfigInfo').textContent = 'Catálogo cargado de tu cuenta.'; if (v0 < VERSION_CATALOGO) catCambiado(); }
   }).catch(() => {});
   dejarLista = FB.fb.onSnapshot(col(), snap => {
     lista = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.numero || 0) - (a.numero || 0));
