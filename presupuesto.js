@@ -294,6 +294,11 @@ function pintarTerminaciones() {
       <label class="ts-check"><input type="checkbox" data-k="on" ${s.on ? 'checked' : ''}> ${esc(t.nombre)}</label>
       <span class="estado">${UNIDADES[t.unidad] || ''} · ${t.moneda === 'USD' ? 'US$' : '$'} ${fmt(t.precio)}${t.postura ? ' + postura ' + fmt(t.postura) : ''}</span>
       ${t.porLado ? `<select data-k="lados" class="ts-select ts-mini"><option value="1">Frente</option><option value="2" ${s.lados == 2 ? 'selected' : ''}>F y D</option></select>` : ''}
+      ${/stamping/i.test(t.nombre) && s.on ? `<div class="ts-extra grid">
+        <div><label>Cuño (precio por cuño)</label><div class="field"><input data-k="cuno" inputmode="decimal" value="${esc(s.cuno ?? '')}" placeholder="0"><button type="button" class="pr-cur" data-k="cunoMon" data-cur="${s.cunoMon || 'ARS'}">${s.cunoMon === 'USD' ? 'US$' : '$'}</button></div></div>
+        <div><label>Foil (precio por pliego)</label><div class="field"><input data-k="foil" inputmode="decimal" value="${esc(s.foil ?? '')}" placeholder="0"><button type="button" class="pr-cur" data-k="foilMon" data-cur="${s.foilMon || 'ARS'}">${s.foilMon === 'USD' ? 'US$' : '$'}</button></div></div>
+        <div class="full estado">Si es frente y dorso se cuentan dos cuños, y el foil va por cada pliego estampado.</div>
+      </div>` : ''}
     </div>`;
   }).join('') || '<p class="estado">No hay terminaciones cargadas. Agregalas en Configuración.</p>';
 }
@@ -384,7 +389,10 @@ function entrada() {
   const calle = num($('tsCalle').value), pinza = num($('tsPinza').value);
   const autoPoses = maq && tw > 0 && th > 0 && window.mejorPoses ? window.mejorPoses(maq.w * 10, maq.h * 10, tw, th, { pinza, calleX: calle, calleY: calle }) : 0;
   const poses = num($('tsPoses').value) > 0 ? Math.floor(num($('tsPoses').value)) : autoPoses;
-  const terminaciones = cat.terminaciones.filter(t => termSel[t.id]?.on).map(t => ({ ...t, lados: t.porLado ? (+termSel[t.id].lados || 1) : 1 }));
+  const terminaciones = cat.terminaciones.filter(t => termSel[t.id]?.on).map(t => {
+    const s = termSel[t.id], hs = /stamping/i.test(t.nombre);
+    return { ...t, lados: t.porLado ? (+s.lados || 1) : 1, cuno: hs ? num(s.cuno) : 0, foil: hs ? num(s.foil) : 0, cunoMon: s.cunoMon || 'ARS', foilMon: s.foilMon || 'ARS' };
+  });
   const otros = [['Diseño / preimpresión', 'tsPreimp'], ['Pruebas de color', 'tsPruebas'], ['Flete', 'tsFlete'], ['Otros', 'tsOtro']]
     .map(([nombre, id]) => ({ nombre, precio: num($(id).value), moneda: 'ARS' })).filter(o => o.precio > 0);
   return {
@@ -633,8 +641,21 @@ $('tsPapelSel').addEventListener('change', () => {
 $('tsTerms').addEventListener('change', e => {
   const row = e.target.closest('.ts-term'); if (!row) return;
   const s = termSel[row.dataset.id] ||= { on: false, lados: 1 };
-  if (e.target.dataset.k === 'on') { s.on = e.target.checked; row.classList.toggle('on', s.on); }
+  if (e.target.dataset.k === 'on') { s.on = e.target.checked; row.classList.toggle('on', s.on); if (/stamping/i.test(row.textContent)) pintarTerminaciones(); }
   if (e.target.dataset.k === 'lados') s.lados = +e.target.value;
+  calcular();
+});
+// Hot stamping: precio del cuño y del foil
+$('tsTerms').addEventListener('input', e => {
+  const k = e.target.dataset.k; if (k !== 'cuno' && k !== 'foil') return;
+  const s = termSel[e.target.closest('.ts-term').dataset.id]; if (s) s[k] = e.target.value;
+  calcular();
+});
+$('tsTerms').addEventListener('click', e => {
+  const b = e.target.closest('.pr-cur[data-k]'); if (!b) return;
+  const s = termSel[b.closest('.ts-term').dataset.id]; if (!s) return;
+  s[b.dataset.k] = s[b.dataset.k] === 'USD' ? 'ARS' : 'USD';
+  b.dataset.cur = s[b.dataset.k]; b.textContent = s[b.dataset.k] === 'USD' ? 'US$' : '$';
   calcular();
 });
 function aplicarDefaults(todo) {

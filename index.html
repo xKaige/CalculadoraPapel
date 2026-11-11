@@ -240,6 +240,8 @@
   .ts-terms { display: flex; flex-direction: column; }
   .ts-term { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 9px 0; border-top: 1px solid var(--line); }
   .ts-term .estado { flex: 1 1 160px; }
+  .ts-extra { flex-basis: 100%; margin: 4px 0 2px 26px; }
+  @media (max-width: 640px) { .ts-extra { margin-left: 0; } }
   .ts-term.on .ts-check { font-weight: 600; color: var(--accent); }
   .ts-grupo { color: var(--muted); font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; padding-top: 12px !important; }
   .ts-edit input.ts-cell { font-size: .85rem; padding: 6px 7px; min-width: 70px; border-radius: 6px; }

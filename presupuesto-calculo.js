@@ -110,6 +110,15 @@ export function presupuestar(e) {
     let det = t.unidad === 'fijo' ? fmt(precio) : `${fmt(q, t.unidad === 'pliego' || t.unidad === 'ej' ? 0 : 2)} ${unidadCorta} × ${fmt(precio)}`;
     if (post) det += ` + postura ${fmt(post)}`;
     add('Terminaciones', t.nombre + (t.lados > 1 ? ' (F y D)' : ''), det, q * precio + post);
+    // Hot stamping: cuño (uno por lado) y foil (por pliego estampado)
+    if (t.cuno > 0) {
+      const cu = aPesos(t.cuno, t.cunoMon, e.dolar, faltas);
+      add('Terminaciones', `${t.nombre}: cuño`, `${lados} × ${fmt(cu)}`, lados * cu);
+    }
+    if (t.foil > 0) {
+      const fo = aPesos(t.foil, t.foilMon, e.dolar, faltas);
+      add('Terminaciones', `${t.nombre}: foil`, `${fmt(c.pm * lados, 0)} pl. × ${fmt(fo)}`, c.pm * lados * fo);
+    }
   }
 
   // Microcorrugado: una plancha por pliego de máquina (o la cantidad cargada a mano)
