@@ -14,7 +14,7 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 
 // ---------- Catálogo por defecto (precios de EJEMPLO) ----------
 const CATALOGO_INICIAL = {
-  version: 3,
+  version: 4,
   imprenta: { nombre: '', cuit: '', telefono: '', email: '', direccion: '', validez: 15, pago: 'Contado', notas: '' },
   defaults: { demFrente: 100, demDorso: 100, demPct: 0, margen: 40, iva: 21, pinza: 10 },
   papeles: [
@@ -40,13 +40,14 @@ const CATALOGO_INICIAL = {
     { id: 't9', nombre: 'Corte final guillotina', unidad: 'fijo', precio: 15000, postura: 0, moneda: 'ARS', porLado: false },
     { id: 't10', nombre: 'Pegado', unidad: 'millarEj', precio: 10000, postura: 15000, moneda: 'ARS', porLado: false },
     { id: 't12', nombre: 'Hot melt de dorso', unidad: 'millarEj', precio: 70000, postura: 40000, moneda: 'ARS', porLado: false },
+    { id: 't13', nombre: 'Hot stamping', unidad: 'pliego', precio: 120, postura: 45000, moneda: 'ARS', porLado: true },
   ],
 };
 let cat = structuredClone(CATALOGO_INICIAL);
 // Catálogos guardados antes de que existieran algunas terminaciones: se les agregan una sola vez
-const NUEVAS_TERMINACIONES = { 2: ['t10'], 3: ['t11', 't12'] };   // versión → ids agregados
+const NUEVAS_TERMINACIONES = { 2: ['t10'], 3: ['t11', 't12'], 4: ['t13'] };   // versión → ids agregados
 const RENOMBRES = { 3: [['t4', 'UV sectorizado', 'Laca UV']] };     // versión → [id, nombre viejo, nombre nuevo]
-const VERSION_CATALOGO = 3;
+const VERSION_CATALOGO = 4;
 function actualizarCatalogo(c, versionGuardada) {
   const v = versionGuardada || 1;
   for (let n = v + 1; n <= VERSION_CATALOGO; n++) for (const [id, viejo, nuevo] of RENOMBRES[n] || []) {
