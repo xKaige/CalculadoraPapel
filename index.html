@@ -218,6 +218,8 @@
   .pl-item .n { text-align: right; font-family: "JetBrains Mono", monospace; font-size: .9rem; white-space: nowrap; }
   .pl-item .acc { grid-column: 1 / -1; display: flex; gap: 6px; justify-content: flex-end; margin-top: 4px; align-items: center; }
   .pl-item.editando { background: var(--accent-soft); margin: 0 -10px; padding: 12px 10px; border-radius: 8px; }
+  .ver-mas { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 0 2px; border-top: 1px solid var(--line); }
+  .ver-mas span { color: var(--muted); font-size: .82rem; margin-right: auto; }
   .pl-vacio { color: var(--muted); text-align: center; padding: 20px 0; font-size: .9rem; }
   .btn.danger { color: var(--rot); border-color: var(--rot); }
   .estado { font-size: .8rem; color: var(--muted); }
@@ -1077,6 +1079,31 @@
     render();
   })();
 
+  // ---------- Listas largas: se muestran de a 5, con "Ver más" ----------
+  window.Paginas = {
+    POR: 5, lim: {}, render: {},
+    html(id, items, fila, repintar) {
+      const n = this.lim[id] ?? this.POR;
+      this.render[id] = repintar;
+      let out = items.slice(0, n).map(fila).join('');
+      if (items.length > this.POR) {
+        out += `<div class="ver-mas" data-pag="${id}"><span>Mostrando ${Math.min(n, items.length)} de ${items.length}</span>`
+          + (n < items.length ? `<button type="button" class="btn small" data-p="mas">Ver ${Math.min(10, items.length - n)} más</button><button type="button" class="btn small" data-p="todos">Ver todos</button>` : '')
+          + (n > this.POR ? '<button type="button" class="btn small" data-p="menos">Ver menos</button>' : '') + '</div>';
+      }
+      return out;
+    },
+    reset(id) { delete this.lim[id]; },
+  };
+  document.addEventListener('click', e => {
+    const b = e.target.closest('.ver-mas [data-p]'); if (!b) return;
+    const P = window.Paginas, id = b.closest('.ver-mas').dataset.pag, n = P.lim[id] ?? P.POR;
+    P.lim[id] = b.dataset.p === 'mas' ? n + 10 : b.dataset.p === 'todos' ? Infinity : P.POR;
+    const lista = b.closest('.pl-lista');
+    P.render[id] && P.render[id]();
+    if (b.dataset.p === 'menos' && lista) lista.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
   // ---------- Dólar siempre visible (DolarApi: oficial y blue) ----------
   (function () {
     const $ = id => document.getElementById(id);
@@ -1406,7 +1433,7 @@
       $('plLista').innerHTML = `<div class="pl-vacio">${registros.length ? 'No hay registros que coincidan.' : 'Todavía no cargaste registros. Completá el formulario y tocá Guardar.'}</div>`;
       return;
     }
-    $('plLista').innerHTML = lista.map(r => `
+    $('plLista').innerHTML = window.Paginas.html('pedidos', lista, r => `
       <div class="pl-item${editando === r.id ? ' editando' : ''}" data-id="${r.id}">
         <div class="t">${esc(r.proveedor)}</div>
         <div class="n">${r.pliegos != null ? fmtN(r.pliegos) + ' hojas' : '—'}</div>
@@ -1417,7 +1444,7 @@
           ? `<span class="estado">¿Borrar este registro?</span><button type="button" class="btn small danger" data-acc="si">Sí, borrar</button><button type="button" class="btn small" data-acc="no">No</button>`
           : `<button type="button" class="btn small" data-acc="editar">Editar</button><button type="button" class="btn small" data-acc="borrar">Borrar</button>`}
         </div>
-      </div>`).join('');
+      </div>`, pintar);
   }
 
   function limpiarForm() {
@@ -1502,7 +1529,7 @@
   $('plKilos').addEventListener('input', () => $('plKilosInfo').textContent = 'Kilos cargados a mano.');
 
   $('plCancelar').addEventListener('click', () => { cancelarEdicion(); pintar(); });
-  $('plBuscar').addEventListener('input', pintar);
+  $('plBuscar').addEventListener('input', () => { window.Paginas.reset('pedidos'); pintar(); });
 
   $('plLista').addEventListener('click', e => {
     const b = e.target.closest('[data-acc]'); if (!b) return;
@@ -1556,7 +1583,7 @@
       $('hoLista').innerHTML = `<div class="pl-vacio">${horasReg.length ? 'No hay registros que coincidan.' : 'Todavía no guardaste cálculos. Subí el archivo, elegí empleado y fechas, y tocá "Guardar en el historial".'}</div>`;
       return;
     }
-    $('hoLista').innerHTML = lista.map(r => `
+    $('hoLista').innerHTML = window.Paginas.html('horas', lista, r => `
       <div class="pl-item" data-id="${r.id}">
         <div class="t">${esc(r.nombre || 'Empleado ' + r.empleado)} <span class="calle-sub">· n° ${esc(r.empleado)}</span></div>
         <div class="n">${window.horas.durTxt(r.minutos || 0)}</div>
@@ -1566,9 +1593,9 @@
           ? `<span class="estado">¿Borrar este registro?</span><button type="button" class="btn small danger" data-acc="si">Sí, borrar</button><button type="button" class="btn small" data-acc="no">No</button>`
           : `<button type="button" class="btn small" data-acc="borrar">Borrar</button>`}
         </div>
-      </div>`).join('');
+      </div>`, pintarHoras);
   }
-  $('hoBuscar').addEventListener('input', pintarHoras);
+  $('hoBuscar').addEventListener('input', () => { window.Paginas.reset('horas'); pintarHoras(); });
   $('hoGuardar').addEventListener('click', () => {
     const msg = t => { $('hoMsg').textContent = t; };
     if (!usuario) return msg('Ingresá con Google para guardar.');

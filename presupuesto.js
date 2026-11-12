@@ -778,7 +778,7 @@ function pintarLista() {
   const l = lista.filter(r => (!fe || r.estado === fe) && (!q || [r.cliente, r.trabajo, r.numero].join(' ').toLowerCase().includes(q)));
   $('tsClientes').innerHTML = [...new Set(lista.map(r => r.cliente).filter(Boolean))].sort().map(c => `<option value="${esc(c)}"></option>`).join('');
   if (!l.length) { $('tsLista').innerHTML = `<div class="pl-vacio">${lista.length ? 'No hay presupuestos que coincidan.' : 'Todavía no guardaste presupuestos. Armá uno arriba y tocá "Guardar presupuesto".'}</div>`; return; }
-  $('tsLista').innerHTML = l.map(r => {
+  $('tsLista').innerHTML = window.Paginas.html('pres', l, r => {
     const p = r.resumen?.[0];
     return `<div class="pl-item${abierto === r.id ? ' editando' : ''}" data-id="${r.id}">
       <div class="t">N° ${esc(r.numero)} · ${esc(r.cliente || 'Sin cliente')}</div>
@@ -794,10 +794,10 @@ function pintarLista() {
           ? `<span class="estado">¿Borrar?</span><button type="button" class="btn small danger" data-acc="si">Sí</button><button type="button" class="btn small" data-acc="no">No</button>`
           : `<button type="button" class="btn small" data-acc="abrir">Abrir</button>${r.estado === 'Aprobado' ? '<button type="button" class="btn small" data-acc="pedido">Pedido de papel</button>' : ''}<button type="button" class="btn small" data-acc="borrar">Borrar</button>`}
       </div></div>`;
-  }).join('');
+  }, pintarLista);
 }
-$('tsBuscar').addEventListener('input', pintarLista);
-$('tsFiltro').addEventListener('change', pintarLista);
+$('tsBuscar').addEventListener('input', () => { window.Paginas.reset('pres'); pintarLista(); });
+$('tsFiltro').addEventListener('change', () => { window.Paginas.reset('pres'); pintarLista(); });
 $('tsLista').addEventListener('change', e => {
   if (e.target.dataset.acc !== 'estado') return;
   const id = e.target.closest('.pl-item').dataset.id;

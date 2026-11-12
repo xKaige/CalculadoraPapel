@@ -388,7 +388,7 @@ function pintarOT() {
   const q = $('otBuscar').value.trim().toLowerCase();
   const l = ordenes.filter(o => !q || [o.numero, o.cliente, o.trabajo, o.ref].join(' ').toLowerCase().includes(q));
   if (!l.length) { $('otLista').innerHTML = `<div class="pl-vacio">${ordenes.length ? 'No hay órdenes que coincidan.' : 'Todavía no generaste órdenes de trabajo.'}</div>`; return; }
-  $('otLista').innerHTML = l.map(o => `<div class="pl-item" data-id="${o.id}">
+  $('otLista').innerHTML = window.Paginas.html('ordenes', l, o => `<div class="pl-item" data-id="${o.id}">
     <div class="t">OT N° ${esc(o.numero)} · ${esc(o.cliente || 'Sin cliente')}</div>
     <div class="n">${o.total ? '$ ' + fmtN(o.total, 2) : ''}</div>
     <div class="d">${fechaTxt(o.fecha)}${o.trabajo ? ' · ' + esc(o.trabajo) : ''} · presupuesto N° ${esc(o.presupuestoNumero)}${o.ref ? ' · ref. ' + esc(o.ref) : ''}</div>
@@ -396,9 +396,9 @@ function pintarOT() {
     <div class="acc">${otBorrando === o.id
       ? '<span class="estado">¿Borrar esta orden?</span><button type="button" class="btn small danger" data-acc="si">Sí, borrar</button><button type="button" class="btn small" data-acc="no">No</button>'
       : '<button type="button" class="btn small" data-acc="ver">Ver / imprimir</button><button type="button" class="btn small" data-acc="borrar">Borrar</button>'}</div>
-  </div>`).join('');
+  </div>`, pintarOT);
 }
-$('otBuscar').addEventListener('input', pintarOT);
+$('otBuscar').addEventListener('input', () => { window.Paginas.reset('ordenes'); pintarOT(); });
 $('otLista').addEventListener('click', e => {
   const b = e.target.closest('button[data-acc]'); if (!b) return;
   const id = b.closest('.pl-item').dataset.id, o = ordenes.find(x => x.id === id); if (!o) return;
