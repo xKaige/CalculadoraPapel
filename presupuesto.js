@@ -686,7 +686,7 @@ $('tsCopiar').addEventListener('click', () => {
   const ok = () => msg('Copiado. Pegalo en WhatsApp o en un mail.');
   if (navigator.clipboard?.writeText) navigator.clipboard.writeText(t).then(ok, () => msg('No se pudo copiar.')); else msg('No se pudo copiar.');
 });
-function msg(t) { $('tsMsg').textContent = t; clearTimeout(msg.t); msg.t = setTimeout(() => $('tsMsg').textContent = '', 4000); }
+function msg(t, ms = 4000) { $('tsMsg').textContent = t; clearTimeout(msg.t); msg.t = setTimeout(() => $('tsMsg').textContent = '', Math.max(ms, t.length > 60 ? 9000 : 0)); }
 
 // ---------- Eventos del formulario ----------
 sec.addEventListener('input', e => {
@@ -740,13 +740,14 @@ function aplicarDefaults(todo) {
   if (todo || $('tsMargen').value === '') $('tsMargen').value = String(d.margen).replace('.', ',');
   if (todo) { $('tsPinza').value = d.pinza; iva = d.iva; }
 }
-$('tsNuevo').addEventListener('click', () => {
+function nuevoPresupuesto(aviso = 'Presupuesto nuevo.') {
   ['tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsPoses', 'tsMicroTipo', 'tsMicroFormato', 'tsMicroPrecio', 'tsMicroPlanchas', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsNumero'].forEach(id => $(id).value = '');
   $('tsFecha').value = hoy(); $('tsDesc').value = '0'; abierto = null; aplicarDefaults(true); margenCant = {}; pintarMargenes.clave = null;
   for (const k in termSel) delete termSel[k]; pintarTerminaciones();
   $('tsClienteWrap').hidden = true; $('tsCorteWrap').hidden = true; $('tsGuardar').textContent = 'Guardar presupuesto';
-  calcular(); pintarLista(); msg('Presupuesto nuevo.');
-});
+  calcular(); pintarLista(); msg(aviso);
+}
+$('tsNuevo').addEventListener('click', () => nuevoPresupuesto());
 
 // ---------- Guardar / registro (Firebase) ----------
 const col = () => FB.fb.collection(FB.db, 'usuarios', usuario.uid, 'presupuestosTest');
@@ -763,16 +764,14 @@ $('tsGuardar').addEventListener('click', () => {
   };
   if (abierto) {
     FB.fb.updateDoc(FB.fb.doc(col(), abierto), datos).catch(e => msg('Error: ' + e.code));
-    msg('Cambios guardados.');
+    nuevoPresupuesto(`Cambios guardados en el presupuesto N° ${$('tsNumero').value}. Ya podés armar uno nuevo.`);
   } else {
     const numero = lista.reduce((m, x) => Math.max(m, x.numero || 0), 0) + 1;
     const ref = FB.fb.doc(col()); abierto = ref.id; $('tsNumero').value = numero;
     datos.snapshot.campos.tsNumero = String(numero);
     FB.fb.setDoc(ref, { ...datos, numero, estado: 'Pendiente', creado: FB.fb.serverTimestamp() }).catch(e => msg('Error: ' + e.code));
-    msg(`Guardado como presupuesto N° ${numero}.`);
+    nuevoPresupuesto(`Guardado como presupuesto N° ${numero}. Ya podés armar uno nuevo (para verlo o exportarlo, abrilo desde la lista).`);
   }
-  $('tsGuardar').textContent = 'Guardar cambios';
-  pintarLista();
 });
 function pintarLista() {
   const q = $('tsBuscar').value.trim().toLowerCase(), fe = $('tsFiltro').value;

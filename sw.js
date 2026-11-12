@@ -1,5 +1,5 @@
 // Cambiá este número cada vez que subas una versión nueva, para que el celular la actualice.
-const VERSION = 'papel-v37';
+const VERSION = 'papel-v38';
 const ARCHIVOS = ['./', 'index.html', 'manifest.webmanifest', 'firebase-config.js', 'presupuesto.js', 'presupuesto-calculo.js', 'comparar.js', 'comparar-lector.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png'];
 
