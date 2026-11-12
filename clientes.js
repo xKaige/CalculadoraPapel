@@ -1,6 +1,7 @@
 // Pestaña "Clientes": agenda de clientes y los presupuestos de cada uno.
 // Firebase: usuarios/{uid}/clientes. Los presupuestos se leen de usuarios/{uid}/presupuestosTest.
-import { abrirPresupuesto, presupuestoParaCliente } from './presupuesto.js';
+// presupuesto.js se carga cuando hace falta (así Clientes no depende de que Presupuesto cargue bien)
+const P = () => import('./presupuesto.js');
 
 const $ = id => document.getElementById(id);
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -14,7 +15,7 @@ let editando = null, borrando = null, abiertos = new Set();
 
 const sec = $('clientes');
 sec.innerHTML = `
-  <div class="aviso" id="clAviso"><span><b>Ingresá con Google</b> para cargar tu agenda de clientes. Cada usuario ve solo la suya.</span></div>
+  <div class="aviso" id="clAviso"><span id="clAvisoTxt">Cargando…</span></div>
   <div id="clApp" hidden>
     <h2 class="sec" style="margin-top:0" id="clTitulo">Nuevo cliente</h2>
     <form id="clForm" class="grid" autocomplete="off">
@@ -109,8 +110,8 @@ $('clLista').addEventListener('click', e => {
   const id = b.closest('.pl-item').dataset.id, c = clientes.find(x => x.id === id); if (!c) return;
   const a = b.dataset.acc;
   if (a === 'ver') abiertos.has(id) ? abiertos.delete(id) : abiertos.add(id);
-  else if (a === 'abrir-pres') { if (!abrirPresupuesto(b.dataset.pid)) msg('No se encontró ese presupuesto.'); return; }
-  else if (a === 'nuevo-pres') { presupuestoParaCliente(c.nombre); return; }
+  else if (a === 'abrir-pres') { P().then(m => { if (!m.abrirPresupuesto(b.dataset.pid)) msg('No se encontró ese presupuesto.'); }).catch(err => msg('Error: ' + err.message)); return; }
+  else if (a === 'nuevo-pres') { P().then(m => m.presupuestoParaCliente(c.nombre)).catch(err => msg('Error: ' + err.message)); return; }
   else if (a === 'borrar') borrando = id;
   else if (a === 'no') borrando = null;
   else if (a === 'si') { borrando = null; FB.fb.deleteDoc(FB.fb.doc(FB.fb.collection(FB.db, 'usuarios', usuario.uid, 'clientes'), id)); if (editando === id) limpiar(); msg('Cliente borrado.'); }
@@ -124,10 +125,12 @@ $('clLista').addEventListener('click', e => {
 });
 
 function conectar(info) {
+  if (!info.listo) return;   // esperar a que Google confirme la sesión
   FB = info; usuario = info.user;
   dejar.forEach(f => f()); dejar = [];
   clientes = []; presupuestos = []; limpiar();
   $('clAviso').hidden = !!usuario; $('clApp').hidden = !usuario;
+  $('clAvisoTxt').innerHTML = '<b>Ingresá con Google</b> para cargar tu agenda de clientes. Cada usuario ve solo la suya.';
   if (!usuario) return;
   $('clLista').innerHTML = '<div class="pl-vacio">Cargando…</div>';
   const col = n => FB.fb.collection(FB.db, 'usuarios', usuario.uid, n);

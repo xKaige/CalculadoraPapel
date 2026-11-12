@@ -1,7 +1,8 @@
 // Pestaña "Comparar": PDF de una orden de trabajo recibida vs. un presupuesto propio guardado.
 import { leerOrden, comparar, CAMPOS, numero } from './comparar-lector.js';
 import { pliegoMaquina, fmt } from './presupuesto-calculo.js';
-import { calcularDesdeSnapshot, svgCompra, svgMaquina } from './presupuesto.js';
+// presupuesto.js se carga cuando hace falta (así, si falla, el resto de Comparar sigue andando)
+let svgCompra, svgMaquina;
 
 const $ = id => document.getElementById(id);
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -26,7 +27,7 @@ sec.innerHTML = `
     </div>
     <div class="cmp-box">
       <h2 class="sec" style="margin-top:0">Mi presupuesto</h2>
-      <select id="cmpSel" class="ts-select"><option value="">— Ingresá con Google para ver tus presupuestos —</option></select>
+      <select id="cmpSel" class="ts-select"><option value="">Cargando…</option></select>
       <div id="cmpCantBox" hidden style="margin-top:8px"><label for="cmpCant">Cantidad presupuestada</label><select id="cmpCant" class="ts-select"></select></div>
       <p class="estado" id="cmpSelInfo"></p>
     </div>
@@ -65,7 +66,7 @@ sec.innerHTML = `
   </div>
 
   <h2 class="sec">Órdenes de trabajo generadas</h2>
-  <div class="aviso" id="otRegAviso"><span><b>Ingresá con Google</b> para generar y guardar órdenes de trabajo.</span></div>
+  <div class="aviso" id="otRegAviso"><span id="otRegAvisoTxt">Cargando…</span></div>
   <div id="otRegApp" hidden>
     <div class="field"><input id="otBuscar" placeholder="Buscar por número, cliente o trabajo" style="padding-right:12px"></div>
     <div class="pl-lista" id="otLista"></div>
@@ -274,6 +275,7 @@ function llenarSelect() {
   if (presupuestos.some(r => r.id === prev)) sel.value = prev;
 }
 function conectar(info) {
+  if (!info.listo) return;   // esperar a que Google confirme la sesión
   FB = info; usuario = info.user;
   if (dejar) { dejar(); dejar = null; }
   presupuestos = []; llenarSelect();
@@ -295,7 +297,8 @@ function estadoOT() {
   const r = presupuestoElegido(), btn = $('otGenerar'), e = $('otEstado');
   confirmarRojo = false; btn.textContent = 'Generar orden de trabajo';
   btn.disabled = !r || !usuario;
-  if (!usuario) e.textContent = 'Ingresá con Google para generar órdenes de trabajo.';
+  if (!FB) e.textContent = 'Cargando…';
+  else if (!usuario) e.textContent = 'Ingresá con Google para generar órdenes de trabajo.';
   else if (!r) e.textContent = 'Elegí un presupuesto para generar la orden de trabajo.';
   else if (!ultimaComp.ok && !ultimaComp.no) e.textContent = `Se va a generar con los datos del presupuesto N° ${r.numero}. (No hay orden del cliente para comparar.)`;
   else if (ultimaComp.no) e.innerHTML = `<span style="color:var(--rot)">Hay ${ultimaComp.no} dato${ultimaComp.no > 1 ? 's' : ''} que no coincide${ultimaComp.no > 1 ? 'n' : ''}.</span> Revisalo antes de generar la orden; si igual querés seguir, se usan los datos de tu presupuesto.`;
@@ -345,14 +348,19 @@ function htmlOT(numero, r, q, calc, extra) {
     ${diagrama}`;
 }
 
-$('otGenerar').addEventListener('click', () => {
+$('otGenerar').addEventListener('click', async () => {
   const r = presupuestoElegido(); if (!r || !usuario || !FB) return;
   if (ultimaComp.no && !confirmarRojo) {
     confirmarRojo = true; $('otGenerar').textContent = 'Generar igual (hay diferencias)';
     $('otMsg').textContent = 'Tocá de nuevo para confirmar.'; return;
   }
   const q = (r.resumen || [])[+$('cmpCant').value || 0]; if (!q) return;
-  const calc = calcularDesdeSnapshot(r.snapshot);
+  let calc;
+  try {
+    const P = await import('./presupuesto.js');
+    ({ svgCompra, svgMaquina } = P);
+    calc = P.calcularDesdeSnapshot(r.snapshot);
+  } catch (err) { $('otMsg').textContent = 'No se pudo armar la orden: ' + (err.message || err); return; }
   const hoy = new Date(); hoy.setMinutes(hoy.getMinutes() - hoy.getTimezoneOffset());
   const extra = { fecha: hoy.toISOString().slice(0, 10), entrega: $('otEntrega').value, ref: $('otRef').value.trim(), obs: $('otObs').value.trim(), diagrama: $('otDiagrama').checked };
   const numero = ordenes.reduce((m, o) => Math.max(m, o.numero || 0), 0) + 1;
@@ -409,9 +417,11 @@ $('otLista').addEventListener('click', e => {
   pintarOT();
 });
 function conectarOT(info) {
+  if (!info.listo) return;
   if (dejarOT) { dejarOT(); dejarOT = null; }
   ordenes = [];
   $('otRegAviso').hidden = !!info.user; $('otRegApp').hidden = !info.user;
+  $('otRegAvisoTxt').innerHTML = '<b>Ingresá con Google</b> para generar y guardar órdenes de trabajo.';
   estadoOT();
   if (!info.user) return;
   dejarOT = info.fb.onSnapshot(info.fb.collection(info.db, 'usuarios', info.user.uid, 'ordenes'), snap => {

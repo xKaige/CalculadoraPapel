@@ -99,7 +99,7 @@ sec.innerHTML = `
 
   <h2 class="sec">Papel</h2>
   <div class="grid">
-    <div class="full"><label for="tsPedidoSel">Traer el papel de un pedido</label><select id="tsPedidoSel" class="ts-select"><option value="">— Ingresá con Google para ver tus pedidos —</option></select>
+    <div class="full"><label for="tsPedidoSel">Traer el papel de un pedido</label><select id="tsPedidoSel" class="ts-select"><option value="">Cargando…</option></select>
       <span class="estado" id="tsPedidoInfo"></span></div>
     <div class="full"><label for="tsPapelSel">Papel del catálogo</label><select id="tsPapelSel" class="ts-select"></select></div>
     <div><label for="tsPapelNombre">Tipo</label><input id="tsPapelNombre" placeholder="Ilustración" style="padding-right:12px"></div>
@@ -227,7 +227,7 @@ sec.innerHTML = `
   </div>
 
   <h2 class="sec">Presupuestos guardados</h2>
-  <div class="aviso" id="tsRegAviso"><span><b>Ingresá con Google</b> para guardar presupuestos y tu catálogo de precios.</span></div>
+  <div class="aviso" id="tsRegAviso"><span id="tsRegAvisoTxt">Cargando…</span></div>
   <div id="tsRegApp" hidden>
     <div class="grid" style="grid-template-columns:1fr auto">
       <div class="field"><input id="tsBuscar" placeholder="Buscar por cliente, trabajo o número" style="padding-right:12px"></div>
@@ -863,7 +863,9 @@ $('tsViejosLista').addEventListener('click', e => {
 });
 
 function conectar(fbInfo) {
+  if (!fbInfo.listo) return;   // esperar a que Google confirme la sesión
   FB = fbInfo; usuario = fbInfo.user;
+  $('tsRegAvisoTxt').innerHTML = '<b>Ingresá con Google</b> para guardar presupuestos y tu catálogo de precios.';
   if (dejarPedidos) { dejarPedidos(); dejarPedidos = null; }
   pedidos = []; llenarPedidos();
   if (dejarClientes) { dejarClientes(); dejarClientes = null; }

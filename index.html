@@ -227,6 +227,8 @@
   .cl-estado { font-size: .72rem; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); margin-left: 4px; }
   .cl-estado.aprobado { color: var(--accent); border-color: var(--accent); }
   .cl-estado.rechazado { color: var(--rot); border-color: var(--rot); }
+  .error-bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: var(--rot-soft); border: 1px solid var(--rot); color: var(--ink); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; font-size: .85rem; }
+  .error-bar span { flex: 1 1 240px; }
   .ver-mas { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 0 2px; border-top: 1px solid var(--line); }
   .ver-mas span { color: var(--muted); font-size: .82rem; margin-right: auto; }
   .pl-vacio { color: var(--muted); text-align: center; padding: 20px 0; font-size: .9rem; }
@@ -353,6 +355,11 @@
 </head>
 <body>
 <div class="wrap">
+  <div class="error-bar" id="errorBar" hidden role="alert">
+    <span id="errorTxt"></span>
+    <button type="button" class="btn small" onclick="location.reload()">Recargar</button>
+    <button type="button" class="btn small" onclick="document.getElementById('errorBar').hidden = true">✕</button>
+  </div>
   <header class="top">
     <div>
       <h1>Pliego</h1>
@@ -594,8 +601,8 @@
   <!-- ===== Herramienta: Planilla de pedidos (datos por usuario, en Firebase) ===== -->
   <section class="tool card" id="planilla" hidden>
     <div class="aviso" id="plAviso">
-      <span id="plAvisoTxt"><b>Ingresá con Google</b> para usar la planilla. Cada usuario ve y guarda solo sus propios registros.</span>
-      <button type="button" class="btn primary btn-google" id="btnLogin2">Ingresar con Google</button>
+      <span id="plAvisoTxt">Cargando…</span>
+      <button type="button" class="btn primary btn-google" id="btnLogin2" hidden>Ingresar con Google</button>
     </div>
 
     <div id="plApp" hidden>
@@ -722,7 +729,7 @@
 
     <h2 class="sec">Historial</h2>
     <div class="aviso" id="hoRegAviso">
-      <span><b>Ingresá con Google</b> para guardar el historial de horas. Cada usuario ve solo el suyo.</span>
+      <span id="hoRegAvisoTxt">Cargando…</span>
     </div>
     <div id="hoRegApp" hidden>
       <div class="field"><input id="hoBuscar" placeholder="Buscar por nombre o número" style="padding-right:12px"></div>
@@ -748,6 +755,31 @@
 </div>
 
 <script>
+  // ---------- Si algo falla, mostrarlo arriba (para poder avisarlo) ----------
+  (function () {
+    const mostrar = t => {
+      const bar = document.getElementById('errorBar'); if (!bar) return;
+      document.getElementById('errorTxt').textContent = 'Algo falló: ' + t + '. Probá recargar; si sigue, pasale este mensaje a quien mantiene la app.';
+      bar.hidden = false;
+    };
+    window.addEventListener('error', e => {
+      const t = e.target;
+      // un archivo de la app que no cargó (por ejemplo un módulo)
+      if (t && t !== window && t.tagName === 'SCRIPT' && t.src && t.src.startsWith(location.origin)) return mostrar('no se pudo cargar ' + t.src.split('/').pop());
+      if (/dynamically imported module|Importing a module script failed|gstatic|Firebase sin configurar/i.test(e.message || '')) return;   // sin internet: ya se avisa en cada pestaña
+      if (e.filename && e.filename.startsWith(location.origin)) mostrar(`${e.message} (${e.filename.split('/').pop()}:${e.lineno})`);
+    }, true);
+    window.addEventListener('unhandledrejection', e => {
+      const m = e.reason && (e.reason.message || String(e.reason));
+      if (m && !/Firebase sin configurar|network|Failed to fetch|popup|dynamically imported module|Importing a module/i.test(m)) mostrar(m);
+    });
+    // Si Google no responde, que los "Cargando…" no queden colgados
+    window.pliegoSinConexion = () => document.querySelectorAll('.aviso span').forEach(sp => {
+      if (sp.textContent.trim() === 'Cargando…') sp.innerHTML = '<b>No se pudo conectar con Google.</b> Revisá la conexión y recargá la página.';
+    });
+    setTimeout(() => { if (!window.pliegoFB) window.pliegoSinConexion(); }, 20000);
+  })();
+
   // ---------- Pestañas ----------
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -1378,6 +1410,7 @@
   } catch (e) {
     $('btnLogin').hidden = true;
     aviso('<b>Sin conexión.</b> Para ingresar con Google necesitás internet la primera vez.', false);
+    window.pliegoSinConexion && window.pliegoSinConexion();
     throw e;
   }
 
@@ -1390,8 +1423,9 @@
   } catch (e) { db = fb.getFirestore(app); }
 
   // Puente para módulos externos (presupuesto.js)
-  window.pliegoFB = { fb, db, auth, user: null };
-  fb.onAuthStateChanged(auth, u => { window.pliegoFB.user = u; window.dispatchEvent(new Event('pliego-auth')); });
+  // listo = Google ya confirmó si hay sesión o no (antes de eso no hay que mostrar "Ingresá con Google")
+  window.pliegoFB = { fb, db, auth, user: null, listo: false };
+  fb.onAuthStateChanged(auth, u => { window.pliegoFB.user = u; window.pliegoFB.listo = true; window.dispatchEvent(new Event('pliego-auth')); });
 
   // ----- Login / logout -----
   async function ingresar() {
@@ -1592,6 +1626,7 @@
     if (dejarHoras) { dejarHoras(); dejarHoras = null; }
     horasReg = []; horasBorrando = null;
     $('hoRegAviso').hidden = !!u; $('hoRegApp').hidden = !u;
+    $('hoRegAvisoTxt').innerHTML = '<b>Ingresá con Google</b> para guardar el historial de horas. Cada usuario ve solo el suyo.';
     if (!u) return;
     $('hoLista').innerHTML = '<div class="pl-vacio">Cargando…</div>';
     dejarHoras = fb.onSnapshot(colH(), snap => {
