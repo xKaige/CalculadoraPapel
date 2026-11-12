@@ -69,7 +69,8 @@ let dolar = null;
 let usuario = null, FB = null;
 let lista = [], dejarLista = null, abierto = null, borrando = null, verCant = 0;
 let pedidos = [], dejarPedidos = null;   // pedidos de la Planilla, para traer el papel
-let pidiendo = null;                     // presupuesto que está eligiendo cantidad para el pedido de papel
+let pidiendo = null;
+let clientes = [], dejarClientes = null;   // agenda de la pestaña Clientes                     // presupuesto que está eligiendo cantidad para el pedido de papel
 let ultimo = null;   // { entrada, resultados[] }
 
 // ---------- Estructura ----------
@@ -79,7 +80,8 @@ sec.innerHTML = `
   <div class="grid">
     <div><label for="tsFecha">Fecha</label><input id="tsFecha" type="date" style="padding-right:12px"></div>
     <div><label for="tsNumero">N° presupuesto</label><input id="tsNumero" readonly placeholder="al guardar" style="padding-right:12px"></div>
-    <div class="full"><label for="tsCliente">Cliente</label><input id="tsCliente" list="tsClientes" placeholder="Nombre del cliente" style="padding-right:12px"><datalist id="tsClientes"></datalist></div>
+    <div class="full"><label for="tsCliente">Cliente</label><input id="tsCliente" list="tsClientes" placeholder="Escribí o elegí de tus clientes" style="padding-right:12px" autocomplete="off"><datalist id="tsClientes"></datalist>
+      <div class="ts-cli-info"><span class="estado" id="tsClienteInfo"></span><button type="button" class="btn small" id="tsClienteAgendar" hidden>+ Guardar en Clientes</button></div></div>
     <div class="full"><label for="tsTrabajo">Trabajo</label><input id="tsTrabajo" placeholder="Ej. Folleto tríptico" style="padding-right:12px"></div>
     <div class="full"><label for="tsCantidades">Cantidades (podés poner varias)</label>
       <div class="field"><input id="tsCantidades" placeholder="1000, 2000, 5000" style="padding-right:12px"></div></div>
@@ -165,14 +167,15 @@ sec.innerHTML = `
 
   <h2 class="sec">Precio</h2>
   <div class="grid">
-    <div><label for="tsMargen" id="tsMargenLabel">Ganancia</label><div class="field"><input id="tsMargen" inputmode="decimal"><span class="unit">%</span></div></div>
-    <div><label for="tsDesc">Descuento</label><div class="field"><input id="tsDesc" inputmode="decimal" value="0"><span class="unit">%</span></div></div>
+    <div hidden><label for="tsMargen" id="tsMargenLabel">Ganancia</label><div class="field"><input id="tsMargen" inputmode="decimal"><span class="unit">%</span></div></div>
+    <div class="full"><label for="tsDesc">Descuento</label><div class="field"><input id="tsDesc" inputmode="decimal" value="0"><span class="unit">%</span></div></div>
     <div class="full"><label>IVA</label><div class="mode four" role="group" id="tsIva">
       <button type="button" data-iva="21" aria-pressed="true">21 %</button><button type="button" data-iva="10.5" aria-pressed="false">10,5 %</button>
       <button type="button" data-iva="0" aria-pressed="false">Sin IVA</button><button type="button" data-iva="27" aria-pressed="false">27 %</button></div></div>
-    <div class="full" id="tsMargenesBox" hidden>
-      <label>Ganancia por cantidad <span class="calle-sub">(vacío = la general)</span></label>
+    <div class="full" id="tsMargenesBox">
+      <label>Ganancia por cantidad</label>
       <div class="ts-margenes" id="tsMargenes"></div>
+      <span class="estado" id="tsMargenesInfo"></span>
     </div>
     <div class="full estado" id="tsDolarInfo"></div>
   </div>
@@ -467,9 +470,7 @@ function entrada() {
 
 // Un campo de ganancia por cada cantidad (solo si hay más de una)
 function pintarMargenes(cants) {
-  const box = $('tsMargenesBox'), varias = cants.length > 1;
-  box.hidden = !varias;
-  $('tsMargenLabel').textContent = varias ? 'Ganancia general' : 'Ganancia';
+  $('tsMargenesInfo').textContent = cants.length ? `Si dejás una vacía se usa ${$('tsMargen').value || 0} % (el valor por defecto de Configuración).` : 'Cargá las cantidades arriba y acá aparece una ganancia para cada una.';
   const clave = cants.join('|');
   if (pintarMargenes.clave !== clave) {   // rearmar solo si cambiaron las cantidades (así no se pierde el foco)
     pintarMargenes.clave = clave;
@@ -556,7 +557,7 @@ function pintarDocCliente() {
         <div class="ts-doc-sub">${[im.cuit && 'CUIT ' + esc(im.cuit), esc(im.direccion), esc(im.telefono), esc(im.email)].filter(Boolean).join(' · ')}</div></div>
       <div class="ts-doc-num"><b>PRESUPUESTO</b><br>N° ${esc($('tsNumero').value || '—')}<br>${fechaTxt($('tsFecha').value)}</div>
     </div>
-    <p><b>Cliente:</b> ${esc($('tsCliente').value) || '—'}<br><b>Trabajo:</b> ${esc($('tsTrabajo').value) || '—'}</p>
+    <p><b>Cliente:</b> ${esc($('tsCliente').value) || '—'}${(() => { const c = clienteActual(); const d = c && [c.cuit && 'CUIT ' + c.cuit, c.iva, [c.direccion, c.localidad].filter(Boolean).join(', ')].filter(Boolean).join(' · '); return d ? `<br><span class="ts-doc-sub">${esc(d)}</span>` : ''; })()}<br><b>Trabajo:</b> ${esc($('tsTrabajo').value) || '—'}</p>
     <table class="ts-doc-spec">
       ${medida ? `<tr><td>Medida terminada</td><td>${medida}</td></tr>` : ''}
       ${b.papel.nombre ? `<tr><td>Papel</td><td>${esc(b.papel.nombre)}</td></tr>` : ''}
@@ -745,7 +746,7 @@ function nuevoPresupuesto(aviso = 'Presupuesto nuevo.') {
   $('tsFecha').value = hoy(); $('tsDesc').value = '0'; abierto = null; aplicarDefaults(true); margenCant = {}; pintarMargenes.clave = null;
   for (const k in termSel) delete termSel[k]; pintarTerminaciones();
   $('tsClienteWrap').hidden = true; $('tsCorteWrap').hidden = true; $('tsGuardar').textContent = 'Guardar presupuesto';
-  calcular(); pintarLista(); msg(aviso);
+  calcular(); pintarLista(); pintarCliente(); msg(aviso);
 }
 $('tsNuevo').addEventListener('click', () => nuevoPresupuesto());
 
@@ -759,6 +760,7 @@ $('tsGuardar').addEventListener('click', () => {
   const resumen = res.filter(r => r.ok).map(r => ({ cant: r.cant, total: Math.round(r.total * 100) / 100, subtotal: Math.round(r.subtotal * 100) / 100, unitario: Math.round(r.unitario * 10000) / 10000, pm: r.pm, pc: r.pc, kilos: Math.round(r.kilos * 100) / 100 }));
   const datos = {
     fecha: $('tsFecha').value || hoy(), cliente: $('tsCliente').value.trim(), trabajo: $('tsTrabajo').value.trim(),
+    clienteId: clienteActual()?.id || null, clienteDatos: datosCliente(clienteActual()),
     resumen, papel: E.base.papel.nombre, compra: `${fmt(E.base.compra.w, 0)}×${fmt(E.base.compra.h, 0)}`,
     snapshot: snapshot(), actualizado: FB.fb.serverTimestamp(),
   };
@@ -773,10 +775,15 @@ $('tsGuardar').addEventListener('click', () => {
     nuevoPresupuesto(`Guardado como presupuesto N° ${numero}. Ya podés armar uno nuevo (para verlo o exportarlo, abrilo desde la lista).`);
   }
 });
+function abrirGuardado(r) {
+  restaurar(r.snapshot); $('tsNumero').value = r.numero || ''; abierto = r.id; verCant = 0;
+  $('tsGuardar').textContent = 'Guardar cambios'; calcular(); pintarCliente(); pintarLista();
+  sec.scrollIntoView({ behavior: 'smooth' }); msg(`Presupuesto N° ${r.numero} abierto.`);
+}
 function pintarLista() {
   const q = $('tsBuscar').value.trim().toLowerCase(), fe = $('tsFiltro').value;
   const l = lista.filter(r => (!fe || r.estado === fe) && (!q || [r.cliente, r.trabajo, r.numero].join(' ').toLowerCase().includes(q)));
-  $('tsClientes').innerHTML = [...new Set(lista.map(r => r.cliente).filter(Boolean))].sort().map(c => `<option value="${esc(c)}"></option>`).join('');
+  llenarClientes();
   if (!l.length) { $('tsLista').innerHTML = `<div class="pl-vacio">${lista.length ? 'No hay presupuestos que coincidan.' : 'Todavía no guardaste presupuestos. Armá uno arriba y tocá "Guardar presupuesto".'}</div>`; return; }
   $('tsLista').innerHTML = window.Paginas.html('pres', l, r => {
     const p = r.resumen?.[0];
@@ -810,11 +817,8 @@ $('tsLista').addEventListener('click', e => {
   if (a === 'borrar') borrando = id;
   else if (a === 'no') { borrando = null; pidiendo = null; }
   else if (a === 'si') { borrando = null; if (abierto === id) abierto = null; FB.fb.deleteDoc(FB.fb.doc(col(), id)); msg('Presupuesto borrado.'); }
-  else if (a === 'abrir') {
-    restaurar(r.snapshot); $('tsNumero').value = r.numero || ''; abierto = id; verCant = 0;
-    $('tsGuardar').textContent = 'Guardar cambios'; calcular();
-    sec.scrollIntoView({ behavior: 'smooth' }); msg(`Presupuesto N° ${r.numero} abierto.`);
-  } else if (a === 'pedido' || a === 'pedido-cant') {
+  else if (a === 'abrir') { abrirGuardado(r); }
+  else if (a === 'pedido' || a === 'pedido-cant') {
     // se recalcula desde lo guardado (así los presupuestos viejos también piden bien el papel)
     let res = [];
     try { res = calcularDesdeSnapshot(r.snapshot).res.filter(x => x.ok); } catch (err) {}
@@ -863,6 +867,12 @@ function conectar(fbInfo) {
   FB = fbInfo; usuario = fbInfo.user;
   if (dejarPedidos) { dejarPedidos(); dejarPedidos = null; }
   pedidos = []; llenarPedidos();
+  if (dejarClientes) { dejarClientes(); dejarClientes = null; }
+  clientes = []; llenarClientes();
+  if (usuario) dejarClientes = FB.fb.onSnapshot(FB.fb.collection(FB.db, 'usuarios', usuario.uid, 'clientes'), snap => {
+    clientes = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => sinTc(a.nombre).localeCompare(sinTc(b.nombre)));
+    llenarClientes();
+  }, () => {});
   if (usuario) dejarPedidos = FB.fb.onSnapshot(FB.fb.collection(FB.db, 'usuarios', usuario.uid, 'planilla'), snap => {
     pedidos = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
     const prev = $('tsPedidoSel').value; llenarPedidos(); if (pedidos.some(p => p.id === prev)) $('tsPedidoSel').value = prev;
@@ -889,6 +899,29 @@ function conectar(fbInfo) {
 }
 window.addEventListener('pliego-auth', () => conectar(window.pliegoFB));
 if (window.pliegoFB) conectar(window.pliegoFB);
+
+// ---------- Cliente de la agenda ----------
+const sinTc = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+function clienteActual() { const n = sinTc($('tsCliente').value); return n ? clientes.find(c => sinTc(c.nombre) === n) || null : null; }
+function datosCliente(c) { return c ? ['cuit', 'iva', 'contacto', 'telefono', 'email', 'direccion', 'localidad'].reduce((o, k) => (c[k] ? { ...o, [k]: c[k] } : o), {}) : null; }
+function pintarCliente() {
+  const c = clienteActual(), nombre = $('tsCliente').value.trim();
+  $('tsClienteInfo').textContent = c ? [c.cuit && 'CUIT ' + c.cuit, c.iva, c.direccion && [c.direccion, c.localidad].filter(Boolean).join(', '), c.telefono].filter(Boolean).join(' · ') || 'Cliente de tu agenda.'
+    : nombre && usuario ? 'No está en tu agenda de Clientes.' : '';
+  $('tsClienteAgendar').hidden = !(nombre && !c && usuario);
+}
+function llenarClientes() {
+  const viejos = [...new Set(lista.map(r => r.cliente).filter(Boolean))].filter(n => !clientes.some(c => sinTc(c.nombre) === sinTc(n)));
+  $('tsClientes').innerHTML = clientes.map(c => `<option value="${esc(c.nombre)}">${esc([c.cuit, c.localidad].filter(Boolean).join(' · '))}</option>`).join('')
+    + viejos.sort().map(n => `<option value="${esc(n)}"></option>`).join('');
+  pintarCliente();
+}
+$('tsCliente').addEventListener('input', pintarCliente);
+$('tsClienteAgendar').addEventListener('click', () => {
+  const nombre = $('tsCliente').value.trim(); if (!nombre || !usuario || !FB) return;
+  FB.fb.addDoc(FB.fb.collection(FB.db, 'usuarios', usuario.uid, 'clientes'), { nombre, creado: FB.fb.serverTimestamp() })
+    .then(() => msg(`"${nombre}" se agregó a Clientes. Completá sus datos en esa pestaña.`)).catch(e => msg('Error: ' + e.code));
+});
 
 // ---------- Traer el papel desde la Planilla de pedidos ----------
 const sinT = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
@@ -937,3 +970,17 @@ export function calcularDesdeSnapshot(snap) {
   }
 }
 export { svgCompra, svgMaquina };
+
+// Desde la pestaña Clientes
+export function abrirPresupuesto(id) {
+  const r = lista.find(x => x.id === id); if (!r) return false;
+  document.querySelector('[data-tool=presupuesto]').click();
+  abrirGuardado(r);
+  return true;
+}
+export function presupuestoParaCliente(nombre) {
+  document.querySelector('[data-tool=presupuesto]').click();
+  nuevoPresupuesto(`Presupuesto nuevo para ${nombre}.`);
+  $('tsCliente').value = nombre; pintarCliente(); calcular();
+  sec.scrollIntoView({ behavior: 'smooth' });
+}
