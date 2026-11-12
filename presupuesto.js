@@ -787,19 +787,18 @@ function pintarLista() {
   if (!l.length) { $('tsLista').innerHTML = `<div class="pl-vacio">${lista.length ? 'No hay presupuestos que coincidan.' : 'Todavía no guardaste presupuestos. Armá uno arriba y tocá "Guardar presupuesto".'}</div>`; return; }
   $('tsLista').innerHTML = window.Paginas.html('pres', l, r => {
     const p = r.resumen?.[0];
-    return `<div class="pl-item${abierto === r.id ? ' editando' : ''}" data-id="${r.id}">
-      <div class="t">N° ${esc(r.numero)} · ${esc(r.cliente || 'Sin cliente')}</div>
-      <div class="n"></div>
-      <div class="d">${esc(fechaTxt(r.fecha))}${r.trabajo ? ' · ' + esc(r.trabajo) : ''}</div>
-      <div class="n"></div>
-      <div class="ts-cants">${(r.resumen || []).map(x => `<div><span>${fmt(x.cant, 0)} ej.</span><b>${pesos(x.total)}</b><small>${pesos(x.unitario)} c/u s/IVA</small></div>`).join('') || '<div><span>—</span></div>'}</div>
+    return `<div class="pl-item ts-item${abierto === r.id ? ' editando' : ''}" data-id="${r.id}">
+      <div class="ts-item-head">
+        <div class="t">N° ${esc(r.numero)} · ${esc(r.cliente || 'Sin cliente')}<span class="d"> · ${esc(fechaTxt(r.fecha))}${r.trabajo ? ' · ' + esc(r.trabajo) : ''}</span></div>
+      </div>
+      <div class="ts-cants">${(r.resumen || []).map(x => `<span class="ts-cant"><span>${fmt(x.cant, 0)} ej.</span> <b>${pesos(x.total)}</b> <small>(${pesos(x.unitario)} c/u)</small></span>`).join('') || '<span class="ts-cant">—</span>'}</div>
       <div class="acc">
         <select data-acc="estado" class="ts-select ts-mini ts-estado ${String(r.estado || '').toLowerCase()}">${['Pendiente', 'Aprobado', 'Rechazado'].map(e => `<option ${r.estado === e ? 'selected' : ''}>${e}</option>`).join('')}</select>
         ${pidiendo === r.id
           ? `<span class="estado">Pedir papel para:</span>${(r.resumen || []).map((x, i) => `<button type="button" class="btn small" data-acc="pedido-cant" data-i="${i}">${fmt(x.cant, 0)} ej.</button>`).join('')}<button type="button" class="btn small" data-acc="no">Cancelar</button>`
           : borrando === r.id
           ? `<span class="estado">¿Borrar?</span><button type="button" class="btn small danger" data-acc="si">Sí</button><button type="button" class="btn small" data-acc="no">No</button>`
-          : `<button type="button" class="btn small" data-acc="abrir">Abrir</button>${r.estado === 'Aprobado' ? '<button type="button" class="btn small" data-acc="pedido">Pedido de papel</button>' : ''}<button type="button" class="btn small" data-acc="borrar">Borrar</button>`}
+          : `<button type="button" class="btn small" data-acc="abrir">Abrir</button>${r.estado === 'Aprobado' ? '<button type="button" class="btn small" data-acc="pedido">Pedir papel</button>' : ''}<button type="button" class="btn small" data-acc="borrar">Borrar</button>`}
       </div></div>`;
   }, pintarLista);
 }
