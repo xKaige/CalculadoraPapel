@@ -157,7 +157,7 @@ export function presupuestar(e) {
   const iva = subtotal * (e.iva || 0) / 100;
   const total = subtotal + iva;
   return {
-    ...r, ok: true, costo, ganancia, neto, descuento, subtotal, iva, total,
+    ...r, ok: true, margen: e.margen || 0, costo, ganancia, neto, descuento, subtotal, iva, total,
     unitario: subtotal / cant, unitarioIva: total / cant,
   };
 }

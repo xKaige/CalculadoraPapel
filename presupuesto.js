@@ -165,11 +165,15 @@ sec.innerHTML = `
 
   <h2 class="sec">Precio</h2>
   <div class="grid">
-    <div><label for="tsMargen">Ganancia</label><div class="field"><input id="tsMargen" inputmode="decimal"><span class="unit">%</span></div></div>
+    <div><label for="tsMargen" id="tsMargenLabel">Ganancia</label><div class="field"><input id="tsMargen" inputmode="decimal"><span class="unit">%</span></div></div>
     <div><label for="tsDesc">Descuento</label><div class="field"><input id="tsDesc" inputmode="decimal" value="0"><span class="unit">%</span></div></div>
     <div class="full"><label>IVA</label><div class="mode four" role="group" id="tsIva">
       <button type="button" data-iva="21" aria-pressed="true">21 %</button><button type="button" data-iva="10.5" aria-pressed="false">10,5 %</button>
       <button type="button" data-iva="0" aria-pressed="false">Sin IVA</button><button type="button" data-iva="27" aria-pressed="false">27 %</button></div></div>
+    <div class="full" id="tsMargenesBox" hidden>
+      <label>Ganancia por cantidad <span class="calle-sub">(vacío = la general)</span></label>
+      <div class="ts-margenes" id="tsMargenes"></div>
+    </div>
     <div class="full estado" id="tsDolarInfo"></div>
   </div>
 
@@ -253,6 +257,7 @@ sec.innerHTML = `
 
 // ---------- Estado de la UI ----------
 let uTr = 'mm', demModo = 'auto', iva = 21, papelMon = 'USD', microMon = 'ARS';
+let margenCant = {};   // cantidad → ganancia % propia (texto como se escribió)
 const termSel = {};   // id → { on, lados }
 const CAMPOS = ['tsFecha', 'tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsCalle', 'tsPinza', 'tsPoses', 'tsPapelSel', 'tsPapelNombre', 'tsGramaje',
   'tsPapelPrecio', 'tsPapelUnidad', 'tsCw', 'tsCh', 'tsCorte', 'tsMw', 'tsMh', 'tsMaquina', 'tsColF', 'tsColD', 'tsDemFrente', 'tsDemDorso', 'tsDemPct',
@@ -260,12 +265,12 @@ const CAMPOS = ['tsFecha', 'tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'ts
 
 function snapshot() {
   const c = {}; CAMPOS.forEach(k => c[k] = $(k).value);
-  return { campos: c, uTr, demModo, iva, papelMon, microMon, mismaChapa: $('tsMismaChapa').checked, termSel: structuredClone(termSel) };
+  return { campos: c, uTr, demModo, iva, papelMon, microMon, margenCant: { ...margenCant }, mismaChapa: $('tsMismaChapa').checked, termSel: structuredClone(termSel) };
 }
 function restaurar(s) {
   if (!s) return;
   CAMPOS.forEach(k => { if (s.campos && s.campos[k] != null) $(k).value = s.campos[k]; });
-  uTr = s.uTr || 'mm'; demModo = s.demModo || 'auto'; iva = s.iva ?? 21; papelMon = s.papelMon || 'USD'; microMon = s.microMon || 'ARS';
+  uTr = s.uTr || 'mm'; demModo = s.demModo || 'auto'; iva = s.iva ?? 21; papelMon = s.papelMon || 'USD'; microMon = s.microMon || 'ARS'; margenCant = { ...(s.margenCant || {}) }; pintarMargenes.clave = null;
   $('tsMismaChapa').checked = !!s.mismaChapa;
   // presupuestos guardados con la demasía vieja (por color o a mano)
   if (s.campos && s.campos.tsDemFrente == null) {
@@ -460,6 +465,23 @@ function entrada() {
   };
 }
 
+// Un campo de ganancia por cada cantidad (solo si hay más de una)
+function pintarMargenes(cants) {
+  const box = $('tsMargenesBox'), varias = cants.length > 1;
+  box.hidden = !varias;
+  $('tsMargenLabel').textContent = varias ? 'Ganancia general' : 'Ganancia';
+  const clave = cants.join('|');
+  if (pintarMargenes.clave !== clave) {   // rearmar solo si cambiaron las cantidades (así no se pierde el foco)
+    pintarMargenes.clave = clave;
+    $('tsMargenes').innerHTML = cants.map(c => `<div><label for="tsMg${c}">${fmt(c, 0)} ej.</label><div class="field"><input id="tsMg${c}" data-cant="${c}" inputmode="decimal" value="${esc(margenCant[c] ?? '')}"><span class="unit">%</span></div></div>`).join('');
+  }
+  $('tsMargenes').querySelectorAll('input').forEach(i => i.placeholder = $('tsMargen').value || '0');
+}
+function margenDe(cant) {
+  const v = margenCant[cant];
+  return v != null && String(v).trim() !== '' ? num(v) : num($('tsMargen').value);
+}
+
 function calcular() {
   document.querySelectorAll('#tsUTr button').forEach(b => b.setAttribute('aria-pressed', b.dataset.u === uTr));
   document.querySelectorAll('.tsUT').forEach(el => el.textContent = uTr);
@@ -486,7 +508,8 @@ function calcular() {
   if (!cants.length) avisos.push('Cargá la cantidad (podés poner varias separadas por coma).');
   if (!E.poses) avisos.push(E.tw && b.maq ? 'El trabajo no entra en el pliego de máquina con esa pinza. Revisá medidas o cargá las poses a mano.' : 'Cargá el corte a corte y el pliego de compra para calcular las poses.');
 
-  const res = cants.map(cant => presupuestar({ ...b, cant }));
+  pintarMargenes(cants);
+  const res = cants.map(cant => presupuestar({ ...b, cant, margen: margenDe(cant) }));
   if (res.some(r => r.faltas?.dolar)) avisos.push('Hay precios en dólares y no hay cotización: esos ítems quedaron en 0.');
   if (verCant >= res.length) verCant = 0;
   $('tsMicroPlanchas').placeholder = res[verCant]?.ok ? String(res[verCant].pm) : 'auto';
@@ -497,7 +520,7 @@ function calcular() {
   const r = res[verCant];
   const set = (id, v) => $(id).textContent = v;
   if (r && r.ok) {
-    set('tsTotal', pesos(r.total)); set('tsCosto', pesos(r.costo)); set('tsGan', `${pesos(r.ganancia)} (${fmt(b.margen, 1)} %)`);
+    set('tsTotal', pesos(r.total)); set('tsCosto', pesos(r.costo)); set('tsGan', `${pesos(r.ganancia)} (${fmt(r.margen, 1)} %)`);
     set('tsDescV', r.descuento ? `− ${pesos(r.descuento)}` : '—'); set('tsSub', pesos(r.subtotal)); set('tsIvaV', iva ? `${pesos(r.iva)} (${fmt(iva, 1)} %)` : '—');
     set('tsUnit', pesos(r.unitario)); set('tsUnitIva', pesos(r.unitarioIva));
     set('tsPliegos', `${fmt(r.pm, 0)} / ${fmt(r.pc, 0)}  (demasía ${fmt(r.dem, 0)})`);
@@ -511,8 +534,8 @@ function calcular() {
     ['tsTotal', 'tsCosto', 'tsGan', 'tsDescV', 'tsSub', 'tsIvaV', 'tsUnit', 'tsUnitIva', 'tsPliegos', 'tsKilos'].forEach(id => set(id, '—'));
     $('tsDetalle').innerHTML = '';
   }
-  $('tsComparar').innerHTML = res.length > 1 && res[0].ok ? '<thead><tr><th>Cantidad</th><th style="text-align:right">Total' + (iva ? ' c/IVA' : '') + '</th><th style="text-align:right">Unitario s/IVA</th></tr></thead><tbody>'
-    + res.map(x => `<tr><td>${fmt(x.cant, 0)} ej.</td><td class="h">${pesos(x.total)}</td><td class="h">${pesos(x.unitario)}</td></tr>`).join('') + '</tbody>' : '';
+  $('tsComparar').innerHTML = res.length > 1 && res[0].ok ? '<thead><tr><th>Cantidad</th><th style="text-align:right">Ganancia</th><th style="text-align:right">Total' + (iva ? ' c/IVA' : '') + '</th><th style="text-align:right">Unitario s/IVA</th></tr></thead><tbody>'
+    + res.map(x => `<tr><td>${fmt(x.cant, 0)} ej.</td><td class="h">${fmt(x.margen, 1)} %</td><td class="h">${pesos(x.total)}</td><td class="h">${pesos(x.unitario)}</td></tr>`).join('') + '</tbody>' : '';
   $('tsHint').textContent = avisos.join(' '); $('tsHint').hidden = !avisos.length;
   guardarLocal();
   if (!$('tsClienteWrap').hidden) pintarDocCliente();
@@ -666,7 +689,9 @@ $('tsCopiar').addEventListener('click', () => {
 function msg(t) { $('tsMsg').textContent = t; clearTimeout(msg.t); msg.t = setTimeout(() => $('tsMsg').textContent = '', 4000); }
 
 // ---------- Eventos del formulario ----------
-sec.addEventListener('input', e => { if (e.target.closest('#tsConfig')) return; if (e.target.id === 'tsCantidades') verCant = 0; calcular(); });
+sec.addEventListener('input', e => {
+  if (e.target.dataset.cant) { margenCant[e.target.dataset.cant] = e.target.value; calcular(); return; }
+  if (e.target.closest('#tsConfig')) return; if (e.target.id === 'tsCantidades') verCant = 0; calcular(); });
 // 'change' solo para listas y casillas (los campos de texto ya recalculan con 'input')
 sec.addEventListener('change', e => { if (e.target.closest('#tsConfig') || e.target.closest('#tsTerms')) return; if (e.target.tagName === 'SELECT' || e.target.type === 'checkbox' || e.target.type === 'date') calcular(); });
 $('tsUTr').addEventListener('click', e => {
@@ -717,7 +742,7 @@ function aplicarDefaults(todo) {
 }
 $('tsNuevo').addEventListener('click', () => {
   ['tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsPoses', 'tsMicroTipo', 'tsMicroFormato', 'tsMicroPrecio', 'tsMicroPlanchas', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsNumero'].forEach(id => $(id).value = '');
-  $('tsFecha').value = hoy(); $('tsDesc').value = '0'; abierto = null; aplicarDefaults(true);
+  $('tsFecha').value = hoy(); $('tsDesc').value = '0'; abierto = null; aplicarDefaults(true); margenCant = {}; pintarMargenes.clave = null;
   for (const k in termSel) delete termSel[k]; pintarTerminaciones();
   $('tsClienteWrap').hidden = true; $('tsCorteWrap').hidden = true; $('tsGuardar').textContent = 'Guardar presupuesto';
   calcular(); pintarLista(); msg('Presupuesto nuevo.');
@@ -905,7 +930,7 @@ export function calcularDesdeSnapshot(snap) {
   try {
     restaurar(snap);
     const E = entrada();
-    const res = cantidades().map(cant => presupuestar({ ...E.base, cant }));
+    const res = cantidades().map(cant => presupuestar({ ...E.base, cant, margen: margenDe(cant) }));
     return { E, res, calle: num($('tsCalle').value), pinza: num($('tsPinza').value), imprenta: { ...cat.imprenta } };
   } finally {
     restaurar(prev); $('tsNumero').value = prevNum; calcular();
