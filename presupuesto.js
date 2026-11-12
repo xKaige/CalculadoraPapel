@@ -782,9 +782,10 @@ function pintarLista() {
     const p = r.resumen?.[0];
     return `<div class="pl-item${abierto === r.id ? ' editando' : ''}" data-id="${r.id}">
       <div class="t">N° ${esc(r.numero)} · ${esc(r.cliente || 'Sin cliente')}</div>
-      <div class="n">${p ? pesos(p.total) : '—'}</div>
-      <div class="d">${esc(fechaTxt(r.fecha))}${r.trabajo ? ' · ' + esc(r.trabajo) : ''}${r.resumen?.length > 1 ? ` · ${r.resumen.length} cantidades` : ''}</div>
-      <div class="n">${p ? fmt(p.cant, 0) + ' ej.' : ''}</div>
+      <div class="n"></div>
+      <div class="d">${esc(fechaTxt(r.fecha))}${r.trabajo ? ' · ' + esc(r.trabajo) : ''}</div>
+      <div class="n"></div>
+      <div class="ts-cants">${(r.resumen || []).map(x => `<div><span>${fmt(x.cant, 0)} ej.</span><b>${pesos(x.total)}</b><small>${pesos(x.unitario)} c/u s/IVA</small></div>`).join('') || '<div><span>—</span></div>'}</div>
       <div class="acc">
         <select data-acc="estado" class="ts-select ts-mini ts-estado ${String(r.estado || '').toLowerCase()}">${['Pendiente', 'Aprobado', 'Rechazado'].map(e => `<option ${r.estado === e ? 'selected' : ''}>${e}</option>`).join('')}</select>
         ${pidiendo === r.id
