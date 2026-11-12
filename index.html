@@ -254,20 +254,25 @@
   .ts-term { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 9px 0; border-top: 1px solid var(--line); }
   .ts-term .estado { flex: 1 1 160px; }
   /* Presupuestos guardados: compacto */
-  .ts-item { grid-template-columns: 1fr auto; gap: 4px 10px; padding: 9px 0; align-items: center; }
-  .ts-item-head { min-width: 0; }
+  .ts-item { grid-template-columns: 1fr 250px; gap: 6px 14px; padding: 10px 0; align-items: center; }
+  .ts-item-head { min-width: 0; grid-column: 1; grid-row: 1; }
   .ts-item .t { font-size: .95rem; }
   .ts-item .t .d { font-weight: 400; font-size: .84rem; }
-  .ts-cants { grid-column: 1; display: flex; flex-wrap: wrap; gap: 4px 6px; min-width: 0; }
+  .ts-cants { grid-column: 1; grid-row: 2; display: flex; flex-wrap: wrap; gap: 4px 6px; min-width: 0; }
   .ts-cant { font-size: .82rem; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; white-space: nowrap; }
   .ts-cant span { color: var(--muted); }
   .ts-cant b { font-family: "JetBrains Mono", monospace; font-weight: 500; }
   .ts-cant small { color: var(--muted); font-size: .74rem; }
-  .ts-item .acc { grid-column: 2; grid-row: 1 / span 2; margin-top: 0; flex-wrap: wrap; justify-content: flex-end; max-width: 460px; }
-  .ts-item .acc .btn.small, .ts-item .acc .ts-mini { padding: 4px 8px; font-size: .78rem; }
+  .ts-item .ts-estado-sel { grid-column: 2; grid-row: 1; justify-self: end; width: 120px; padding: 4px 8px; font-size: .78rem; }
+  .ts-item .ts-acc { grid-column: 2; grid-row: 2; margin-top: 0; flex-wrap: nowrap; justify-content: flex-end; gap: 5px; }
+  .ts-item .ts-confirma { grid-column: 1 / -1; grid-row: 3; margin-top: 2px; flex-wrap: wrap; justify-content: flex-end; }
+  .ts-item .acc .btn.small { padding: 4px 9px; font-size: .78rem; white-space: nowrap; }
   @media (max-width: 700px) {
-    .ts-item { grid-template-columns: 1fr; }
-    .ts-item .acc { grid-column: 1; grid-row: auto; flex-wrap: wrap; justify-content: flex-start; }
+    .ts-item { grid-template-columns: 1fr auto; }
+    .ts-item .ts-estado-sel { width: 108px; }
+    .ts-cants { grid-column: 1 / -1; }
+    .ts-item .ts-acc { grid-column: 1 / -1; grid-row: 3; justify-content: flex-start; }
+    .ts-item .ts-confirma { justify-content: flex-start; }
   }
   .ts-margenes { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
   .ts-extra { flex-basis: 100%; margin: 4px 0 2px 26px; }

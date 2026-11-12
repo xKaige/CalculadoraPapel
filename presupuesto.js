@@ -107,8 +107,8 @@ sec.innerHTML = `
     <div><label for="tsGramaje">Gramaje</label><div class="field"><input id="tsGramaje" inputmode="decimal"><span class="unit">g/m²</span></div></div>
     <div><label for="tsPapelPrecio">Precio</label><div class="field"><input id="tsPapelPrecio" inputmode="decimal"><button type="button" class="pr-cur" id="tsPapelMon" data-cur="USD">US$</button></div></div>
     <div><label for="tsPapelUnidad">Por</label><select id="tsPapelUnidad" class="ts-select"><option value="kg">kilo</option><option value="pliego">pliego de compra</option></select></div>
-    <div><label for="tsCw">Pliego de compra ancho</label><div class="field"><input id="tsCw" inputmode="decimal"><span class="unit">cm</span></div></div>
-    <div><label for="tsCh">Pliego de compra alto</label><div class="field"><input id="tsCh" inputmode="decimal"><span class="unit">cm</span></div></div>
+    <div><label for="tsCw">Hoja de compra ancho</label><div class="field"><input id="tsCw" inputmode="decimal"><span class="unit">cm</span></div></div>
+    <div><label for="tsCh">Hoja de compra alto</label><div class="field"><input id="tsCh" inputmode="decimal"><span class="unit">cm</span></div></div>
     <div class="full"><label for="tsCorte">Pliego de máquina</label>
       <select id="tsCorte" class="ts-select">
         <option value="1">Entero</option><option value="2">Al medio (½)</option><option value="3">En 3 (⅓)</option>
@@ -744,7 +744,7 @@ function aplicarDefaults(todo) {
 }
 function nuevoPresupuesto(aviso = 'Presupuesto nuevo.') {
   ['tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsPoses', 'tsMicroTipo', 'tsMicroFormato', 'tsMicroPrecio', 'tsMicroPlanchas', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsNumero'].forEach(id => $(id).value = '');
-  $('tsFecha').value = hoy(); $('tsDesc').value = '0'; abierto = null; aplicarDefaults(true); margenCant = {}; pintarMargenes.clave = null;
+  $('tsFecha').value = fechaAuto = hoy(); $('tsDesc').value = '0'; abierto = null; aplicarDefaults(true); margenCant = {}; pintarMargenes.clave = null;
   for (const k in termSel) delete termSel[k]; pintarTerminaciones();
   $('tsClienteWrap').hidden = true; $('tsCorteWrap').hidden = true; $('tsGuardar').textContent = 'Guardar presupuesto';
   calcular(); pintarLista(); pintarCliente(); $('tsClienteSel').value = ''; msg(aviso);
@@ -793,14 +793,13 @@ function pintarLista() {
         <div class="t">N° ${esc(r.numero)} · ${esc(r.cliente || 'Sin cliente')}<span class="d"> · ${esc(fechaTxt(r.fecha))}${r.trabajo ? ' · ' + esc(r.trabajo) : ''}</span></div>
       </div>
       <div class="ts-cants">${(r.resumen || []).map(x => `<span class="ts-cant"><span>${fmt(x.cant, 0)} ej.</span> <b>${pesos(x.total)}</b> <small>(${pesos(x.unitario)} c/u)</small></span>`).join('') || '<span class="ts-cant">—</span>'}</div>
-      <div class="acc">
-        <select data-acc="estado" class="ts-select ts-mini ts-estado ${String(r.estado || '').toLowerCase()}">${['Pendiente', 'Aprobado', 'Rechazado'].map(e => `<option ${r.estado === e ? 'selected' : ''}>${e}</option>`).join('')}</select>
-        ${pidiendo === r.id
-          ? `<span class="estado">Pedir papel para:</span>${(r.resumen || []).map((x, i) => `<button type="button" class="btn small" data-acc="pedido-cant" data-i="${i}">${fmt(x.cant, 0)} ej.</button>`).join('')}<button type="button" class="btn small" data-acc="no">Cancelar</button>`
-          : borrando === r.id
-          ? `<span class="estado">¿Borrar?</span><button type="button" class="btn small danger" data-acc="si">Sí</button><button type="button" class="btn small" data-acc="no">No</button>`
-          : `<button type="button" class="btn small" data-acc="abrir">Abrir</button>${r.estado === 'Aprobado' ? '<button type="button" class="btn small" data-acc="pedido">Pedir papel</button>' : ''}<button type="button" class="btn small" data-acc="borrar">Borrar</button>`}
-      </div></div>`;
+      <select data-acc="estado" aria-label="Estado" class="ts-select ts-mini ts-estado ts-estado-sel ${String(r.estado || '').toLowerCase()}">${['Pendiente', 'Aprobado', 'Rechazado'].map(e => `<option ${r.estado === e ? 'selected' : ''}>${e}</option>`).join('')}</select>
+      ${pidiendo === r.id
+        ? `<div class="acc ts-confirma"><span class="estado">Pedir papel para:</span>${(r.resumen || []).map((x, i) => `<button type="button" class="btn small" data-acc="pedido-cant" data-i="${i}">${fmt(x.cant, 0)} ej.</button>`).join('')}<button type="button" class="btn small" data-acc="no">Cancelar</button></div>`
+        : borrando === r.id
+        ? `<div class="acc ts-confirma"><span class="estado">¿Borrar el N° ${esc(r.numero)}?</span><button type="button" class="btn small danger" data-acc="si">Sí, borrar</button><button type="button" class="btn small" data-acc="no">No</button></div>`
+        : `<div class="acc ts-acc"><button type="button" class="btn small" data-acc="abrir">Abrir</button>${r.estado === 'Aprobado' ? '<button type="button" class="btn small" data-acc="pedido">Pedir papel</button>' : ''}<button type="button" class="btn small" data-acc="borrar">Borrar</button></div>`}
+    </div>`;
   }, pintarLista);
 }
 $('tsBuscar').addEventListener('input', () => { window.Paginas.reset('pres'); pintarLista(); });
@@ -840,12 +839,20 @@ try { const c = JSON.parse(localStorage.getItem('test-catalogo') || 'null'); if 
 pintarConfig(); llenarSelects();
 let local = null; try { local = JSON.parse(localStorage.getItem('test-v1') || 'null'); } catch (e) {}
 if (local) restaurar(local); else { pintarTerminaciones(); $('tsPapelSel').value = 'p1'; $('tsPapelSel').dispatchEvent(new Event('change')); $('tsCorte').value = '2'; }
-if (!$('tsFecha').value) $('tsFecha').value = hoy();
+// La fecha de un presupuesto nuevo es siempre la de hoy (el borrador guardado puede ser de otro día)
+$('tsFecha').value = hoy();
+let fechaAuto = hoy();
+function refrescarFecha() {
+  if (abierto) return;                                   // editando uno guardado: respetar su fecha
+  if ($('tsFecha').value === fechaAuto && fechaAuto !== hoy()) { $('tsFecha').value = fechaAuto = hoy(); calcular(); }
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refrescarFecha(); });
+window.addEventListener('focus', refrescarFecha);
 aplicarDefaults(false);
 calcular();
 traerDolar();
 window.addEventListener('dolar-actualizado', e => { const o = e.detail?.oficial; if (o) { dolar = { ...o, chequeado: e.detail.chequeado }; calcular(); } });
-document.querySelector('[data-tool=presupuesto]').addEventListener('click', calcular);
+document.querySelector('[data-tool=presupuesto]').addEventListener('click', () => { refrescarFecha(); calcular(); });
 
 let viejos = [], dejarViejos = null, viejoBorrando = null;
 function pintarViejos() {
