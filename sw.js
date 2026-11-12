@@ -1,7 +1,7 @@
 // Cambiá este número cada vez que subas una versión nueva, para que el celular la actualice.
-const VERSION = 'papel-v47';
+const VERSION = 'papel-v48';
 const ARCHIVOS = ['./', 'index.html', 'manifest.webmanifest', 'firebase-config.js', 'presupuesto.js', 'presupuesto-calculo.js', 'comparar.js', 'comparar-lector.js', 'clientes.js',
-  'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png'];
+  'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(ARCHIVOS)).then(() => self.skipWaiting()));
