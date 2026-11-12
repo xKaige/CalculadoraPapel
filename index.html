@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#161513">
 <link rel="manifest" href="manifest.webmanifest">
+<script>
+  // Tema guardado (oscuro por defecto). Se aplica antes de pintar para que no parpadee.
+  (function () {
+    var t = 'oscuro'; try { t = localStorage.getItem('pliego-tema') || 'oscuro'; } catch (e) {}
+    if (t === 'claro') document.documentElement.dataset.theme = 'light';
+  })();
+</script>
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -15,7 +22,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
-  /* Tema oscuro siempre, sin importar el tema del sistema */
+  /* Tema oscuro por defecto; el botón de arriba (sol/luna) cambia a claro */
   :root {
     --bg: #161513;
     --card: #211f1c;
@@ -33,6 +40,23 @@
     --margin: rgba(163,157,146,.14);
     color-scheme: dark;
     --radius: 14px;
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f1ea;
+    --card: #ffffff;
+    --ink: #1f1d1a;
+    --muted: #6d675d;
+    --line: #e2ddd2;
+    --accent: #2f6f4f;
+    --accent-soft: #e3efe8;
+    --warn: #8a5a00;
+    --rot: #b4386e;
+    --rot-soft: rgba(180,56,110,.14);
+    --pinza: #b07d00;
+    --pinza-soft: rgba(224,170,0,.22);
+    --sheet: #fdfcf9;
+    --margin: rgba(109,103,93,.12);
+    color-scheme: light;
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -198,6 +222,10 @@
   .cuenta { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; margin-top: 2px; }
   .cuenta img { width: 30px; height: 30px; border-radius: 50%; display: block; }
   .cuenta .nombre { font-size: .82rem; color: var(--muted); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .btn.btn-tema { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border-radius: 50%; }
+  .btn.btn-tema svg { flex: 0 0 auto; width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .btn-tema .ic-luna { fill: currentColor; stroke: none; }
+  :root:not([data-theme="light"]) .btn-tema .ic-luna, :root[data-theme="light"] .btn-tema .ic-sol { display: none; }
   .btn-google { display: inline-flex; align-items: center; gap: 8px; }
   .btn-google svg { width: 16px; height: 16px; flex: 0 0 auto; }
   .btn.small { padding: 6px 10px; font-size: .8rem; }
@@ -372,6 +400,10 @@
       <p>Herramientas de imprenta: papel, poses, presupuestos y pedidos.</p>
     </div>
     <div class="cuenta" id="cuenta">
+      <button type="button" class="btn small btn-tema" id="btnTema" aria-label="Cambiar a modo claro" title="Cambiar a modo claro">
+        <svg class="ic-sol" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
+        <svg class="ic-luna" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 14.6A8.3 8.3 0 0 1 9.4 3.8a8.3 8.3 0 1 0 10.8 10.8z"/></svg>
+      </button>
       <button type="button" class="btn small btn-google" id="btnLogin" hidden>
         <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
         Ingresar con Google
@@ -1683,5 +1715,24 @@
 <script type="module" src="presupuesto.js"></script>
 <script type="module" src="comparar.js"></script>
 <script type="module" src="clientes.js"></script>
+<script>
+  // Botón sol/luna: alterna modo claro y oscuro y lo recuerda en esta compu
+  (function () {
+    var b = document.getElementById('btnTema'), meta = document.querySelector('meta[name="theme-color"]');
+    function aplicar() {
+      var claro = document.documentElement.dataset.theme === 'light';
+      var txt = claro ? 'Cambiar a modo oscuro' : 'Cambiar a modo claro';
+      b.title = txt; b.setAttribute('aria-label', txt);
+      if (meta) meta.content = claro ? '#f4f1ea' : '#161513';
+    }
+    b.addEventListener('click', function () {
+      var claro = document.documentElement.dataset.theme !== 'light';
+      if (claro) document.documentElement.dataset.theme = 'light'; else delete document.documentElement.dataset.theme;
+      try { localStorage.setItem('pliego-tema', claro ? 'claro' : 'oscuro'); } catch (e) {}
+      aplicar();
+    });
+    aplicar();
+  })();
+</script>
 </body>
 </html>
