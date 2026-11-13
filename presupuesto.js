@@ -245,6 +245,17 @@ sec.innerHTML = `
   <details class="ts-config" id="tsConfig">
     <summary>Configuración: mi imprenta, papeles, máquinas y terminaciones</summary>
     <p class="estado" id="tsConfigInfo">Se guarda en tu cuenta (o en este navegador si no ingresaste).</p>
+    <h3 class="pr-group">Actualizar precios en bloque</h3>
+    <div class="ts-ajuste" id="tsAjuste">
+      <div class="ts-aj-pct"><label for="tsAjPct">Subir (o bajar con −)</label><div class="field"><input id="tsAjPct" inputmode="decimal" placeholder="2" style="padding-right:30px"><span class="unit">%</span></div></div>
+      <div class="ts-aj-op"><span class="lbl">Qué precios</span>
+        <label><input type="checkbox" data-aj="papeles" checked> Papeles</label>
+        <label><input type="checkbox" data-aj="maquinas" checked> Máquinas</label>
+        <label><input type="checkbox" data-aj="terminaciones" checked> Terminaciones</label></div>
+      <div class="ts-aj-op"><span class="lbl">Moneda</span>
+        <select id="tsAjMon" class="ts-select ts-mini"><option value="">Pesos y dólares</option><option value="ARS">Solo en pesos</option><option value="USD">Solo en dólares</option></select></div>
+      <div class="actions" style="margin:0"><button type="button" class="btn small primary" id="tsAjAplicar">Aplicar</button><button type="button" class="btn small" id="tsAjDeshacer" hidden>Deshacer</button><span class="estado" id="tsAjMsg"></span></div>
+    </div>
     <h3 class="pr-group">Mi imprenta (sale en el presupuesto para el cliente)</h3>
     <div class="grid" id="tsImprenta"></div>
     <h3 class="pr-group">Valores por defecto</h3>
@@ -415,6 +426,37 @@ sec.querySelector('#tsConfig').addEventListener('click', e => {
   }
   if (del) { const tr = del.closest('tr'); cat[tr.dataset.tipo].splice(+tr.dataset.i, 1); pintarConfig(); catCambiado(); }
 });
+// ---------- Subir / bajar todos los precios un % ----------
+const CAMPOS_PRECIO = { papeles: ['precio'], maquinas: ['chapa', 'postura', 'millar'], terminaciones: ['precio', 'postura'] };
+let ajusteAnterior = null;
+$('tsAjAplicar').addEventListener('click', () => {
+  const pct = num($('tsAjPct').value.replace('−', '-'));
+  const m = t => { $('tsAjMsg').textContent = t; };
+  if (!pct) return m('Poné un porcentaje, por ejemplo 2 (o -2 para bajar).');
+  if (pct <= -100) return m('No se puede bajar 100 % o más.');
+  const grupos = [...$('tsAjuste').querySelectorAll('[data-aj]:checked')].map(c => c.dataset.aj);
+  if (!grupos.length) return m('Elegí qué precios actualizar.');
+  const mon = $('tsAjMon').value, f = 1 + pct / 100;
+  ajusteAnterior = structuredClone({ papeles: cat.papeles, maquinas: cat.maquinas, terminaciones: cat.terminaciones });
+  let filas = 0;
+  for (const g of grupos) for (const row of cat[g]) {
+    if (mon && (row.moneda || 'ARS') !== mon) continue;
+    let tocada = false;
+    for (const k of CAMPOS_PRECIO[g]) if (Number(row[k])) { { const v = row[k] * f, d = Math.abs(v) < 10 ? 1000 : 100; row[k] = Math.round(v * d) / d; } tocada = true; }
+    if (tocada) filas++;
+  }
+  pintarConfig(); catCambiado();
+  $('tsAjDeshacer').hidden = !filas;
+  m(filas ? `Listo: ${pct > 0 ? 'subieron' : 'bajaron'} ${String(Math.abs(pct)).replace('.', ',')} % los precios de ${filas} ítem${filas > 1 ? 's' : ''}. Los presupuestos ya guardados no cambian.` : 'No había precios para actualizar con esa selección.');
+  $('tsAjPct').value = '';
+});
+$('tsAjDeshacer').addEventListener('click', () => {
+  if (!ajusteAnterior) return;
+  Object.assign(cat, ajusteAnterior); ajusteAnterior = null;
+  pintarConfig(); catCambiado();
+  $('tsAjDeshacer').hidden = true; $('tsAjMsg').textContent = 'Se volvieron a poner los precios anteriores.';
+});
+
 let resetPend = false;
 $('tsResetCat').addEventListener('click', () => {
   if (!resetPend) { resetPend = true; $('tsResetCat').textContent = 'Tocá de nuevo para confirmar'; setTimeout(() => { resetPend = false; $('tsResetCat').textContent = 'Volver a los precios de ejemplo'; }, 4000); return; }
