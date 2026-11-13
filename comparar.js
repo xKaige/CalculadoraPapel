@@ -321,7 +321,7 @@ function htmlOT(numero, r, q, calc, extra) {
     x && x.formas && ['Armado del interior', `${resumenFormas(x.formas)} · ${fmtN(x.interior.chapas)} chapas`],
     x && x.interior && ['Pliegos del interior', `${fmtN(x.interior.netos)} + ${fmtN(x.interior.dem)} de demasía = ${fmtN(x.interior.pm)} pliegos de máquina`],
     x && x.interior && b.compra.w && ['Papel interior a pedir', `${fmtN(x.interior.pc)} hojas de ${fmt(b.compra.w, 0)}×${fmt(b.compra.h, 0)}${x.interior.kilos ? ` · ${fmt(x.interior.kilos, 1)} kg` : ''}`],
-    tapa && ['Tapa', `${tapa.papel.nombre || '—'} · ${tapa.colF}/${tapa.colD}${ab ? ` · abierta ${fmt(ab.w / 10, 1)} × ${fmt(ab.h / 10, 1)} cm` : ''} · ${tapa.poses} por pliego`],
+    tapa && ['Tapa', `${tapa.papel.nombre || '—'} · ${tapa.colF}/${tapa.colD}${tapa.mismaChapa && tapa.colD ? ' · tira y retira' : ''}${ab ? ` · abierta ${fmt(ab.w / 10, 1)} × ${fmt(ab.h / 10, 1)} cm` : ''} · ${tapa.poses} por pliego`],
     x && x.tapa && tapa.compra.w && ['Papel tapa a pedir', `${fmtN(x.tapa.pc)} hojas de ${fmt(tapa.compra.w, 0)}×${fmt(tapa.compra.h, 0)} (${fmtN(x.tapa.pm)} pliegos de máquina)${x.tapa.kilos ? ` · ${fmt(x.tapa.kilos, 1)} kg` : ''}`],
     terms && ['Terminaciones', terms],
     b.cajas?.porCaja > 0 && ['Embalaje', `cajas de ${fmtN(b.cajas.porCaja)} ejemplares`],

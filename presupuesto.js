@@ -177,6 +177,7 @@ sec.innerHTML = `
     <div class="full chips" id="tsTapaChips">
       <button type="button" class="chip" data-c="4/0">4/0</button><button type="button" class="chip" data-c="4/4">4/4</button><button type="button" class="chip" data-c="4/1">4/1</button><button type="button" class="chip" data-c="1/0">1/0</button>
     </div>
+    <label class="full ts-check"><input type="checkbox" id="tsTapaMismaChapa"> El dorso usa las mismas chapas (tira y retira)</label>
     <div><label for="tsTapaLomo">Lomo</label><div class="field"><input id="tsTapaLomo" inputmode="decimal" value="0"><span class="unit">mm</span></div></div>
     <div><label for="tsTapaPoses">Tapas por pliego</label><div class="field"><input id="tsTapaPoses" inputmode="numeric" placeholder="auto"><span class="unit">poses</span></div></div>
     <div class="full estado">El lomo es para las revistas con lomo pegado (hot melt); si va abrochada dejalo en 0. La tapa se imprime en la misma máquina que el interior.</div>
@@ -325,14 +326,14 @@ const CAMPOS = ['tsFecha', 'tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'ts
 
 function snapshot() {
   const c = {}; CAMPOS.forEach(k => c[k] = $(k).value);
-  return { campos: c, uTr, demModo, iva, papelMon, microMon, margenCant: { ...margenCant }, mismaChapa: $('tsMismaChapa').checked, termSel: structuredClone(termSel), tipo, tapaMon, tapaOn: $('tsTapaOn').checked };
+  return { campos: c, uTr, demModo, iva, papelMon, microMon, margenCant: { ...margenCant }, mismaChapa: $('tsMismaChapa').checked, termSel: structuredClone(termSel), tipo, tapaMon, tapaOn: $('tsTapaOn').checked, tapaMismaChapa: $('tsTapaMismaChapa').checked };
 }
 function restaurar(s) {
   if (!s) return;
   CAMPOS.forEach(k => { if (s.campos && s.campos[k] != null) $(k).value = s.campos[k]; });
   uTr = s.uTr || 'mm'; demModo = s.demModo || 'auto'; iva = s.iva ?? 21; papelMon = s.papelMon || 'USD'; microMon = s.microMon || 'ARS'; margenCant = { ...(s.margenCant || {}) }; pintarMargenes.clave = null;
   $('tsMismaChapa').checked = !!s.mismaChapa;
-  tipo = s.tipo || 'comun'; tapaMon = s.tapaMon || 'USD'; $('tsTapaOn').checked = s.tapaOn !== false;
+  tipo = s.tipo || 'comun'; tapaMon = s.tapaMon || 'USD'; $('tsTapaOn').checked = s.tapaOn !== false; $('tsTapaMismaChapa').checked = !!s.tapaMismaChapa;
   // presupuestos guardados con la demasía vieja (por color o a mano)
   if (s.campos && s.campos.tsDemFrente == null) {
     const cf = parseInt(s.campos.tsColF) || 0, cd = parseInt(s.campos.tsColD) || 0;
@@ -555,7 +556,7 @@ function entrada() {
     const tg = num($('tsTapaGramaje').value);
     tapa = {
       poses: num($('tsTapaPoses').value) > 0 ? Math.floor(num($('tsTapaPoses').value)) : tapaAutoPoses,
-      colF: Math.floor(num($('tsTapaColF').value)), colD: Math.floor(num($('tsTapaColD').value)),
+      colF: Math.floor(num($('tsTapaColF').value)), colD: Math.floor(num($('tsTapaColD').value)), mismaChapa: $('tsTapaMismaChapa').checked,
       papel: { nombre: `${$('tsTapaPapelNombre').value.trim()} ${tg ? fmt(tg, 0) + ' g' : ''}`.trim(), gramaje: tg, precio: num($('tsTapaPrecio').value), unidad: $('tsTapaUnidad').value, moneda: tapaMon },
       compra: { w: tcw, h: tch }, corte: tcorte, maq: tmaq,
     };
@@ -813,7 +814,7 @@ function pintarCorteRevista(doc, E, r, calle, pinza, im) {
     ['Interior', `${b.papel.nombre || '—'} · pliego de máquina ${fmt(b.maq.w, 1)} × ${fmt(b.maq.h, 1)} cm · ${E.pagsCara} págs. por cara · ${b.colF}/${b.colD}`],
     r && r.ok && ['Armado del interior', `${resumenFormas(r.formas)} · ${fmt(r.interior.chapas, 0)} chapas`],
     r && r.ok && ['Pliegos del interior', `${fmt(r.cant, 0)} ej. → ${fmt(r.interior.netos, 0)} pl. + ${fmt(r.interior.dem, 0)} demasía = ${fmt(r.interior.pm, 0)} pl. de máquina${b.compra.w ? ` = ${fmt(r.interior.pc, 0)} hojas de ${fmt(b.compra.w, 0)}×${fmt(b.compra.h, 0)}` : ''}`],
-    b.tapa && ['Tapa', `${b.tapa.papel.nombre || '—'} · abierta ${fmt(E.tapaAbierta?.w / 10 || 0, 1)} × ${fmt(E.tapaAbierta?.h / 10 || 0, 1)} cm · ${b.tapa.poses} por pliego · ${b.tapa.colF}/${b.tapa.colD}`],
+    b.tapa && ['Tapa', `${b.tapa.papel.nombre || '—'} · abierta ${fmt(E.tapaAbierta?.w / 10 || 0, 1)} × ${fmt(E.tapaAbierta?.h / 10 || 0, 1)} cm · ${b.tapa.poses} por pliego · ${b.tapa.colF}/${b.tapa.colD}${b.tapa.mismaChapa && b.tapa.colD ? ' · tira y retira' : ''}`],
     b.tapa && r && r.tapa && ['Pliegos de la tapa', `${fmt(r.tapa.netos, 0)} pl. + ${fmt(r.tapa.dem, 0)} demasía = ${fmt(r.tapa.pm, 0)} pl. de máquina${b.tapa.compra.w ? ` = ${fmt(r.tapa.pc, 0)} hojas de ${fmt(b.tapa.compra.w, 0)}×${fmt(b.tapa.compra.h, 0)}` : ''}`],
     ['Pinza / calle', `${fmt(pinza, 0)} mm / ${calle ? fmt(calle, 1) + ' mm' : 'sin calle'}`],
   ].filter(Boolean);
