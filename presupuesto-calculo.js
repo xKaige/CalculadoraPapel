@@ -112,14 +112,22 @@ export function presupuestar(e) {
     add('Impresión', 'Millar de impresión', `${fmt(millares, 3)} mill. × ${colores} col. × ${fmt(mil)}`, millares * colores * mil);
   }
 
-  // Terminaciones
+  return cerrar(e, r, L, add, faltas, { tapa: c, interior: c });
+}
+
+// Terminaciones, microcorrugado, otros costos y totales (común a trabajos y revistas).
+// ctx: { tapa, interior } → { cant, pm, maqW, maqH } sobre los que se cobra cada terminación
+function cerrar(e, r, L, add, faltas, ctx) {
+  const cant = r.cant, pm = ctx.interior.pm;
   for (const t of e.terminaciones || []) {
+    const c = t.parte === 'interior' ? ctx.interior : ctx.tapa;
     const lados = t.lados > 1 ? 2 : 1;
-    const q = cantidadTerminacion(t.unidad, c) * lados;
+    const unid = t.unidad === 'fijo' ? Math.max(1, Math.floor(t.unidades || 1)) : 1;   // precio fijo: × unidades
+    const q = cantidadTerminacion(t.unidad, c) * lados * unid;
     const precio = aPesos(t.precio || 0, t.moneda, e.dolar, faltas);
     const post = aPesos(t.postura || 0, t.moneda, e.dolar, faltas);
     const unidadCorta = { pliego: 'pl.', millarPl: 'mill. pl.', ej: 'ej.', millarEj: 'mill. ej.', m2: 'm²' }[t.unidad];
-    let det = t.unidad === 'fijo' ? fmt(precio) : `${fmt(q, t.unidad === 'pliego' || t.unidad === 'ej' ? 0 : 2)} ${unidadCorta} × ${fmt(precio)}`;
+    let det = t.unidad === 'fijo' ? (q > 1 ? `${fmt(q, 0)} × ${fmt(precio)}` : fmt(precio)) : `${fmt(q, t.unidad === 'pliego' || t.unidad === 'ej' ? 0 : 2)} ${unidadCorta} × ${fmt(precio)}`;
     if (post) det += ` + postura ${fmt(post)}`;
     add('Terminaciones', t.nombre + (t.lados > 1 ? ' (F y D)' : ''), det, q * precio + post);
     // Hot stamping: cuño (uno por lado) y foil (por pliego estampado)
@@ -160,6 +168,96 @@ export function presupuestar(e) {
     ...r, ok: true, margen: e.margen || 0, costo, ganancia, neto, descuento, subtotal, iva, total,
     unitario: subtotal / cant, unitarioIva: total / cant,
   };
+}
+
+
+// ---------- Revistas ----------
+// Arma los pliegos (formas) del interior.
+//  paginas: páginas del interior · k: páginas que entran por cara del pliego de máquina
+//  retiracion: true = misma chapa para frente y dorso (cada pliego da 2 juegos)
+// Cada forma: { pags, copias (juegos por pliego impreso), chapas, posturas, modo: 'fyd'|'ret' }
+export function armarFormas(paginas, k, retiracion, colF, colD) {
+  const P = Math.max(0, Math.floor(paginas || 0)); k = Math.max(0, Math.floor(k || 0));
+  const out = []; if (!P || !k) return out;
+  const fyd = colF + colD, una = Math.max(colF, colD);
+  const ret = pags => { const rep = Math.max(1, Math.floor(k / pags)); return { pags, copias: 2 * rep, chapas: una, posturas: una, modo: 'ret' }; };
+  if (retiracion) {
+    for (let i = 0; i < Math.floor(P / k); i++) out.push(ret(k));
+    if (P % k) out.push(ret(P % k));
+  } else {
+    for (let i = 0; i < Math.floor(P / (2 * k)); i++) out.push({ pags: 2 * k, copias: 1, chapas: fyd, posturas: fyd, modo: 'fyd' });
+    const r = P % (2 * k);
+    if (r) out.push(r <= k ? ret(r) : { pags: r, copias: 1, chapas: fyd, posturas: fyd, modo: 'fyd' });
+  }
+  return out;
+}
+// Agrupa formas iguales para mostrarlas: "2 pliegos de 16 págs. + 1 de 8 (retiración)"
+export function resumenFormas(formas) {
+  const g = [];
+  for (const f of formas) { const x = g.find(y => y.pags === f.pags && y.modo === f.modo); if (x) x.n++; else g.push({ ...f, n: 1 }); }
+  return g.map((x, i) => `${x.n} ${i ? 'de' : x.n === 1 ? 'pliego de' : 'pliegos de'} ${x.pags} págs.${x.modo === 'ret' ? ' en retiración' + (x.copias > 2 ? ` (${x.copias} juegos por pliego)` : '') : ''}`).join(' + ');
+}
+
+/*
+ Revista: e = { ...lo mismo que presupuestar (papel, compra, corte, maq, maquina = INTERIOR),
+   revista: { paginas, pagsCara, retiracion },
+   tapa: null | { poses, colF, colD, papel, compra, corte, maq, maquina } }
+*/
+export function presupuestarRevista(e) {
+  const faltas = {}, L = [];
+  const add = (grupo, nombre, detalle, sub) => { if (sub) L.push({ grupo, nombre, detalle, sub }); };
+  const cant = Math.max(0, Math.floor(e.cant || 0));
+  const rv = e.revista || {}, colF = Math.max(0, e.colF || 0), colD = Math.max(0, e.colD || 0);
+  const formas = armarFormas(rv.paginas, rv.pagsCara, rv.retiracion, colF, colD);
+  const r = { cant, revista: true, lineas: L, faltas, formas, colores: colF + colD, poses: rv.pagsCara || 0 };
+  if (!cant || !formas.length) return { ...r, ok: false };
+
+  // Interior: cada forma es una tirada aparte con su demasía
+  const d = e.demasia || {}, m = e.maquina || {};
+  let pmI = 0, netosI = 0, demI = 0, chapas = 0, posturas = 0, millaresCol = 0;
+  for (const f of formas) {
+    const netos = Math.ceil(cant / f.copias);
+    const dem = Math.ceil((colF > 0 ? Math.max(0, d.frente || 0) : 0) + (colD > 0 ? Math.max(0, d.dorso || 0) : 0) + Math.max(0, (d.pct || 0) / 100 * netos));
+    f.netos = netos; f.dem = dem; f.pm = netos + dem;
+    pmI += f.pm; netosI += netos; demI += dem; chapas += f.chapas; posturas += f.posturas;
+    millaresCol += Math.max(m.minMillar || 0, f.pm / 1000) * (colF + colD);
+  }
+  const cw = e.compra?.w || 0, ch = e.compra?.h || 0;
+  const piezas = piezasPorCompra(cw, ch, e.corte, e.maq);
+  const pcI = Math.ceil(pmI / piezas);
+  const kilosI = cw && ch && e.papel?.gramaje ? cw * ch * e.papel.gramaje * pcI / 1e7 : 0;
+  const interior = { formas, pm: pmI, netos: netosI, dem: demI, pc: pcI, piezas, kilos: kilosI, chapas, posturas };
+
+  const p = e.papel || {}, precioPapel = aPesos(p.precio || 0, p.moneda, e.dolar, faltas);
+  const nomP = 'Papel interior' + (p.nombre ? ': ' + p.nombre : '');
+  if (p.unidad === 'pliego') add('Interior', nomP, `${pcI} pl. de compra × ${fmt(precioPapel)}`, pcI * precioPapel);
+  else add('Interior', nomP, `${fmt(kilosI, 2)} kg × ${fmt(precioPapel)}`, kilosI * precioPapel);
+  if (colF + colD) {
+    const chapa = aPesos(m.chapa || 0, m.moneda, e.dolar, faltas), post = aPesos(m.postura || 0, m.moneda, e.dolar, faltas), mil = aPesos(m.millar || 0, m.moneda, e.dolar, faltas);
+    add('Interior', 'Chapas', `${chapas} × ${fmt(chapa)}`, chapas * chapa);
+    add('Interior', 'Posturas', `${posturas} × ${fmt(post)}`, posturas * post);
+    add('Interior', 'Millar de impresión', `${fmt(millaresCol, 3)} (millares × colores, ${formas.length} pliego${formas.length > 1 ? "s" : ""}) × ${fmt(mil)}`, millaresCol * mil);
+  }
+
+  // Tapa: es un trabajo común (poses por pliego) con su propio papel
+  let tapa = null;
+  const t = e.tapa;
+  if (t) {
+    const rt = presupuestar({ cant, poses: t.poses, colF: t.colF, colD: t.colD, mismaChapa: t.mismaChapa, papel: t.papel, compra: t.compra, corte: t.corte, maq: t.maq, maquina: t.maquina || m, demasia: d, dolar: e.dolar });
+    Object.assign(faltas, rt.faltas);
+    if (rt.ok) {
+      tapa = { pm: rt.pm, netos: rt.netos, dem: rt.dem, pc: rt.pc, piezas: rt.piezas, kilos: rt.kilos, poses: rt.poses };
+      for (const l of rt.lineas) add('Tapa', l.grupo === 'Papel' ? 'Papel tapa' + (t.papel?.nombre ? ': ' + t.papel.nombre : '') : l.nombre, l.detalle, l.sub);
+    } else r.tapaFalta = true;
+  }
+
+  Object.assign(r, {
+    interior, tapa, piezas, netos: netosI, dem: demI,
+    pm: pmI + (tapa?.pm || 0), pc: pcI + (tapa?.pc || 0), kilos: kilosI + (tapa?.kilos || 0),
+  });
+  const ctxI = { cant, pm: pmI, maqW: e.maq?.w || 0, maqH: e.maq?.h || 0 };
+  const ctxT = tapa ? { cant, pm: tapa.pm, maqW: t.maq?.w || 0, maqH: t.maq?.h || 0 } : ctxI;
+  return cerrar(e, r, L, add, faltas, { tapa: ctxT, interior: ctxI });
 }
 
 export function fmt(v, d = 2) {

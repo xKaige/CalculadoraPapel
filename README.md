@@ -5,7 +5,7 @@ App web instalable (PWA) con herramientas para imprenta:
 - **Peso de papel**: kilos a partir de hojas, u hojas a partir de kilos.
 - **Poses por pliego**: cuántos trabajos entran en un pliego, centrados en la mesa, con pinza y calle.
 - **Clientes** (`clientes.js`): agenda de clientes (CUIT, IVA, contacto, dirección…) con los presupuestos de cada uno; en Presupuesto se eligen de la agenda.
-- **Presupuesto** (`presupuesto.js` y `presupuesto-calculo.js`): pliego de compra y de máquina, catálogo de papeles, máquinas y terminaciones, demasía automática, ganancia, IVA, varias cantidades, presupuesto imprimible para el cliente y registro con estados.
+- **Presupuesto** (`presupuesto.js` y `presupuesto-calculo.js`): pliego de compra y de máquina, catálogo de papeles, máquinas y terminaciones, demasía automática, ganancia, IVA, varias cantidades, presupuesto imprimible para el cliente y registro con estados. Modo **Revista**: páginas, páginas por cara del pliego, pliegos de 16/8 (frente y dorso o retiración), chapas y posturas por pliego, y tapa aparte con su propio papel.
 - **Comparar** (`comparar.js`, `comparar-lector.js`): lee el PDF de una orden de trabajo recibida, reconoce medidas, papel, cantidades y precios, y los compara con un presupuesto guardado (verde coincide, rojo no). Desde ahí se genera la orden de trabajo numerada (imprimible, con control de producción y diagrama de corte).
 - **Cálculo de horas**: lee el archivo del reloj de fichadas (`attlog.dat`, Excel o CSV), calcula las horas de un empleado en un rango de fechas y guarda un historial por usuario.
 - **Planilla de pedidos**: registro de proveedor, material, trabajo, formato, pliegos y kilos. Requiere ingresar con Google; cada usuario tiene sus propios datos (guardados en Firebase).

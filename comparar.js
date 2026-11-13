@@ -1,6 +1,6 @@
 // Pestaña "Comparar": PDF de una orden de trabajo recibida vs. un presupuesto propio guardado.
 import { leerOrden, comparar, CAMPOS, numero } from './comparar-lector.js';
-import { pliegoMaquina, fmt } from './presupuesto-calculo.js';
+import { pliegoMaquina, fmt, resumenFormas } from './presupuesto-calculo.js';
 // presupuesto.js se carga cuando hace falta (así, si falla, el resto de Comparar sigue andando)
 let svgCompra, svgMaquina;
 
@@ -310,7 +310,22 @@ function htmlOT(numero, r, q, calc, extra) {
   const { E, res, calle, pinza, imprenta: im } = calc, b = E.base;
   const x = res.find(z => z.ok && z.cant === q.cant) || res.find(z => z.ok);
   const terms = b.terminaciones.map(t => t.nombre + (t.lados > 1 ? ' (frente y dorso)' : '')).join(', ');
-  const filas = [
+  const tapa = b.tapa, ab = E.tapaAbierta;
+  const filas = E.rev ? [
+    ['Cantidad', `${fmtN(q.cant)} revistas`],
+    E.tw && ['Formato cerrado', `${fmt(E.tw, 1)} × ${fmt(E.th, 1)} mm`],
+    ['Páginas', `${b.revista.paginas || 0} interiores${tapa ? ' + tapa' : ' (tapa incluida)'}`],
+    b.maquina?.nombre && ['Máquina', b.maquina.nombre],
+    ['Interior', `${b.papel.nombre || '—'} · ${b.colF}/${b.colD}${b.revista.retiracion ? ' · retiración (misma chapa)' : ''}`],
+    b.maq && ['Pliego del interior', `${fmt(b.maq.w, 1)} × ${fmt(b.maq.h, 1)} cm · ${E.pagsCara} págs. por cara · pinza ${fmt(pinza, 0)} mm${b.compra.w && E.corte > 1 ? ` · hoja de ${fmt(b.compra.w, 0)}×${fmt(b.compra.h, 0)} cortada en ${E.corte}` : ''}`],
+    x && x.formas && ['Armado del interior', `${resumenFormas(x.formas)} · ${fmtN(x.interior.chapas)} chapas`],
+    x && x.interior && ['Pliegos del interior', `${fmtN(x.interior.netos)} + ${fmtN(x.interior.dem)} de demasía = ${fmtN(x.interior.pm)} pliegos de máquina`],
+    x && x.interior && b.compra.w && ['Papel interior a pedir', `${fmtN(x.interior.pc)} hojas de ${fmt(b.compra.w, 0)}×${fmt(b.compra.h, 0)}${x.interior.kilos ? ` · ${fmt(x.interior.kilos, 1)} kg` : ''}`],
+    tapa && ['Tapa', `${tapa.papel.nombre || '—'} · ${tapa.colF}/${tapa.colD}${ab ? ` · abierta ${fmt(ab.w / 10, 1)} × ${fmt(ab.h / 10, 1)} cm` : ''} · ${tapa.poses} por pliego`],
+    x && x.tapa && tapa.compra.w && ['Papel tapa a pedir', `${fmtN(x.tapa.pc)} hojas de ${fmt(tapa.compra.w, 0)}×${fmt(tapa.compra.h, 0)} (${fmtN(x.tapa.pm)} pliegos de máquina)${x.tapa.kilos ? ` · ${fmt(x.tapa.kilos, 1)} kg` : ''}`],
+    terms && ['Terminaciones', terms],
+    b.cajas?.porCaja > 0 && ['Embalaje', `cajas de ${fmtN(b.cajas.porCaja)} ejemplares`],
+  ].filter(Boolean) : [
     ['Cantidad', `${fmtN(q.cant)} ejemplares`],
     E.tw && ['Medida terminada', `${fmt(E.tw, 1)} × ${fmt(E.th, 1)} mm`],
     b.papel.nombre && ['Papel', b.papel.nombre],
@@ -324,9 +339,15 @@ function htmlOT(numero, r, q, calc, extra) {
     (b.micro.tipo || b.micro.formato) && ['Microcorrugado', [b.micro.tipo, b.micro.formato].filter(Boolean).join(' · ')],
     b.cajas?.porCaja > 0 && ['Embalaje', `cajas de ${fmtN(b.cajas.porCaja)} ejemplares`],
   ].filter(Boolean);
-  const pasos = ['Preimpresión / CTP', 'Impresión', ...b.terminaciones.map(t => t.nombre), ...(b.micro.precio ? ['Microcorrugado'] : []), 'Corte final', 'Empaque', 'Entrega'];
+  const pasos = E.rev ? ['Preimpresión / CTP', 'Impresión interior', ...(tapa ? ['Impresión tapa'] : []), ...b.terminaciones.map(t => t.nombre), 'Corte final', 'Empaque', 'Entrega'] : ['Preimpresión / CTP', 'Impresión', ...b.terminaciones.map(t => t.nombre), ...(b.micro.precio ? ['Microcorrugado'] : []), 'Corte final', 'Empaque', 'Entrega'];
   let diagrama = '';
-  if (extra.diagrama && b.maq && E.tw && window.armadoPoses) {
+  if (extra.diagrama && E.rev && b.maq && E.tw && window.armadoPoses) {
+    const ai = window.armadoPoses(b.maq.w * 10, b.maq.h * 10, E.tw, E.th, { pinza, calleX: calle, calleY: calle, poses: E.pagsCara });
+    const at = tapa && tapa.maq && ab ? window.armadoPoses(tapa.maq.w * 10, tapa.maq.h * 10, ab.w, ab.h, { pinza, calleX: calle, calleY: calle, poses: tapa.poses }) : null;
+    diagrama = `<div class="ot-salto"></div><h3 class="ot-h3">Armado · OT N° ${numero}</h3><div class="ts-figs">
+      ${ai ? `<div class="ts-fig"><h4>Interior: ${ai.rects.length} páginas por cara</h4>${svgMaquina(ai, pinza, calle)}</div>` : ''}
+      ${at ? `<div class="ts-fig"><h4>Tapa: ${at.rects.length} por pliego</h4>${svgMaquina(at, pinza, calle)}</div>` : ''}</div>`;
+  } else if (extra.diagrama && b.maq && E.tw && window.armadoPoses) {
     const a = window.armadoPoses(b.maq.w * 10, b.maq.h * 10, E.tw, E.th, { pinza, calleX: calle, calleY: calle, poses: E.poses });
     diagrama = `<div class="ot-salto"></div><h3 class="ot-h3">Diagrama de corte · OT N° ${numero}</h3><div class="ts-figs">
       ${E.corte && b.compra.w ? `<div class="ts-fig"><h4>Pliego de compra: cortar en ${E.corte}</h4>${svgCompra(b.compra.w, b.compra.h, E.corte)}</div>` : ''}

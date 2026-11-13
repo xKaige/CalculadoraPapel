@@ -228,6 +228,10 @@
   .ts-ajuste .ts-aj-op .lbl { color: var(--muted); font-size: .8rem; width: 100%; }
   .ts-ajuste .ts-aj-op label { display: inline-flex; align-items: center; gap: 5px; margin: 0; color: var(--ink); font-size: .88rem; }
   .ts-ajuste .actions { width: 100%; }
+  #presupuesto:not(.es-revista) [data-solo="revista"], #presupuesto.es-revista [data-solo="comun"] { display: none !important; }
+  .ts-term .ts-parte { margin-left: 4px; }
+  .ts-unid { display: inline-flex; align-items: center; gap: 5px; font-size: .82rem; color: var(--muted); }
+  .ts-unid input { width: 56px; padding: 4px 6px; }
   .btn.btn-tema { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border-radius: 50%; }
   .btn.btn-tema svg { flex: 0 0 auto; width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .btn-tema .ic-luna { fill: currentColor; stroke: none; }
@@ -1600,6 +1604,12 @@
       else fb.addDoc(col(), { ...datos, creado: fb.serverTimestamp() }).catch(err => estado('Error: ' + err.code));
       estado(id ? 'Cambios guardados.' : 'Registro guardado.');
       $('plProveedor').focus();
+      // revistas: después del papel del interior, se carga el de la tapa
+      if (!id && window.pedidosCola && window.pedidosCola.length) {
+        const prov = datos.proveedor;
+        window.pedidoPendiente = window.pedidosCola.shift();
+        setTimeout(() => { aplicarPendiente(); $('plProveedor').value = prov; estado('Guardado. Ahora está cargado el papel de la tapa: revisalo y tocá Guardar.', 10000); }, 300);
+      }
     } catch (err) { estado('No se pudo guardar (' + (err.code || err.message) + ').'); }
   });
   // ----- Kilos automáticos: formato (cm o mm) × gramaje (del material) × pliegos -----
