@@ -214,8 +214,12 @@ export function presupuestarRevista(e) {
 
   // Interior: cada forma es una tirada aparte con su demasía
   const d = e.demasia || {}, m = e.maquina || {};
-  let pmI = 0, netosI = 0, demI = 0, chapas = 0, posturas = 0, millaresCol = 0;
+  let pmI = 0, netosI = 0, demI = 0, chapas = 0, posturas = 0, pasadas = 0, millaresCol = 0;
+  // posturas a máquina: cada vez que se monta el pliego (por lado; una máquina de 4 colores hace 4/0 en una sola)
+  const mc = Math.max(0, m.colores || 0), vueltas = c => c > 0 ? (mc ? Math.ceil(c / mc) : 1) : 0;
   for (const f of formas) {
+    f.pasadas = f.modo === 'ret' ? vueltas(Math.max(colF, colD)) : vueltas(colF) + vueltas(colD);
+    pasadas += f.pasadas;
     const netos = Math.ceil(cant / f.copias);
     const dem = Math.ceil((colF > 0 ? Math.max(0, d.frente || 0) : 0) + (colD > 0 ? Math.max(0, d.dorso || 0) : 0) + Math.max(0, (d.pct || 0) / 100 * netos));
     f.netos = netos; f.dem = dem; f.pm = netos + dem;
@@ -226,7 +230,7 @@ export function presupuestarRevista(e) {
   const piezas = piezasPorCompra(cw, ch, e.corte, e.maq);
   const pcI = Math.ceil(pmI / piezas);
   const kilosI = cw && ch && e.papel?.gramaje ? cw * ch * e.papel.gramaje * pcI / 1e7 : 0;
-  const interior = { formas, pm: pmI, netos: netosI, dem: demI, pc: pcI, piezas, kilos: kilosI, chapas, posturas };
+  const interior = { formas, pm: pmI, netos: netosI, dem: demI, pc: pcI, piezas, kilos: kilosI, chapas, posturas: pasadas, posturasColor: posturas };
 
   const p = e.papel || {}, precioPapel = aPesos(p.precio || 0, p.moneda, e.dolar, faltas);
   const nomP = 'Papel interior' + (p.nombre ? ': ' + p.nombre : '');
@@ -235,7 +239,7 @@ export function presupuestarRevista(e) {
   if (colF + colD) {
     const chapa = aPesos(m.chapa || 0, m.moneda, e.dolar, faltas), post = aPesos(m.postura || 0, m.moneda, e.dolar, faltas), mil = aPesos(m.millar || 0, m.moneda, e.dolar, faltas);
     add('Interior', 'Chapas', `${chapas} × ${fmt(chapa)}`, chapas * chapa);
-    add('Interior', 'Posturas', `${posturas} × ${fmt(post)}`, posturas * post);
+    add('Interior', 'Posturas', `${pasadas} postura${pasadas > 1 ? 's' : ''} a máquina (${posturas} colores) × ${fmt(post)} por color`, posturas * post);
     add('Interior', 'Millar de impresión', `${fmt(millaresCol, 3)} (millares × colores, ${formas.length} pliego${formas.length > 1 ? "s" : ""}) × ${fmt(mil)}`, millaresCol * mil);
   }
 
