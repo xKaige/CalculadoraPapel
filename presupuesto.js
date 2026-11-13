@@ -31,6 +31,7 @@ const CATALOGO_INICIAL = {
     { id: 't1', nombre: 'Barniz', unidad: 'millarPl', precio: 8000, postura: 10000, moneda: 'ARS', porLado: true },
     { id: 't2', nombre: 'Laminado brillante', unidad: 'm2', precio: 550, postura: 0, moneda: 'ARS', porLado: true },
     { id: 't3', nombre: 'Laminado mate', unidad: 'm2', precio: 600, postura: 0, moneda: 'ARS', porLado: true },
+    { id: 't14', nombre: 'Polietileno', unidad: 'm2', precio: 450, postura: 0, moneda: 'ARS', porLado: true },
     { id: 't4', nombre: 'Laca UV', unidad: 'pliego', precio: 60, postura: 10000, moneda: 'ARS', porLado: true },
     { id: 't11', nombre: 'UV sectorizado', unidad: 'pliego', precio: 90, postura: 25000, moneda: 'ARS', porLado: true },
     { id: 't5', nombre: 'Troquelado', unidad: 'millarPl', precio: 15000, postura: 30000, moneda: 'ARS', porLado: false },
@@ -45,9 +46,9 @@ const CATALOGO_INICIAL = {
 };
 let cat = structuredClone(CATALOGO_INICIAL);
 // Catálogos guardados antes de que existieran algunas terminaciones: se les agregan una sola vez
-const NUEVAS_TERMINACIONES = { 2: ['t10'], 3: ['t11', 't12'], 4: ['t13'] };   // versión → ids agregados
+const NUEVAS_TERMINACIONES = { 2: ['t10'], 3: ['t11', 't12'], 4: ['t13'], 5: ['t14'] };   // versión → ids agregados
 const RENOMBRES = { 3: [['t4', 'UV sectorizado', 'Laca UV']] };     // versión → [id, nombre viejo, nombre nuevo]
-const VERSION_CATALOGO = 4;
+const VERSION_CATALOGO = 5;
 function actualizarCatalogo(c, versionGuardada) {
   const v = versionGuardada || 1;
   for (let n = v + 1; n <= VERSION_CATALOGO; n++) for (const [id, viejo, nuevo] of RENOMBRES[n] || []) {
@@ -56,7 +57,11 @@ function actualizarCatalogo(c, versionGuardada) {
   }
   for (let n = v + 1; n <= VERSION_CATALOGO; n++) for (const id of NUEVAS_TERMINACIONES[n] || []) {
     const t = CATALOGO_INICIAL.terminaciones.find(x => x.id === id);
-    if (t && !c.terminaciones.some(x => x.id === id || x.nombre.toLowerCase() === t.nombre.toLowerCase())) c.terminaciones.push(structuredClone(t));
+    if (!t || c.terminaciones.some(x => x.id === id || x.nombre.toLowerCase() === t.nombre.toLowerCase())) continue;
+    // va debajo de la que la precede en el catálogo de ejemplo (si el usuario la tiene); si no, al final
+    const ini = CATALOGO_INICIAL.terminaciones, antes = ini[ini.indexOf(t) - 1];
+    const pos = antes ? c.terminaciones.findIndex(x => x.id === antes.id) : -1;
+    if (pos >= 0) c.terminaciones.splice(pos + 1, 0, structuredClone(t)); else c.terminaciones.push(structuredClone(t));
   }
   if (c.defaults && c.defaults.demFrente == null) {
     const pc = c.defaults.demColor ?? 25;
