@@ -146,7 +146,8 @@ function cerrar(e, r, L, add, faltas, ctx) {
   if (mc.precio > 0) {
     const pr = aPesos(mc.precio, mc.moneda, e.dolar, faltas);
     const planchas = mc.planchas > 0 ? Math.ceil(mc.planchas) : pm;
-    add('Microcorrugado', ['Microcorrugado', mc.tipo, mc.formato].filter(Boolean).join(' · '), `${planchas} planchas × ${fmt(pr)}`, planchas * pr);
+    const m2 = mc.porM2 && mc.area ? ` (${fmt(mc.area, 3)} m² × ${fmt(aPesos(mc.precioM2, mc.moneda, e.dolar, faltas))})` : '';
+    add('Microcorrugado', ['Microcorrugado', mc.tipo, mc.formato].filter(Boolean).join(' · '), `${planchas} planchas × ${fmt(pr)}${m2}`, planchas * pr);
   }
 
   // Otros

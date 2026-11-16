@@ -195,9 +195,16 @@ sec.innerHTML = `
   <h2 class="sec" data-solo="comun">Microcorrugado</h2>
   <div class="grid" data-solo="comun">
     <div><label for="tsMicroTipo">Tipo de micro</label><input id="tsMicroTipo" placeholder="Ej. Onda E blanco" style="padding-right:12px"></div>
-    <div><label for="tsMicroFormato">Formato</label><input id="tsMicroFormato" placeholder="Ej. 70×100" style="padding-right:12px"></div>
-    <div><label for="tsMicroPrecio">Precio por plancha</label><div class="field"><input id="tsMicroPrecio" inputmode="decimal"><button type="button" class="pr-cur" id="tsMicroMon" data-cur="ARS">$</button></div></div>
+    <div><label for="tsMicroPor">El precio es por</label><select id="tsMicroPor" class="ts-select"><option value="plancha">Plancha</option><option value="m2">Metro cuadrado (m²)</option></select></div>
+    <div class="full"><div class="mode" role="group" id="tsMicroU"><button type="button" data-u="cm" aria-pressed="true">Centímetros</button><button type="button" data-u="mm" aria-pressed="false">Milímetros</button></div></div>
+    <div><label for="tsMicroW">Plancha ancho</label><div class="field"><input id="tsMicroW" inputmode="decimal" placeholder="70"><span class="unit" id="tsMicroU1">cm</span></div></div>
+    <div><label for="tsMicroH">Plancha alto</label><div class="field"><input id="tsMicroH" inputmode="decimal" placeholder="100"><span class="unit" id="tsMicroU2">cm</span></div></div>
+    <div><label for="tsMicroPrecio" id="tsMicroPrecioLbl">Precio por plancha</label><div class="field"><input id="tsMicroPrecio" inputmode="decimal"><button type="button" class="pr-cur" id="tsMicroMon" data-cur="ARS">$</button></div></div>
     <div><label for="tsMicroPlanchas">Planchas</label><div class="field"><input id="tsMicroPlanchas" inputmode="numeric" placeholder="auto"><span class="unit">pl.</span></div></div>
+    <div class="full readout">
+      <div><small>Plancha</small><b id="tsMicroArea">—</b></div>
+      <div><small id="tsMicroOtroLbl">Precio por m²</small><b id="tsMicroOtro">—</b></div>
+    </div>
     <div class="full estado">Si dejás "Planchas" vacío, se cuenta una plancha por pliego de máquina (incluida la demasía).</div>
   </div>
 
@@ -316,23 +323,29 @@ sec.innerHTML = `
 `;
 
 // ---------- Estado de la UI ----------
-let uTr = 'mm', demModo = 'auto', iva = 21, papelMon = 'USD', microMon = 'ARS', tipo = 'comun', tapaMon = 'USD';
+let uMicro = 'cm', uTr = 'mm', demModo = 'auto', iva = 21, papelMon = 'USD', microMon = 'ARS', tipo = 'comun', tapaMon = 'USD';
 let margenCant = {};   // cantidad → ganancia % propia (texto como se escribió)
 const termSel = {};   // id → { on, lados }
 const CAMPOS = ['tsFecha', 'tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsCalle', 'tsPinza', 'tsPoses', 'tsPapelSel', 'tsPapelNombre', 'tsGramaje',
   'tsPapelPrecio', 'tsPapelUnidad', 'tsCw', 'tsCh', 'tsCorte', 'tsMw', 'tsMh', 'tsMaquina', 'tsColF', 'tsColD', 'tsDemFrente', 'tsDemDorso', 'tsDemPct',
-  'tsMicroTipo', 'tsMicroFormato', 'tsMicroPrecio', 'tsMicroPlanchas', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsMargen', 'tsDesc',
+  'tsMicroTipo', 'tsMicroW', 'tsMicroH', 'tsMicroPor', 'tsMicroPrecio', 'tsMicroPlanchas', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsMargen', 'tsDesc',
   'tsPaginas', 'tsPagsCara', 'tsTapaPapelSel', 'tsTapaPapelNombre', 'tsTapaGramaje', 'tsTapaPrecio', 'tsTapaUnidad', 'tsTapaCw', 'tsTapaCh', 'tsTapaCorte', 'tsTapaColF', 'tsTapaColD', 'tsTapaLomo', 'tsTapaPoses'];
 
 function snapshot() {
   const c = {}; CAMPOS.forEach(k => c[k] = $(k).value);
-  return { campos: c, uTr, demModo, iva, papelMon, microMon, margenCant: { ...margenCant }, mismaChapa: $('tsMismaChapa').checked, termSel: structuredClone(termSel), tipo, tapaMon, tapaOn: $('tsTapaOn').checked, tapaMismaChapa: $('tsTapaMismaChapa').checked };
+  return { campos: c, uTr, demModo, iva, papelMon, microMon, margenCant: { ...margenCant }, mismaChapa: $('tsMismaChapa').checked, termSel: structuredClone(termSel), tipo, tapaMon, tapaOn: $('tsTapaOn').checked, tapaMismaChapa: $('tsTapaMismaChapa').checked, uMicro };
 }
 function restaurar(s) {
   if (!s) return;
   CAMPOS.forEach(k => { if (s.campos && s.campos[k] != null) $(k).value = s.campos[k]; });
   uTr = s.uTr || 'mm'; demModo = s.demModo || 'auto'; iva = s.iva ?? 21; papelMon = s.papelMon || 'USD'; microMon = s.microMon || 'ARS'; margenCant = { ...(s.margenCant || {}) }; pintarMargenes.clave = null;
   $('tsMismaChapa').checked = !!s.mismaChapa;
+  uMicro = s.uMicro || 'cm';
+  // presupuestos viejos: el formato del micro era un texto ("70×100")
+  if (s.campos && s.campos.tsMicroW == null) {
+    const m = String(s.campos.tsMicroFormato || '').match(/(\d+(?:[.,]\d+)?)\s*[x×*]\s*(\d+(?:[.,]\d+)?)/i);
+    $('tsMicroW').value = m ? m[1] : ''; $('tsMicroH').value = m ? m[2] : ''; $('tsMicroPor').value = 'plancha';
+  }
   tipo = s.tipo || 'comun'; tapaMon = s.tapaMon || 'USD'; $('tsTapaOn').checked = s.tapaOn !== false; $('tsTapaMismaChapa').checked = !!s.tapaMismaChapa;
   // presupuestos guardados con la demasía vieja (por color o a mano)
   if (s.campos && s.campos.tsDemFrente == null) {
@@ -577,7 +590,7 @@ function entrada() {
       maquina: maquina || {},
       demasia: { frente: num($('tsDemFrente').value), dorso: num($('tsDemDorso').value), pct: num($('tsDemPct').value) },
       terminaciones, otros,
-      micro: { tipo: $('tsMicroTipo').value.trim(), formato: $('tsMicroFormato').value.trim(), precio: num($('tsMicroPrecio').value), planchas: num($('tsMicroPlanchas').value), moneda: microMon },
+      micro: microDatos(),
       cajas: { porCaja: num($('tsPorCaja').value), precio: num($('tsCajaPrecio').value), moneda: 'ARS' },
       margen: num($('tsMargen').value), descuento: num($('tsDesc').value), iva, dolar: dolar?.venta || 0,
     },
@@ -595,6 +608,17 @@ function pintarMargenes(cants) {
   $('tsMargenes').querySelectorAll('input').forEach(i => i.placeholder = $('tsMargen').value || '0');
 }
 const calc1 = (b, cant, margen) => (b.revista ? presupuestarRevista : presupuestar)({ ...b, cant, margen });
+// Microcorrugado: formato de la plancha (cm o mm) y precio por plancha o por m²
+function microDatos() {
+  const k = uMicro === 'mm' ? 0.1 : 1, w = num($('tsMicroW').value) * k, h = num($('tsMicroH').value) * k;   // en cm
+  const area = w * h / 10000, precio = num($('tsMicroPrecio').value), porM2 = $('tsMicroPor').value === 'm2';
+  const u = uMicro === 'mm' ? 'mm' : 'cm', f = v => fmt(v * (uMicro === 'mm' ? 10 : 1), 1).replace(/,0$/, '');
+  return {
+    tipo: $('tsMicroTipo').value.trim(), formato: w && h ? `${f(w)} × ${f(h)} ${u}` : '', area,
+    precio: porM2 ? precio * area : precio, precioM2: porM2 ? precio : area ? precio / area : 0, porM2,
+    planchas: num($('tsMicroPlanchas').value), moneda: microMon,
+  };
+}
 function margenDe(cant) {
   const v = margenCant[cant];
   return v != null && String(v).trim() !== '' ? num(v) : num($('tsMargen').value);
@@ -609,6 +633,15 @@ function calcular() {
   document.querySelectorAll('#tsIva button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.iva === iva));
   $('tsPapelMon').dataset.cur = papelMon; $('tsPapelMon').textContent = papelMon === 'USD' ? 'US$' : '$';
   $('tsMicroMon').dataset.cur = microMon; $('tsMicroMon').textContent = microMon === 'USD' ? 'US$' : '$';
+  document.querySelectorAll('#tsMicroU button').forEach(x => x.setAttribute('aria-pressed', x.dataset.u === uMicro));
+  $('tsMicroU1').textContent = $('tsMicroU2').textContent = uMicro;
+  {
+    const md = microDatos(), sm = microMon === 'USD' ? 'US$ ' : '$ ';
+    $('tsMicroPrecioLbl').textContent = md.porM2 ? 'Precio por m²' : 'Precio por plancha';
+    $('tsMicroOtroLbl').textContent = md.porM2 ? 'Precio por plancha' : 'Precio por m²';
+    $('tsMicroArea').textContent = md.area ? `${md.formato} = ${fmt(md.area, 3)} m²` : '—';
+    $('tsMicroOtro').textContent = md.area && num($('tsMicroPrecio').value) ? sm + fmt(md.porM2 ? md.precio : md.precioM2, 2) : (md.porM2 && !md.area ? 'cargá el formato' : '—');
+  }
   $('tsMaqManual').hidden = $('tsCorte').value !== '0';
   $('tsTotalLabel').textContent = iva ? 'Total con IVA' : 'Total';
   $('tsDolarInfo').textContent = dolar?.venta ? `Dólar oficial (venta) para los precios en US$: ${pesos(dolar.venta)}` : 'Sin cotización del dólar: los precios en US$ no se pueden pasar a pesos.';
@@ -892,6 +925,13 @@ $('tsTapaPapelSel').addEventListener('change', () => {
 });
 $('tsIva').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { iva = +b.dataset.iva; calcular(); } });
 $('tsPapelMon').addEventListener('click', () => { papelMon = papelMon === 'USD' ? 'ARS' : 'USD'; calcular(); });
+$('tsMicroU').addEventListener('click', e => {
+  const x = e.target.closest('button'); if (!x || x.dataset.u === uMicro) return;
+  const f = x.dataset.u === 'mm' ? 10 : 0.1; uMicro = x.dataset.u;
+  ['tsMicroW', 'tsMicroH'].forEach(id => { const v = num($(id).value); if (v > 0) $(id).value = fmt(v * f, 2).replace(/\./g, '').replace(/,00$/, ''); });
+  calcular();
+});
+$('tsMicroPor').addEventListener('change', calcular);
 $('tsMicroMon').addEventListener('click', () => { microMon = microMon === 'USD' ? 'ARS' : 'USD'; calcular(); });
 $('tsColChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; const [f, d] = b.dataset.c.split('/'); $('tsColF').value = f; $('tsColD').value = d; calcular(); });
 $('tsCantChips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) { verCant = +b.dataset.i; calcular(); } });
@@ -932,7 +972,7 @@ function aplicarDefaults(todo) {
   if (todo) { $('tsPinza').value = d.pinza; iva = d.iva; }
 }
 function nuevoPresupuesto(aviso = 'Presupuesto nuevo.') {
-  ['tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsPoses', 'tsMicroTipo', 'tsMicroFormato', 'tsMicroPrecio', 'tsMicroPlanchas', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsNumero', 'tsPaginas', 'tsPagsCara', 'tsTapaPoses'].forEach(id => $(id).value = '');
+  ['tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsPoses', 'tsMicroTipo', 'tsMicroW', 'tsMicroH', 'tsMicroPrecio', 'tsMicroPlanchas', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsNumero', 'tsPaginas', 'tsPagsCara', 'tsTapaPoses'].forEach(id => $(id).value = '');
   $('tsFecha').value = fechaAuto = hoy(); $('tsDesc').value = '0'; abierto = null; aplicarDefaults(true); margenCant = {}; pintarMargenes.clave = null;
   for (const k in termSel) delete termSel[k]; pintarTerminaciones();
   $('tsClienteWrap').hidden = true; $('tsCorteWrap').hidden = true; $('tsGuardar').textContent = 'Guardar presupuesto';
