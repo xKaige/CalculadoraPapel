@@ -710,8 +710,10 @@ function calcular() {
   }
   const r0 = res.find(x => x.formas?.length);
   $('tsArmadoInfo').textContent = rev && r0 ? `Armado del interior: ${resumenFormas(r0.formas)} · ${fmt(r0.interior.chapas, 0)} chapas y ${fmt(r0.interior.posturas, 0)} posturas.` : '';
-  $('tsComparar').innerHTML = res.length > 1 && res[0].ok ? '<thead><tr><th>Cantidad</th><th style="text-align:right">Ganancia</th><th style="text-align:right">Total' + (iva ? ' c/IVA' : '') + '</th><th style="text-align:right">Unitario s/IVA</th></tr></thead><tbody>'
-    + res.map(x => `<tr><td>${fmt(x.cant, 0)} ej.</td><td class="h">${fmt(x.margen, 1)} %</td><td class="h">${pesos(x.total)}</td><td class="h">${pesos(x.unitario)}</td></tr>`).join('') + '</tbody>' : '';
+  // Resumen por cantidad: Cantidad · Ganancia · Unitario s/IVA · Total s/IVA · Total c/IVA
+  const okRes = res.filter(x => x.ok), R = 'style="text-align:right"';
+  $('tsComparar').innerHTML = okRes.length ? `<thead><tr><th>Cantidad</th><th ${R}>Ganancia</th><th ${R}>Unitario s/IVA</th><th ${R}>Total s/IVA</th><th ${R}>Total c/IVA</th></tr></thead><tbody>`
+    + okRes.map(x => `<tr><td>${fmt(x.cant, 0)} ej.</td><td class="h">${pesos(x.ganancia)} <small style="color:var(--muted)">(${fmt(x.margen, 1)} %)</small></td><td class="h">${pesos(x.unitario)}</td><td class="h">${pesos(x.subtotal)}</td><td class="h"><b>${pesos(x.total)}</b></td></tr>`).join('') + '</tbody>' : '';
   $('tsHint').textContent = avisos.join(' '); $('tsHint').hidden = !avisos.length;
   guardarLocal();
   if (!$('tsClienteWrap').hidden) pintarDocCliente();
