@@ -287,6 +287,7 @@ sec.innerHTML = `
       <div class="field"><input id="tsBuscar" placeholder="Buscar por cliente, trabajo o número" style="padding-right:12px"></div>
       <select id="tsFiltro" class="ts-select" style="width:auto"><option value="">Todos</option><option>Pendiente</option><option>Aprobado</option><option>Rechazado</option></select>
     </div>
+    <div class="actions ts-import"><button type="button" class="btn small" id="tsImportar">Importar presupuesto…</button><input type="file" id="tsImportarArch" accept=".pliego,.json,application/json" multiple hidden><span class="estado">Para traer uno exportado desde otra cuenta (archivo .pliego).</span></div>
     <div class="pl-lista" id="tsLista"></div>
     <details id="tsViejos" hidden style="margin-top:14px">
       <summary>Presupuestos de la versión anterior (<span id="tsViejosN">0</span>)</summary>
@@ -1057,11 +1058,86 @@ function pintarLista() {
         ? `<div class="acc ts-confirma"><span class="estado">Pedir papel para:</span>${(r.resumen || []).map((x, i) => `<button type="button" class="btn small" data-acc="pedido-cant" data-i="${i}">${fmt(x.cant, 0)} ej.</button>`).join('')}<button type="button" class="btn small" data-acc="no">Cancelar</button></div>`
         : borrando === r.id
         ? `<div class="acc ts-confirma"><span class="estado">¿Borrar el N° ${esc(r.numero)}?</span><button type="button" class="btn small danger" data-acc="si">Sí, borrar</button><button type="button" class="btn small" data-acc="no">No</button></div>`
-        : `<div class="acc ts-acc"><button type="button" class="btn small" data-acc="abrir">Abrir</button>${r.estado === 'Aprobado' ? '<button type="button" class="btn small" data-acc="pedido">Pedir papel</button>' : ''}<button type="button" class="btn small" data-acc="borrar">Borrar</button></div>`}
+        : `<div class="acc ts-acc"><button type="button" class="btn small" data-acc="abrir">Abrir</button>${r.estado === 'Aprobado' ? '<button type="button" class="btn small" data-acc="pedido">Pedir papel</button>' : ''}<button type="button" class="btn small" data-acc="exportar" title="Descargar para importarlo en otra cuenta">Exportar</button><button type="button" class="btn small" data-acc="borrar">Borrar</button></div>`}
     </div>`;
   }, pintarLista);
 }
 $('tsBuscar').addEventListener('input', () => { window.Paginas.reset('pres'); pintarLista(); });
+
+// ---------- Exportar / importar entre cuentas (archivo .pliego) ----------
+// El archivo lleva el presupuesto y lo del catálogo que usa (máquina y terminaciones, con sus precios),
+// así en la otra cuenta da exactamente lo mismo aunque su catálogo sea distinto.
+const QUITAR = ['id', 'creado', 'actualizado', 'clienteId'];
+function exportarPresupuesto(r) {
+  const snap = structuredClone(r.snapshot || {});
+  const termSel = snap.termSel || {};
+  const terminaciones = [];
+  for (const [id, sel] of Object.entries(termSel)) {
+    if (!sel?.on) continue;
+    const t = cat.terminaciones.find(x => x.id === id); if (!t) continue;
+    sel.precio ??= t.precio; sel.postura ??= t.postura;          // precios fijos en el archivo
+    terminaciones.push(structuredClone(t));
+  }
+  const maqId = snap.campos?.tsMaquina, maqCat = cat.maquinas.find(x => x.id === maqId);
+  if (maqCat && !(snap.maquinaFija && snap.maquinaFija.id === maqId)) snap.maquinaFija = preciosMaq(maqCat);
+  const datos = Object.fromEntries(Object.entries(r).filter(([k]) => !QUITAR.includes(k)));
+  const archivo = { app: 'pliego', tipo: 'presupuesto', version: 1, exportado: new Date().toISOString(),
+    presupuesto: { ...datos, snapshot: snap }, catalogo: { terminaciones, maquina: maqCat ? structuredClone(maqCat) : null } };
+  const nombre = `Presupuesto N${r.numero || ''} ${r.cliente || r.trabajo || ''}`.trim().replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, ' ');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(archivo, null, 1)], { type: 'application/json' }));
+  a.download = nombre + '.pliego'; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  msg(`Se descargó "${nombre}.pliego". En la otra cuenta tocá "Importar presupuesto…" y elegí ese archivo.`);
+}
+const mismoNombre = (a, b) => sinTc(a) === sinTc(b);
+async function importarArchivo(file) {
+  let data; try { data = JSON.parse(await file.text()); } catch (e) { throw new Error(`"${file.name}" no es un archivo de presupuesto válido.`); }
+  const items = data?.app === 'pliego' && data.presupuesto ? [data] : Array.isArray(data?.presupuestos) ? data.presupuestos : null;
+  if (!items) throw new Error(`"${file.name}" no es un presupuesto exportado desde Pliego.`);
+  const agregados = [], hechos = [];
+  for (const it of items) {
+    const p = structuredClone(it.presupuesto), snap = p.snapshot || {}, cg = it.catalogo || {};
+    // terminaciones: se busca una con el mismo nombre; si no está, se agrega al catálogo
+    const nuevoSel = {};
+    for (const [id, sel] of Object.entries(snap.termSel || {})) {
+      const t = (cg.terminaciones || []).find(x => x.id === id) || cat.terminaciones.find(x => x.id === id);
+      if (!t) continue;
+      let local = cat.terminaciones.find(x => mismoNombre(x.nombre, t.nombre));
+      if (!local) { local = { ...structuredClone(t), id: 'ti' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5) }; cat.terminaciones.push(local); agregados.push(t.nombre); }
+      nuevoSel[local.id] = sel;
+    }
+    snap.termSel = nuevoSel;
+    // máquina
+    if (cg.maquina) {
+      let m = cat.maquinas.find(x => mismoNombre(x.nombre, cg.maquina.nombre));
+      if (!m) { m = { ...structuredClone(cg.maquina), id: 'mi' + Date.now().toString(36) }; cat.maquinas.push(m); agregados.push('máquina ' + cg.maquina.nombre); }
+      snap.campos = { ...(snap.campos || {}), tsMaquina: m.id };
+      snap.maquinaFija = { ...(snap.maquinaFija || preciosMaq(cg.maquina)), id: m.id };
+    }
+    // papeles del catálogo: solo se usa el id para el desplegable; los datos van en el presupuesto
+    for (const k of ['tsPapelSel', 'tsTapaPapelSel']) if (snap.campos?.[k] && !cat.papeles.some(x => x.id === snap.campos[k])) snap.campos[k] = '';
+    const numero = Math.max(lista.reduce((m, x) => Math.max(m, x.numero || 0), 0), ...hechos.map(h => h.numero)) + 1;
+    snap.campos = { ...(snap.campos || {}), tsNumero: String(numero) };
+    const cli = clientes.find(c => mismoNombre(c.nombre, p.cliente));
+    const datos = { ...p, snapshot: snap, numero, estado: p.estado || 'Pendiente', clienteId: cli?.id || null,
+      importado: { de: p.numero || null, el: new Date().toISOString() }, creado: FB.fb.serverTimestamp(), actualizado: FB.fb.serverTimestamp() };
+    await FB.fb.setDoc(FB.fb.doc(col()), datos);
+    hechos.push({ numero, cliente: p.cliente });
+  }
+  if (agregados.length) catCambiado();
+  return { hechos, agregados };
+}
+$('tsImportar').addEventListener('click', () => { if (!usuario || !FB) return msg('Ingresá con Google para importar.'); $('tsImportarArch').click(); });
+$('tsImportarArch').addEventListener('change', async e => {
+  const files = [...e.target.files]; e.target.value = '';
+  const ok = [], agregados = [];
+  for (const f of files) {
+    try { const r = await importarArchivo(f); ok.push(...r.hechos); agregados.push(...r.agregados); }
+    catch (err) { msg(err.message); return; }
+  }
+  if (ok.length) msg(`Importado${ok.length > 1 ? 's' : ''}: ${ok.map(h => 'N° ' + h.numero + (h.cliente ? ' (' + h.cliente + ')' : '')).join(', ')}.${agregados.length ? ' Se agregó a tu configuración: ' + [...new Set(agregados)].join(', ') + '.' : ''}`);
+});
 $('tsFiltro').addEventListener('change', () => { window.Paginas.reset('pres'); pintarLista(); });
 $('tsLista').addEventListener('change', e => {
   if (e.target.dataset.acc !== 'estado') return;
@@ -1076,6 +1152,7 @@ $('tsLista').addEventListener('click', e => {
   else if (a === 'no') { borrando = null; pidiendo = null; }
   else if (a === 'si') { borrando = null; if (abierto === id) abierto = null; FB.fb.deleteDoc(FB.fb.doc(col(), id)); msg('Presupuesto borrado.'); }
   else if (a === 'abrir') { abrirGuardado(r); }
+  else if (a === 'exportar') { exportarPresupuesto(r); return; }
   else if (a === 'pedido' || a === 'pedido-cant') {
     // se recalcula desde lo guardado (así los presupuestos viejos también piden bien el papel)
     let res = [], Er = null;
