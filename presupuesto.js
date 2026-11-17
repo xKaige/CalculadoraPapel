@@ -141,6 +141,7 @@ sec.innerHTML = `
   <h2 class="sec" id="tsImpTit">Impresión</h2>
   <div class="grid">
     <div class="full"><label for="tsMaquina">Máquina</label><select id="tsMaquina" class="ts-select"></select></div>
+    <div class="full ts-congelado" id="tsCongelado" hidden><span>Este presupuesto usa los precios con los que se guardó (máquina y terminaciones), que son distintos a los del catálogo.</span> <button type="button" class="btn small" id="tsUsarCatalogo">Usar los precios actuales</button></div>
     <div><label for="tsColF">Colores frente</label><div class="field"><input id="tsColF" type="number" min="0" step="1" value="4"><span class="unit">col.</span></div></div>
     <div><label for="tsColD">Colores dorso</label><div class="field"><input id="tsColD" type="number" min="0" step="1" value="0"><span class="unit">col.</span></div></div>
     <div class="full chips" id="tsColChips">
@@ -323,6 +324,20 @@ sec.innerHTML = `
 `;
 
 // ---------- Estado de la UI ----------
+// Precios guardados con el presupuesto (así cambiar el catálogo no modifica los presupuestos viejos)
+let maquinaFija = null;
+const PRECIOS_MAQ = ['chapa', 'postura', 'millar', 'minMillar', 'moneda'];
+const preciosMaq = m => m ? Object.fromEntries([['id', m.id], ...PRECIOS_MAQ.map(k => [k, m[k]])]) : null;
+function congelarPrecios() {
+  const m = cat.maquinas.find(x => x.id === $('tsMaquina').value);
+  if (m && !(maquinaFija && maquinaFija.id === m.id)) maquinaFija = preciosMaq(m);
+  for (const t of cat.terminaciones) { const s = termSel[t.id]; if (s?.on) { s.precio ??= t.precio; s.postura ??= t.postura; } }
+}
+function preciosDistintos() {
+  const m = cat.maquinas.find(x => x.id === $('tsMaquina').value);
+  if (m && maquinaFija && maquinaFija.id === m.id && PRECIOS_MAQ.some(k => (maquinaFija[k] ?? null) !== (m[k] ?? null))) return true;
+  return cat.terminaciones.some(t => { const s = termSel[t.id]; return s?.on && ((s.precio != null && num(s.precio) !== t.precio) || (s.postura != null && num(s.postura) !== (t.postura || 0))); });
+}
 let uMicro = 'cm', uTr = 'mm', demModo = 'auto', iva = 21, papelMon = 'USD', microMon = 'ARS', tipo = 'comun', tapaMon = 'USD';
 let margenCant = {};   // cantidad → ganancia % propia (texto como se escribió)
 const termSel = {};   // id → { on, lados }
@@ -333,14 +348,14 @@ const CAMPOS = ['tsFecha', 'tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'ts
 
 function snapshot() {
   const c = {}; CAMPOS.forEach(k => c[k] = $(k).value);
-  return { campos: c, uTr, demModo, iva, papelMon, microMon, margenCant: { ...margenCant }, mismaChapa: $('tsMismaChapa').checked, termSel: structuredClone(termSel), tipo, tapaMon, tapaOn: $('tsTapaOn').checked, tapaMismaChapa: $('tsTapaMismaChapa').checked, uMicro };
+  return { campos: c, uTr, demModo, iva, papelMon, microMon, margenCant: { ...margenCant }, mismaChapa: $('tsMismaChapa').checked, termSel: structuredClone(termSel), tipo, tapaMon, tapaOn: $('tsTapaOn').checked, tapaMismaChapa: $('tsTapaMismaChapa').checked, uMicro, maquinaFija };
 }
 function restaurar(s) {
   if (!s) return;
   CAMPOS.forEach(k => { if (s.campos && s.campos[k] != null) $(k).value = s.campos[k]; });
   uTr = s.uTr || 'mm'; demModo = s.demModo || 'auto'; iva = s.iva ?? 21; papelMon = s.papelMon || 'USD'; microMon = s.microMon || 'ARS'; margenCant = { ...(s.margenCant || {}) }; pintarMargenes.clave = null;
   $('tsMismaChapa').checked = !!s.mismaChapa;
-  uMicro = s.uMicro || 'cm';
+  uMicro = s.uMicro || 'cm'; maquinaFija = s.maquinaFija || null;
   // presupuestos viejos: el formato del micro era un texto ("70×100")
   if (s.campos && s.campos.tsMicroW == null) {
     const m = String(s.campos.tsMicroFormato || '').match(/(\d+(?:[.,]\d+)?)\s*[x×*]\s*(\d+(?:[.,]\d+)?)/i);
@@ -377,7 +392,9 @@ function pintarTerminaciones() {
     const s = termSel[t.id] || {};
     return `<div class="ts-term${s.on ? ' on' : ''}" data-id="${t.id}">
       <label class="ts-check"><input type="checkbox" data-k="on" ${s.on ? 'checked' : ''}> ${esc(t.nombre)}</label>
-      <span class="estado">${UNIDADES[t.unidad] || ''} · ${t.moneda === 'USD' ? 'US$' : '$'} ${fmt(t.precio)}${t.postura ? ' + postura ' + fmt(t.postura) : ''}</span>
+      ${s.on ? `<span class="ts-precio">${t.moneda === 'USD' ? 'US$' : '$'} <input data-k="precio" class="ts-cell n" inputmode="decimal" value="${esc(String(s.precio ?? t.precio).replace('.', ','))}" aria-label="Precio en este presupuesto" title="Precio en este presupuesto"></span>
+        <span class="estado">${UNIDADES[t.unidad] || ''}${(s.postura ?? t.postura) ? ' + postura ' + fmt(s.postura ?? t.postura) : ''}${s.precio != null && num(s.precio) !== t.precio ? ` · <span class="ts-difiere">catálogo: ${fmt(t.precio)}</span>` : ''}</span>`
+      : `<span class="estado">${UNIDADES[t.unidad] || ''} · ${t.moneda === 'USD' ? 'US$' : '$'} ${fmt(t.precio)}${t.postura ? ' + postura ' + fmt(t.postura) : ''}</span>`}
       ${t.porLado ? `<select data-k="lados" class="ts-select ts-mini"><option value="1">Frente</option><option value="2" ${s.lados == 2 ? 'selected' : ''}>F y D</option></select>` : ''}
       ${t.unidad === 'fijo' ? `<span class="ts-unid"><input data-k="unid" class="ts-cell n" inputmode="numeric" value="${esc(s.unid ?? 1)}" aria-label="Unidades" title="Unidades"> unid.</span>` : ''}
       ${tipo === 'revista' && $('tsTapaOn').checked && ['pliego', 'millarPl', 'm2'].includes(t.unidad) ? `<select data-k="parte" class="ts-select ts-mini ts-parte" aria-label="Sobre qué se cobra"><option value="tapa">Tapa</option><option value="interior" ${parteDe(t) === 'interior' ? 'selected' : ''}>Interior</option></select>` : ''}
@@ -551,7 +568,8 @@ function entrada() {
   const cw = num($('tsCw').value), ch = num($('tsCh').value);
   const corte = +$('tsCorte').value;
   const maq = pliegoMaquina(cw, ch, corte, { w: num($('tsMw').value), h: num($('tsMh').value) });
-  const maquina = cat.maquinas.find(m => m.id === $('tsMaquina').value) || null;
+  const maqCat = cat.maquinas.find(m => m.id === $('tsMaquina').value) || null;
+  const maquina = maqCat && maquinaFija && maquinaFija.id === maqCat.id ? { ...maqCat, ...maquinaFija } : maqCat;
   const calle = num($('tsCalle').value), pinza = num($('tsPinza').value);
   const autoPoses = maq && tw > 0 && th > 0 && window.mejorPoses ? window.mejorPoses(maq.w * 10, maq.h * 10, tw, th, { pinza, calleX: calle, calleY: calle }) : 0;
   const poses = num($('tsPoses').value) > 0 ? Math.floor(num($('tsPoses').value)) : autoPoses;
@@ -576,7 +594,7 @@ function entrada() {
   }
   const terminaciones = cat.terminaciones.filter(t => termSel[t.id]?.on).map(t => {
     const s = termSel[t.id], hs = /stamping/i.test(t.nombre);
-    return { ...t, unidades: Math.max(1, Math.floor(num(s.unid ?? 1)) || 1), parte: rev && tapa ? parteDe(t) : 'interior', lados: t.porLado ? (+s.lados || 1) : 1, cuno: hs ? num(s.cuno) : 0, foil: hs ? num(s.foil) : 0, cunoMon: s.cunoMon || 'ARS', foilMon: s.foilMon || 'ARS' };
+    return { ...t, precio: s.precio != null ? num(s.precio) : t.precio, postura: s.postura != null ? num(s.postura) : t.postura, unidades: Math.max(1, Math.floor(num(s.unid ?? 1)) || 1), parte: rev && tapa ? parteDe(t) : 'interior', lados: t.porLado ? (+s.lados || 1) : 1, cuno: hs ? num(s.cuno) : 0, foil: hs ? num(s.foil) : 0, cunoMon: s.cunoMon || 'ARS', foilMon: s.foilMon || 'ARS' };
   });
   const otros = [['Diseño / preimpresión', 'tsPreimp'], ['Pruebas de color', 'tsPruebas'], ['Flete', 'tsFlete'], ['Otros', 'tsOtro']]
     .map(([nombre, id]) => ({ nombre, precio: num($(id).value), moneda: 'ARS' })).filter(o => o.precio > 0);
@@ -656,6 +674,7 @@ function calcular() {
   $('tsTapaBox').hidden = !(rev && $('tsTapaOn').checked);
   $('tsTapaMon').dataset.cur = tapaMon; $('tsTapaMon').textContent = tapaMon === 'USD' ? 'US$' : '$';
   const E = entrada(), b = E.base;
+  $('tsCongelado').hidden = !preciosDistintos();
   $('tsPmTxt').textContent = b.maq ? `${fmt(b.maq.w, 1)} × ${fmt(b.maq.h, 1)} cm${!E.corte && b.compra.w ? ` · salen ${piezasPorCompra(b.compra.w, b.compra.h, 0, b.maq)} por pliego de compra` : ''}` : '—';
   if (rev) $('tsPosesTxt').textContent = E.pagsCara ? String(E.pagsCara) + (num($('tsPagsCara').value) > 0 ? ' (a mano)' : '') : '—';
   else $('tsPosesTxt').textContent = E.poses ? String(E.poses) + (num($('tsPoses').value) > 0 ? ' (a mano)' : '') : '—';
@@ -947,15 +966,17 @@ $('tsPapelSel').addEventListener('change', () => {
 $('tsTerms').addEventListener('change', e => {
   const row = e.target.closest('.ts-term'); if (!row) return;
   const s = termSel[row.dataset.id] ||= { on: false, lados: 1 };
-  if (e.target.dataset.k === 'on') { s.on = e.target.checked; row.classList.toggle('on', s.on); if (/stamping/i.test(row.textContent)) pintarTerminaciones(); }
+  if (e.target.dataset.k === 'on') { s.on = e.target.checked; pintarTerminaciones(); }
+  if (e.target.dataset.k === 'precio') pintarTerminaciones();
   if (e.target.dataset.k === 'lados') s.lados = +e.target.value;
   if (e.target.dataset.k === 'parte') s.parte = e.target.value;
   calcular();
 });
 // Hot stamping: precio del cuño y del foil
 $('tsTerms').addEventListener('input', e => {
-  const k = e.target.dataset.k; if (k !== 'cuno' && k !== 'foil' && k !== 'unid') return;
+  const k = e.target.dataset.k; if (k !== 'cuno' && k !== 'foil' && k !== 'unid' && k !== 'precio') return;
   const s = termSel[e.target.closest('.ts-term').dataset.id] ||= { on: false, lados: 1 }; s[k] = e.target.value;
+  if (k === 'precio' && e.target.value.trim() === '') delete s.precio;
   calcular();
 });
 $('tsTerms').addEventListener('click', e => {
@@ -976,11 +997,16 @@ function aplicarDefaults(todo) {
 function nuevoPresupuesto(aviso = 'Presupuesto nuevo.') {
   ['tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsPoses', 'tsMicroTipo', 'tsMicroW', 'tsMicroH', 'tsMicroPrecio', 'tsMicroPlanchas', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsNumero', 'tsPaginas', 'tsPagsCara', 'tsTapaPoses'].forEach(id => $(id).value = '');
   $('tsFecha').value = fechaAuto = hoy(); $('tsDesc').value = '0'; abierto = null; aplicarDefaults(true); margenCant = {}; pintarMargenes.clave = null;
-  for (const k in termSel) delete termSel[k]; pintarTerminaciones();
+  for (const k in termSel) delete termSel[k]; maquinaFija = null; pintarTerminaciones();
   $('tsClienteWrap').hidden = true; $('tsCorteWrap').hidden = true; $('tsGuardar').textContent = 'Guardar presupuesto';
   calcular(); pintarLista(); pintarCliente(); $('tsClienteSel').value = ''; msg(aviso);
 }
 $('tsNuevo').addEventListener('click', () => nuevoPresupuesto());
+$('tsUsarCatalogo').addEventListener('click', () => {
+  maquinaFija = null;
+  for (const k in termSel) { delete termSel[k].precio; delete termSel[k].postura; }
+  pintarTerminaciones(); calcular(); msg('Se pusieron los precios actuales del catálogo. Guardá para que queden en el presupuesto.');
+});
 
 // ---------- Guardar / registro (Firebase) ----------
 const col = () => FB.fb.collection(FB.db, 'usuarios', usuario.uid, 'presupuestosTest');
@@ -988,6 +1014,7 @@ $('tsGuardar').addEventListener('click', () => {
   if (!usuario || !FB) return msg('Ingresá con Google para guardar.');
   if (!ultimo || !ultimo.res.some(r => r.ok)) return msg('El presupuesto todavía no tiene precio.');
   if (!$('tsCliente').value.trim() && !$('tsTrabajo').value.trim()) return msg('Completá el cliente o el trabajo.');
+  congelarPrecios();
   const { E, res } = ultimo;
   const resumen = res.filter(r => r.ok).map(r => ({ cant: r.cant, total: Math.round(r.total * 100) / 100, subtotal: Math.round(r.subtotal * 100) / 100, unitario: Math.round(r.unitario * 10000) / 10000, pm: r.pm, pc: r.pc, kilos: Math.round(r.kilos * 100) / 100 }));
   const datos = {
