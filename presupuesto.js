@@ -311,6 +311,11 @@ sec.innerHTML = `
         <select id="tsAjMon" class="ts-select ts-mini"><option value="">Pesos y dólares</option><option value="ARS">Solo en pesos</option><option value="USD">Solo en dólares</option></select></div>
       <div class="actions" style="margin:0"><button type="button" class="btn small primary" id="tsAjAplicar">Aplicar</button><button type="button" class="btn small" id="tsAjDeshacer" hidden>Deshacer</button><span class="estado" id="tsAjMsg"></span></div>
     </div>
+    <h3 class="pr-group">Importar lista de precios de la papelera</h3>
+    <div class="ts-ajuste ts-lp" id="tsLp">
+      <div class="actions" style="margin:0;width:100%"><button type="button" class="btn small primary" id="tsLpElegir">Elegir lista (Excel o PDF)…</button><input type="file" id="tsLpArch" accept=".xlsx,.xls,.csv,.ods,.pdf" hidden><button type="button" class="btn small" id="tsLpDeshacer" hidden>Deshacer</button><span class="estado" id="tsLpMsg">La app busca cada papel de tu catálogo en la lista (por tipo, gramaje y medida) y te muestra qué precio cambia antes de aplicarlo.</span></div>
+      <div id="tsLpPrev" hidden style="width:100%"></div>
+    </div>
     <h3 class="pr-group">Mi imprenta (sale en el presupuesto para el cliente)</h3>
     <div class="grid" id="tsImprenta"></div>
     <h3 class="pr-group">Valores por defecto</h3>
@@ -540,6 +545,91 @@ $('tsAjDeshacer').addEventListener('click', () => {
   Object.assign(cat, ajusteAnterior); ajusteAnterior = null;
   pintarConfig(); catCambiado();
   $('tsAjDeshacer').hidden = true; $('tsAjMsg').textContent = 'Se volvieron a poner los precios anteriores.';
+});
+
+// ---------- Importar lista de precios de una papelera ----------
+let lp = null, lpAnterior = null;
+const LP = () => import('./listaprecios.js');
+$('tsLpElegir').addEventListener('click', () => $('tsLpArch').click());
+$('tsLpArch').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  $('tsLpMsg').textContent = `Leyendo "${f.name}"…`;
+  try {
+    const m = await LP();
+    const filas = await m.leerArchivo(f), items = m.interpretarFilas(filas);
+    if (!items.length) { lp = null; $('tsLpPrev').hidden = false; $('tsLpPrev').innerHTML = `<p class="estado">No encontré renglones con gramaje y precio en "${esc(f.name)}". Leí ${filas.length} renglones; acá van los primeros para ver qué pasó:</p><pre class="ts-lp-raw">${esc(filas.slice(0, 40).map(r => r.join(' | ')).join('\n'))}</pre>`; $('tsLpMsg').textContent = ''; return; }
+    const formato = m.detectarFormato(filas), { pares, sueltas } = m.emparejar(cat.papeles, items);
+    lp = { m, nombre: f.name, filas, items, formato, sel: {}, sueltas };
+    for (const p of pares) lp.sel[p.papel.id] = { fila: p.fila, on: true };
+    $('tsLpMsg').textContent = `"${f.name}": ${items.length} papeles con precio, ${pares.length} coinciden con tu catálogo.`;
+    pintarLp();
+  } catch (err) { $('tsLpMsg').textContent = err.message; }
+});
+function precioLp(papel, i) {
+  const it = lp.items[i]; if (!it) return null;
+  return lp.m.convertir(it.precio, lp.formato.unidad, papel.unidad === 'pliego' ? 'hoja' : 'kg', papel, it.medida);
+}
+function pintarLp() {
+  const box = $('tsLpPrev'); box.hidden = !lp; if (!lp) return;
+  const mon = m => m === 'USD' ? 'US$' : '$';
+  const filasHtml = cat.papeles.map(p => {
+    const s = lp.sel[p.id], cands = lp.items.map((it, i) => ({ it, i })).filter(x => Math.abs(x.it.gramaje - (p.gramaje || 0)) < 0.5);
+    if (!s && !cands.length) return '';
+    const monNueva = lp.formato.moneda, nuevo = s ? precioLp(p, s.fila) : null;
+    // si cambia la moneda, se compara pasando a pesos con el dólar de hoy
+    const enPesos = (v, m) => m === 'USD' ? (dolar?.venta ? v * dolar.venta : null) : v;
+    const a = p.moneda === monNueva ? p.precio : enPesos(p.precio, p.moneda), bN = p.moneda === monNueva ? nuevo : enPesos(nuevo, monNueva);
+    const cambio = nuevo && a && bN ? (bN / a - 1) * 100 : null;
+    const medDist = s && lp.items[s.fila].medida && p.w && p.h && (Math.abs(lp.items[s.fila].medida.w - Math.min(p.w, p.h)) >= 1 || Math.abs(lp.items[s.fila].medida.h - Math.max(p.w, p.h)) >= 1);
+    return `<tr data-pid="${p.id}"${s?.on ? '' : ' class="off"'}>
+      <td><input type="checkbox" data-k="lp-on" ${s?.on ? 'checked' : ''} ${s ? '' : 'disabled'}></td>
+      <td><b>${esc(p.nombre)} ${fmt(p.gramaje, 0)} g</b>${p.w ? `<br><small>${fmt(p.w, 0)}×${fmt(p.h, 0)} · por ${p.unidad === 'pliego' ? 'hoja' : 'kilo'}</small>` : ''}</td>
+      <td><select class="ts-select ts-mini" data-k="lp-fila"><option value="">— no actualizar —</option>${cands.map(x => `<option value="${x.i}" ${s?.fila === x.i ? 'selected' : ''}>${esc(x.it.texto.slice(0, 70))}</option>`).join('')}</select>${medDist ? '<br><small class="ts-difiere">la medida de la lista es otra</small>' : ''}</td>
+      <td class="h">${mon(p.moneda)} ${fmt(p.precio, p.precio < 10 ? 3 : 2)}</td>
+      <td class="h">${nuevo != null ? `${mon(monNueva)} ${fmt(nuevo, nuevo < 10 ? 3 : 2)}` : s ? '<small>falta la medida</small>' : '—'}</td>
+      <td class="h">${cambio != null ? `<span class="${cambio > 0 ? 'pp-sube' : 'pp-baja'}">${cambio > 0 ? '+' : ''}${fmt(cambio, 1)} %</span>${p.moneda !== monNueva ? '<br><small>pasa a ' + (monNueva === 'USD' ? 'dólares' : 'pesos') + '</small>' : ''}` : ''}</td>
+    </tr>`;
+  }).join('');
+  const n = Object.entries(lp.sel).filter(([id, s]) => s.on && precioLp(cat.papeles.find(p => p.id === id), s.fila) != null).length;
+  box.innerHTML = `
+    <div class="ts-lp-opc">Los precios de la lista son
+      <select class="ts-select ts-mini" data-k="lp-unidad"><option value="kg" ${lp.formato.unidad === 'kg' ? 'selected' : ''}>por kilo</option><option value="hoja" ${lp.formato.unidad === 'hoja' ? 'selected' : ''}>por hoja</option></select>
+      en <select class="ts-select ts-mini" data-k="lp-moneda"><option value="ARS" ${lp.formato.moneda === 'ARS' ? 'selected' : ''}>pesos</option><option value="USD" ${lp.formato.moneda === 'USD' ? 'selected' : ''}>dólares</option></select>
+      <small>(lo detecté del archivo; corregilo si no es así)</small></div>
+    <div class="tabla-wrap"><table class="dias ts-lp-tabla"><thead><tr><th></th><th>Papel de tu catálogo</th><th>Renglón de la lista</th><th style="text-align:right">Actual</th><th style="text-align:right">Nuevo</th><th style="text-align:right">Cambio</th></tr></thead><tbody>${filasHtml || '<tr><td colspan="6">Ningún papel de tu catálogo tiene el mismo gramaje que la lista.</td></tr>'}</tbody></table></div>
+    <details class="pp-hist"><summary>Lo que leí del archivo (${lp.items.length} papeles con precio${lp.sueltas.length ? `, ${lp.sueltas.length} sin asignar` : ''})</summary>
+      <div class="tabla-wrap"><table class="dias"><thead><tr><th>Renglón</th><th>Gramaje</th><th>Medida</th><th style="text-align:right">Precio</th></tr></thead><tbody>
+      ${lp.items.map((it, i) => `<tr${lp.sueltas.includes(i) ? ' class="off"' : ''}><td>${esc(it.texto)}</td><td>${fmt(it.gramaje, 0)} g</td><td>${it.medida ? fmt(it.medida.w, 0) + '×' + fmt(it.medida.h, 0) : '—'}</td><td class="h">${fmt(it.precio, it.precio < 10 ? 3 : 2)}</td></tr>`).join('')}
+      </tbody></table></div></details>
+    <div class="actions" style="margin-top:8px"><button type="button" class="btn small primary" data-k="lp-aplicar" ${n ? '' : 'disabled'}>Actualizar ${n} precio${n === 1 ? '' : 's'}</button><button type="button" class="btn small" data-k="lp-cancelar">Cancelar</button></div>`;
+}
+$('tsLpPrev').addEventListener('change', e => {
+  const k = e.target.dataset.k, tr = e.target.closest('tr'), id = tr?.dataset.pid;
+  if (k === 'lp-unidad') lp.formato.unidad = e.target.value;
+  else if (k === 'lp-moneda') lp.formato.moneda = e.target.value;
+  else if (k === 'lp-on' && lp.sel[id]) lp.sel[id].on = e.target.checked;
+  else if (k === 'lp-fila') { if (e.target.value === '') delete lp.sel[id]; else lp.sel[id] = { fila: +e.target.value, on: true }; }
+  pintarLp();
+});
+$('tsLpPrev').addEventListener('click', e => {
+  const k = e.target.dataset.k;
+  if (k === 'lp-cancelar') { lp = null; pintarLp(); $('tsLpMsg').textContent = 'No se cambió nada.'; }
+  if (k === 'lp-aplicar') {
+    lpAnterior = structuredClone(cat.papeles); let n = 0;
+    for (const [id, s] of Object.entries(lp.sel)) {
+      const p = cat.papeles.find(x => x.id === id); if (!p || !s.on) continue;
+      const v = precioLp(p, s.fila); if (v == null) continue;
+      p.precio = Math.round(v * (v < 10 ? 10000 : 100)) / (v < 10 ? 10000 : 100); p.moneda = lp.formato.moneda; n++;
+    }
+    const nombre = lp.nombre; lp = null; pintarLp(); pintarConfig(); catCambiado();
+    $('tsLpDeshacer').hidden = false;
+    $('tsLpMsg').textContent = `Listo: se actualizaron ${n} precio${n === 1 ? '' : 's'} de papel con "${nombre}". Los presupuestos ya guardados no cambian.`;
+  }
+});
+$('tsLpDeshacer').addEventListener('click', () => {
+  if (!lpAnterior) return;
+  cat.papeles = lpAnterior; lpAnterior = null; pintarConfig(); catCambiado();
+  $('tsLpDeshacer').hidden = true; $('tsLpMsg').textContent = 'Se volvieron a poner los precios de papel anteriores.';
 });
 
 let resetPend = false;

@@ -1,6 +1,6 @@
 // Cambiá este número cada vez que subas una versión nueva, para que el celular la actualice.
-const VERSION = 'papel-prueba-1';
-const ARCHIVOS = ['./', 'index.html', 'manifest.webmanifest', 'firebase-config.js', 'presupuesto.js', 'presupuesto-calculo.js', 'comparar.js', 'comparar-lector.js', 'clientes.js', 'produccion.js',
+const VERSION = 'papel-prueba-2';
+const ARCHIVOS = ['./', 'index.html', 'manifest.webmanifest', 'firebase-config.js', 'presupuesto.js', 'presupuesto-calculo.js', 'comparar.js', 'comparar-lector.js', 'clientes.js', 'produccion.js', 'listaprecios.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
