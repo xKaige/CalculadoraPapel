@@ -322,6 +322,8 @@
   .pp-graf text { font-size: 11px; fill: var(--muted); font-family: "JetBrains Mono", monospace; }
   .pp-sube { color: var(--rot); } .pp-baja { color: var(--accent); }
   .pp-hist { margin-top: 10px; }
+  .pl-total { font-weight: 600; color: var(--accent); }
+  .pl-pack { display: block; font-size: .72rem; color: var(--muted); }
   .pl-filtro .chip b { font-weight: 500; opacity: .7; margin-left: 3px; }
   .mode.pl-etapas { grid-template-columns: repeat(3, 1fr); }
   .ts-select.pl-etapa-sel { width: 118px; padding: 4px 8px; font-size: .8rem; border-radius: 999px; }
@@ -779,6 +781,15 @@
         </div>
         <div class="full estado" id="plKilosInfo"></div>
         <div>
+          <label for="plPack">Packaging</label>
+          <div class="field"><input id="plPack" inputmode="decimal" placeholder="0"><span class="unit">%</span></div>
+        </div>
+        <div>
+          <label for="plTotal">Total a pedir</label>
+          <div class="field"><input id="plTotal" readonly tabindex="-1" placeholder="—" class="pl-total"><span class="unit">kg</span></div>
+        </div>
+        <div class="full estado" id="plPackInfo"></div>
+        <div>
           <label for="plPrecio">Precio pagado <span style="color:var(--muted);font-weight:400">(opcional)</span></label>
           <div class="field"><input id="plPrecio" inputmode="decimal" placeholder="—"><button type="button" class="pr-cur" id="plPrecioMon" data-cur="ARS">$</button></div>
         </div>
@@ -804,7 +815,7 @@
       <div class="pl-tot">
         <div><small>Registros</small><b id="plTotN">0</b></div>
         <div><small>Hojas</small><b id="plTotP">0</b></div>
-        <div><small>Kilos</small><b id="plTotK">0</b></div>
+        <div><small>Kilos a pedir</small><b id="plTotK">0</b></div>
       </div>
       <div class="pl-lista" id="plLista"></div>
 
@@ -1647,7 +1658,8 @@
     if (!(r.precio > 0)) return null;
     let p = r.precio;
     if (r.precioMon === 'USD') { const d = r.dolar || dolarHoy(); if (!d) return null; p *= d; }
-    const kg = r.kilos > 0 ? r.kilos : null, h = r.pliegos > 0 ? r.pliegos : null;
+    const kgT = r.kilosTotal ?? r.kilos, hT = r.hojasTotal ?? r.pliegos;   // con packaging se paga el total
+    const kg = kgT > 0 ? kgT : null, h = hT > 0 ? hT : null;
     let total;
     if (r.precioPor === 'total') total = p;
     else if (r.precioPor === 'hoja') total = h ? p * h : null;
@@ -1721,7 +1733,7 @@
     const lista = filtroEtapa ? buscados.filter(r => etapaDe(r) === filtroEtapa) : buscados;
     $('plTotN').textContent = fmtN(lista.length);
     $('plTotP').textContent = fmtN(lista.reduce((a, r) => a + (r.pliegos || 0), 0));
-    $('plTotK').textContent = fmtN(lista.reduce((a, r) => a + (r.kilos || 0), 0), 2);
+    $('plTotK').textContent = fmtN(lista.reduce((a, r) => a + (r.kilosTotal ?? r.kilos ?? 0), 0), 2);
     const unicos = k => [...new Set(registros.map(r => r[k]).filter(Boolean))].sort();
     $('plProveedores').innerHTML = unicos('proveedor').map(v => `<option value="${esc(v)}"></option>`).join('');
     $('plMateriales').innerHTML = unicos('material').map(v => `<option value="${esc(v)}"></option>`).join('');
@@ -1735,7 +1747,7 @@
         <div class="t">${esc(r.proveedor)}</div>
         <div class="n">${r.pliegos != null ? fmtN(r.pliegos) + ' hojas' : '—'}</div>
         <div class="d">${esc(fechaTxt(r.fecha))} · ${esc(r.material)}${r.formato ? ' · ' + esc(r.formato) : ''}${r.pendiente ? ' · <i>sin sincronizar</i>' : ''}</div>
-        <div class="n">${r.kilos != null ? fmtN(r.kilos, 2) + ' kg' : '—'}</div>
+        <div class="n">${r.kilos != null ? fmtN(r.kilosTotal ?? r.kilos, 2) + ' kg' : '—'}${r.packaging ? `<small class="pl-pack">${fmtN(r.kilos, 2)} + ${fmtN(r.packaging, 1)} %</small>` : ''}</div>
         ${r.trabajo ? `<div class="d tr">Trabajo: <b>${esc(r.trabajo)}</b></div>` : ''}
         <div class="acc">
           <select data-acc="etapa" aria-label="Etapa" class="ts-select pl-etapa-sel ${etapaDe(r).toLowerCase()}">${ETAPAS.map(e => `<option ${etapaDe(r) === e ? 'selected' : ''}>${e}</option>`).join('')}</select>
@@ -1747,7 +1759,7 @@
   }
 
   function limpiarForm() {
-    $('plForm').reset(); $('plFecha').value = hoy(); $('plKilosInfo').textContent = ''; ponerEtapaForm('Pendiente'); precioMon = 'ARS'; pintarPrecioForm();
+    $('plForm').reset(); $('plFecha').value = hoy(); $('plKilosInfo').textContent = ''; $('plPackInfo').textContent = ''; ponerEtapaForm('Pendiente'); precioMon = 'ARS'; pintarPrecioForm();
   }
   function cancelarEdicion() {
     editando = null; borrando = null; origenPresupuesto = null; limpiarForm();
@@ -1767,6 +1779,7 @@
     $('plMaterial').value = p.material || '';
     $('plPliegos').value = p.pliegos != null ? p.pliegos : '';
     $('plKilos').value = p.kilos != null ? String(p.kilos).replace('.', ',') : '';
+    setTimeout(recalcularTotal);
     if (p.trabajo) $('plTrabajo').value = p.trabajo;
     $('plFormTitulo').textContent = p.trabajo ? 'Nuevo registro · desde presupuesto' : 'Nuevo registro · desde Peso de papel';
     estado('Datos cargados. Completá fecha, proveedor y trabajo, y tocá Guardar.', 10000);
@@ -1786,6 +1799,9 @@
       formato: $('plFormato').value.trim().replace(/\s*[xX*]\s*/, '×'),
       pliegos: num('plPliegos') != null ? Math.round(num('plPliegos')) : null,
       kilos: num('plKilos'),
+      packaging: num('plPack') > 0 ? num('plPack') : null,
+      kilosTotal: totalPedido(num('plKilos'), num('plPliegos'), num('plPack')).kilos,
+      hojasTotal: num('plPack') > 0 ? totalPedido(num('plKilos'), num('plPliegos'), num('plPack')).hojas : null,
       etapa: etapaForm,
       precio: num('plPrecio'), precioPor: $('plPrecioPor').value, precioMon: precioMon,
       dolar: precioMon === 'USD' ? dolarHoy() : null,
@@ -1836,6 +1852,20 @@
     info.textContent = `Kilos calculados: ${fmtN(med[0], 1)}×${fmtN(med[1], 1)} cm · ${fmtN(g, 1)} g · ${fmtN(pl)} hojas.`;
   }
   ['plPliegos', 'plFormato', 'plMaterial'].forEach(id => $(id).addEventListener('input', recalcularKilos));
+  // Packaging: % de papel de más → kilos (y hojas) totales a pedir
+  function totalPedido(kilos, hojas, pct) {
+    const f = 1 + (pct > 0 ? pct : 0) / 100;
+    return { kilos: kilos > 0 ? Math.round(kilos * f * 100) / 100 : null, hojas: hojas > 0 ? Math.ceil(hojas * f) : null };
+  }
+  function recalcularTotal() {
+    const kg = parseNum($('plKilos').value), h = parseNum($('plPliegos').value), pct = parseNum($('plPack').value);
+    const t = totalPedido(kg, h, pct);
+    $('plTotal').value = t.kilos != null ? fmtN(t.kilos, 2) : '';
+    $('plPackInfo').textContent = t.kilos != null && pct > 0
+      ? `${fmtN(kg, 2)} kg + ${fmtN(pct, 1)} % de packaging (${fmtN(t.kilos - kg, 2)} kg) = ${fmtN(t.kilos, 2)} kg${t.hojas ? ` · ${fmtN(t.hojas)} hojas` : ''}.`
+      : '';
+  }
+  ['plPliegos', 'plFormato', 'plMaterial', 'plKilos', 'plPack'].forEach(id => $(id).addEventListener('input', () => setTimeout(recalcularTotal)));
   $('plKilos').addEventListener('input', () => $('plKilosInfo').textContent = 'Kilos cargados a mano.');
 
   $('plCancelar').addEventListener('click', () => { cancelarEdicion(); pintar(); });
@@ -1871,6 +1901,7 @@
       $('plFormato').value = r.formato || '';
       $('plPliegos').value = r.pliegos != null ? r.pliegos : '';
       $('plKilos').value = r.kilos != null ? String(r.kilos).replace('.', ',') : '';
+      $('plPack').value = r.packaging ? String(r.packaging).replace('.', ',') : ''; recalcularTotal();
       ponerEtapaForm(etapaDe(r));
       $('plPrecio').value = r.precio != null ? String(r.precio).replace('.', ',') : '';
       $('plPrecioPor').value = r.precioPor || 'kg'; precioMon = r.precioMon || 'ARS'; pintarPrecioForm();
