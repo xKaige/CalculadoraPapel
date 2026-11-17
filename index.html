@@ -244,6 +244,14 @@
   /* ---------- Planilla ---------- */
   .aviso { background: var(--bg); border: 1px dashed var(--line); border-radius: 10px; padding: 16px; text-align: center; color: var(--muted); display: flex; flex-direction: column; gap: 12px; align-items: center; }
   .aviso b { color: var(--ink); }
+  .pl-filtro { margin-top: 10px; }
+  .pl-filtro .chip b { font-weight: 500; opacity: .7; margin-left: 3px; }
+  .mode.pl-etapas { grid-template-columns: repeat(3, 1fr); }
+  .ts-select.pl-etapa-sel { width: 118px; padding: 4px 8px; font-size: .8rem; border-radius: 999px; }
+  .pl-etapa-sel.pendiente { color: var(--pinza); border-color: var(--pinza); }
+  .pl-etapa-sel.pedido { color: var(--ink); border-color: var(--muted); }
+  .pl-etapa-sel.entregado { color: var(--accent); border-color: var(--accent); }
+  .pl-item .acc .pl-etapa-sel { margin-right: auto; }
   .pl-tot { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
   .pl-tot div { background: var(--bg); border-radius: 8px; padding: 8px 10px; }
   .pl-tot small { display: block; color: var(--muted); font-size: .74rem; }
@@ -692,6 +700,10 @@
           <div class="field"><input id="plKilos" inputmode="decimal" placeholder="850"><span class="unit">kg</span></div>
         </div>
         <div class="full estado" id="plKilosInfo"></div>
+        <div class="full">
+          <label>Etapa</label>
+          <div class="mode pl-etapas" role="group" id="plEtapa"><button type="button" data-e="Pendiente" aria-pressed="true">Pendiente</button><button type="button" data-e="Pedido" aria-pressed="false">Pedido</button><button type="button" data-e="Entregado" aria-pressed="false">Entregado</button></div>
+        </div>
         <div class="full actions" style="margin-top:2px">
           <button type="submit" class="btn primary" id="plGuardar">Guardar</button>
           <button type="button" class="btn" id="plCancelar" hidden>Cancelar edición</button>
@@ -701,6 +713,7 @@
 
       <h2 class="sec">Registros</h2>
       <div class="field"><input id="plBuscar" placeholder="Buscar por proveedor, material, trabajo o formato" style="padding-right:12px"></div>
+      <div class="chips pl-filtro" id="plFiltro"></div>
       <div class="pl-tot">
         <div><small>Registros</small><b id="plTotN">0</b></div>
         <div><small>Hojas</small><b id="plTotP">0</b></div>
@@ -1525,9 +1538,17 @@
     });
   });
 
+  // Etapas del papel: Pendiente → Pedido → Entregado (los registros viejos quedan como Entregado si no tienen)
+  const ETAPAS = ['Pendiente', 'Pedido', 'Entregado'];
+  const etapaDe = r => ETAPAS.includes(r.etapa) ? r.etapa : 'Entregado';
+  let filtroEtapa = '', etapaForm = 'Pendiente';
+  const ponerEtapaForm = e => { etapaForm = e; document.querySelectorAll('#plEtapa button').forEach(b => b.setAttribute('aria-pressed', b.dataset.e === e)); };
   function pintar() {
     const q = $('plBuscar').value.trim().toLowerCase();
-    const lista = q ? registros.filter(r => [r.proveedor, r.material, r.trabajo, r.formato].join(' ').toLowerCase().includes(q)) : registros;
+    const buscados = q ? registros.filter(r => [r.proveedor, r.material, r.trabajo, r.formato].join(' ').toLowerCase().includes(q)) : registros;
+    const cuenta = e => buscados.filter(r => etapaDe(r) === e).length;
+    $('plFiltro').innerHTML = ['', ...ETAPAS].map(e => `<button type="button" class="chip${filtroEtapa === e ? ' on' : ''}" data-f="${e}" aria-pressed="${filtroEtapa === e}">${e || 'Todos'}<b>${e ? cuenta(e) : buscados.length}</b></button>`).join('');
+    const lista = filtroEtapa ? buscados.filter(r => etapaDe(r) === filtroEtapa) : buscados;
     $('plTotN').textContent = fmtN(lista.length);
     $('plTotP').textContent = fmtN(lista.reduce((a, r) => a + (r.pliegos || 0), 0));
     $('plTotK').textContent = fmtN(lista.reduce((a, r) => a + (r.kilos || 0), 0), 2);
@@ -1546,7 +1567,9 @@
         <div class="d">${esc(fechaTxt(r.fecha))} · ${esc(r.material)}${r.formato ? ' · ' + esc(r.formato) : ''}${r.pendiente ? ' · <i>sin sincronizar</i>' : ''}</div>
         <div class="n">${r.kilos != null ? fmtN(r.kilos, 2) + ' kg' : '—'}</div>
         ${r.trabajo ? `<div class="d tr">Trabajo: <b>${esc(r.trabajo)}</b></div>` : ''}
-        <div class="acc">${borrando === r.id
+        <div class="acc">
+          <select data-acc="etapa" aria-label="Etapa" class="ts-select pl-etapa-sel ${etapaDe(r).toLowerCase()}">${ETAPAS.map(e => `<option ${etapaDe(r) === e ? 'selected' : ''}>${e}</option>`).join('')}</select>
+          ${borrando === r.id
           ? `<span class="estado">¿Borrar este registro?</span><button type="button" class="btn small danger" data-acc="si">Sí, borrar</button><button type="button" class="btn small" data-acc="no">No</button>`
           : `<button type="button" class="btn small" data-acc="editar">Editar</button><button type="button" class="btn small" data-acc="borrar">Borrar</button>`}
         </div>
@@ -1554,7 +1577,7 @@
   }
 
   function limpiarForm() {
-    $('plForm').reset(); $('plFecha').value = hoy(); $('plKilosInfo').textContent = '';
+    $('plForm').reset(); $('plFecha').value = hoy(); $('plKilosInfo').textContent = ''; ponerEtapaForm('Pendiente');
   }
   function cancelarEdicion() {
     editando = null; borrando = null; limpiarForm();
@@ -1592,6 +1615,7 @@
       formato: $('plFormato').value.trim().replace(/\s*[xX*]\s*/, '×'),
       pliegos: num('plPliegos') != null ? Math.round(num('plPliegos')) : null,
       kilos: num('plKilos'),
+      etapa: etapaForm,
       actualizado: fb.serverTimestamp(),
     };
     if (!datos.proveedor || !datos.material) return estado('Completá proveedor y material.');
@@ -1642,6 +1666,16 @@
 
   $('plCancelar').addEventListener('click', () => { cancelarEdicion(); pintar(); });
   $('plBuscar').addEventListener('input', () => { window.Paginas.reset('pedidos'); pintar(); });
+  $('plEtapa').addEventListener('click', e => { const b = e.target.closest('button'); if (b) ponerEtapaForm(b.dataset.e); });
+  $('plFiltro').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; filtroEtapa = b.dataset.f; window.Paginas.reset('pedidos'); pintar(); });
+  $('plLista').addEventListener('change', e => {
+    if (e.target.dataset.acc !== 'etapa') return;
+    const id = e.target.closest('.pl-item').dataset.id, etapa = e.target.value;
+    const r = registros.find(x => x.id === id); if (r) r.etapa = etapa;
+    fb.updateDoc(fb.doc(col(), id), { etapa, actualizado: fb.serverTimestamp() }).catch(err => estado('Error: ' + err.code));
+    if (editando === id) ponerEtapaForm(etapa);
+    pintar();
+  });
 
   $('plLista').addEventListener('click', e => {
     const b = e.target.closest('[data-acc]'); if (!b) return;
@@ -1663,6 +1697,7 @@
       $('plFormato').value = r.formato || '';
       $('plPliegos').value = r.pliegos != null ? r.pliegos : '';
       $('plKilos').value = r.kilos != null ? String(r.kilos).replace('.', ',') : '';
+      ponerEtapaForm(etapaDe(r));
       $('plFormTitulo').textContent = 'Editar registro';
       $('plGuardar').textContent = 'Guardar cambios'; $('plCancelar').hidden = false;
       pintar();
