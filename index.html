@@ -40,6 +40,7 @@
     --margin: rgba(163,157,146,.14);
     color-scheme: dark;
     --radius: 14px;
+    --hover: rgba(255, 255, 255, .06);
   }
   :root[data-theme="light"] {
     --bg: #f4f1ea;
@@ -57,6 +58,7 @@
     --sheet: #fdfcf9;
     --margin: rgba(109,103,93,.12);
     color-scheme: light;
+    --hover: rgba(0, 0, 0, .04);
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -337,14 +339,16 @@
   .pl-tot small { display: block; color: var(--muted); font-size: .74rem; }
   .pl-tot b { font-family: "JetBrains Mono", monospace; font-weight: 500; font-size: 1rem; }
   .pl-lista { display: flex; flex-direction: column; margin-top: 8px; }
-  .pl-item { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .pl-item { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 12px 10px; margin: 0 -10px; border-top: 1px solid var(--line); border-radius: 8px; transition: background-color .12s; }
+  /* al pasar el mouse por un presupuesto / pedido / cliente se marca la fila */
+  @media (hover: hover) { .pl-item:hover { background: var(--hover); } }
   .pl-item .t { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
   .pl-item .d { color: var(--muted); font-size: .85rem; min-width: 0; overflow-wrap: anywhere; }
   .pl-item .d.tr { grid-column: 1 / -1; }
   .pl-item .d.tr b { color: var(--ink); font-weight: 500; }
   .pl-item .n { text-align: right; font-family: "JetBrains Mono", monospace; font-size: .9rem; white-space: nowrap; }
   .pl-item .acc { grid-column: 1 / -1; display: flex; gap: 6px; justify-content: flex-end; margin-top: 4px; align-items: center; }
-  .pl-item.editando { background: var(--accent-soft); margin: 0 -10px; padding: 12px 10px; border-radius: 8px; }
+  .pl-item.editando, .pl-item.editando:hover { background: var(--accent-soft); }
   /* ---------- Clientes ---------- */
   .ts-cli-info { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 5px; min-height: 1em; }
   .cl-pres { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
@@ -381,7 +385,7 @@
   .ts-term { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 9px 0; border-top: 1px solid var(--line); }
   .ts-term .estado { flex: 1 1 160px; }
   /* Presupuestos guardados: compacto */
-  .ts-item { grid-template-columns: 1fr 320px; gap: 6px 14px; padding: 10px 0; align-items: center; }
+  .ts-item { grid-template-columns: 1fr 320px; gap: 6px 14px; padding: 10px 10px; align-items: center; }
   .ts-item-head { min-width: 0; grid-column: 1; grid-row: 1; }
   .ts-item .t { font-size: .95rem; }
   .ts-item .t .d { font-weight: 400; font-size: .84rem; }
