@@ -250,6 +250,7 @@
   .aviso { background: var(--bg); border: 1px dashed var(--line); border-radius: 10px; padding: 16px; text-align: center; color: var(--muted); display: flex; flex-direction: column; gap: 12px; align-items: center; }
   .aviso b { color: var(--ink); }
   .pl-filtro { margin-top: 10px; }
+  .ts-gnota { font-size: .8rem; color: var(--pinza); margin-top: -4px; }
   .pl-total { font-weight: 600; color: var(--accent); }
   .pl-pack { display: block; font-size: .72rem; color: var(--muted); }
   .pl-filtro .chip b { font-weight: 500; opacity: .7; margin-left: 3px; }
@@ -1595,8 +1596,9 @@
   function limpiarForm() {
     $('plForm').reset(); $('plFecha').value = hoy(); $('plKilosInfo').textContent = ''; $('plPackInfo').textContent = ''; ponerEtapaForm('Pendiente');
   }
+  let origenPresupuesto = null, origenParte = null;   // pedido hecho desde "Pedir papel" de un presupuesto
   function cancelarEdicion() {
-    editando = null; borrando = null; limpiarForm();
+    editando = null; borrando = null; origenPresupuesto = origenParte = null; limpiarForm();
     $('plFormTitulo').textContent = 'Nuevo registro';
     $('plGuardar').textContent = 'Guardar'; $('plCancelar').hidden = true;
   }
@@ -1608,6 +1610,7 @@
     if (!p || !usuario) return;
     window.pedidoPendiente = null;
     cancelarEdicion();
+    origenPresupuesto = p.presupuestoId || null; origenParte = p.parte || null;
     $('plFormato').value = p.formato || '';
     $('plMaterial').value = p.material || '';
     $('plPliegos').value = p.pliegos != null ? p.pliegos : '';
@@ -1636,6 +1639,7 @@
       kilosTotal: totalPedido(num('plKilos'), num('plPliegos'), num('plPack')).kilos,
       hojasTotal: num('plPack') > 0 ? totalPedido(num('plKilos'), num('plPliegos'), num('plPack')).hojas : null,
       etapa: etapaForm,
+      ...(!editando && origenPresupuesto ? { presupuestoId: origenPresupuesto, parte: origenParte } : {}),
       actualizado: fb.serverTimestamp(),
     };
     if (!datos.proveedor || !datos.material) return estado('Completá proveedor y material.');
@@ -1644,9 +1648,19 @@
     cancelarEdicion();
     try {
       // sin await: con la base offline se guarda en el teléfono y se sube al volver la conexión
+      // gramaje cambiado en un pedido vinculado a un presupuesto → se actualiza el presupuesto
+      const previo = id && registros.find(r => r.id === id);
+      const gN = gramajeDe(datos.material), gV = previo ? gramajeDe(previo.material) : null;
+      const avisaGramaje = !!(previo && previo.presupuestoId && gN && gN !== gV);
+      if (avisaGramaje) {
+        const parte = previo.parte || (/·\s*tapa\s*$/i.test(previo.trabajo || '') ? 'tapa' : 'interior');
+        import('./presupuesto.js').then(m => m.gramajeDesdePedido(previo.presupuestoId, parte, gN)).then(r => {
+          if (r) estado(`Gramaje actualizado también en el presupuesto N° ${r.numero}${r.cerrado ? ' (está cerrado: su precio no cambia)' : ' (se recalculó su precio)'}.`, 8000);
+        }).catch(err => console.error('gramaje → presupuesto', err));
+      }
       if (id) fb.updateDoc(fb.doc(col(), id), datos).catch(err => estado('Error: ' + err.code));
       else fb.addDoc(col(), { ...datos, creado: fb.serverTimestamp() }).catch(err => estado('Error: ' + err.code));
-      estado(id ? 'Cambios guardados.' : 'Registro guardado.');
+      if (!avisaGramaje) estado(id ? 'Cambios guardados.' : 'Registro guardado.');
       $('plProveedor').focus();
       // revistas: después del papel del interior, se carga el de la tapa
       if (!id && window.pedidosCola && window.pedidosCola.length) {

@@ -75,6 +75,10 @@ function actualizarCatalogo(c, versionGuardada) {
 let dolar = null;
 let usuario = null, FB = null;
 let lista = [], dejarLista = null, abierto = null, borrando = null, verCant = 0;
+// Presupuesto cerrado (Aprobado/Rechazado): si cambia el gramaje, el precio se sigue calculando con el original
+let gramajeCalc = null, tapaGramajeCalc = null;
+const cerrado = r => !!r && (r.estado || 'Pendiente') !== 'Pendiente';
+let abiertoCerrado = false;
 let pedidos = [], dejarPedidos = null;   // pedidos de la Planilla, para traer el papel
 let pidiendo = null;
 let clientes = [], dejarClientes = null;   // agenda de la pestaña Clientes                     // presupuesto que está eligiendo cantidad para el pedido de papel
@@ -117,6 +121,7 @@ sec.innerHTML = `
     <div class="full"><label for="tsPapelSel">Papel del catálogo</label><select id="tsPapelSel" class="ts-select"></select></div>
     <div><label for="tsPapelNombre">Tipo</label><input id="tsPapelNombre" placeholder="Ilustración" style="padding-right:12px"></div>
     <div><label for="tsGramaje">Gramaje</label><div class="field"><input id="tsGramaje" inputmode="decimal"><span class="unit">g/m²</span></div></div>
+    <div class="full ts-gnota" id="tsGramajeNota" hidden></div>
     <div><label for="tsPapelPrecio">Precio</label><div class="field"><input id="tsPapelPrecio" inputmode="decimal"><button type="button" class="pr-cur" id="tsPapelMon" data-cur="USD">US$</button></div></div>
     <div><label for="tsPapelUnidad">Por</label><select id="tsPapelUnidad" class="ts-select"><option value="kg">kilo</option><option value="pliego">pliego de compra</option></select></div>
     <div><label for="tsCw">Hoja de compra ancho</label><div class="field"><input id="tsCw" inputmode="decimal"><span class="unit">cm</span></div></div>
@@ -179,6 +184,7 @@ sec.innerHTML = `
       <button type="button" class="chip" data-c="4/0">4/0</button><button type="button" class="chip" data-c="4/4">4/4</button><button type="button" class="chip" data-c="4/1">4/1</button><button type="button" class="chip" data-c="1/0">1/0</button>
     </div>
     <label class="full ts-check"><input type="checkbox" id="tsTapaMismaChapa"> El dorso usa las mismas chapas (tira y retira)</label>
+    <div class="full ts-gnota" id="tsTapaGramajeNota" hidden></div>
     <div><label for="tsTapaLomo">Lomo</label><div class="field"><input id="tsTapaLomo" inputmode="decimal" value="0"><span class="unit">mm</span></div></div>
     <div><label for="tsTapaPoses">Tapas por pliego</label><div class="field"><input id="tsTapaPoses" inputmode="numeric" placeholder="auto"><span class="unit">poses</span></div></div>
     <div class="full estado">El lomo es para las revistas con lomo pegado (hot melt); si va abrochada dejalo en 0. La tapa se imprime en la misma máquina que el interior.</div>
@@ -349,7 +355,7 @@ const CAMPOS = ['tsFecha', 'tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'ts
 
 function snapshot() {
   const c = {}; CAMPOS.forEach(k => c[k] = $(k).value);
-  return { campos: c, uTr, demModo, iva, papelMon, microMon, margenCant: { ...margenCant }, mismaChapa: $('tsMismaChapa').checked, termSel: structuredClone(termSel), tipo, tapaMon, tapaOn: $('tsTapaOn').checked, tapaMismaChapa: $('tsTapaMismaChapa').checked, uMicro, maquinaFija };
+  return { campos: c, uTr, demModo, iva, papelMon, microMon, margenCant: { ...margenCant }, mismaChapa: $('tsMismaChapa').checked, termSel: structuredClone(termSel), tipo, tapaMon, tapaOn: $('tsTapaOn').checked, tapaMismaChapa: $('tsTapaMismaChapa').checked, uMicro, maquinaFija, gramajeCalc, tapaGramajeCalc };
 }
 function restaurar(s) {
   if (!s) return;
@@ -357,6 +363,7 @@ function restaurar(s) {
   uTr = s.uTr || 'mm'; demModo = s.demModo || 'auto'; iva = s.iva ?? 21; papelMon = s.papelMon || 'USD'; microMon = s.microMon || 'ARS'; margenCant = { ...(s.margenCant || {}) }; pintarMargenes.clave = null;
   $('tsMismaChapa').checked = !!s.mismaChapa;
   uMicro = s.uMicro || 'cm'; maquinaFija = s.maquinaFija || null;
+  gramajeCalc = s.gramajeCalc ?? null; tapaGramajeCalc = s.tapaGramajeCalc ?? null;
   // presupuestos viejos: el formato del micro era un texto ("70×100")
   if (s.campos && s.campos.tsMicroW == null) {
     const m = String(s.campos.tsMicroFormato || '').match(/(\d+(?:[.,]\d+)?)\s*[x×*]\s*(\d+(?:[.,]\d+)?)/i);
@@ -589,7 +596,7 @@ function entrada() {
     tapa = {
       poses: num($('tsTapaPoses').value) > 0 ? Math.floor(num($('tsTapaPoses').value)) : tapaAutoPoses,
       colF: Math.floor(num($('tsTapaColF').value)), colD: Math.floor(num($('tsTapaColD').value)), mismaChapa: $('tsTapaMismaChapa').checked,
-      papel: { nombre: `${$('tsTapaPapelNombre').value.trim()} ${tg ? fmt(tg, 0) + ' g' : ''}`.trim(), gramaje: tg, precio: num($('tsTapaPrecio').value), unidad: $('tsTapaUnidad').value, moneda: tapaMon },
+      papel: { nombre: `${$('tsTapaPapelNombre').value.trim()} ${tg ? fmt(tg, 0) + ' g' : ''}`.trim(), gramaje: tapaGramajeCalc ?? tg, precio: num($('tsTapaPrecio').value), unidad: $('tsTapaUnidad').value, moneda: tapaMon },
       compra: { w: tcw, h: tch }, corte: tcorte, maq: tmaq,
     };
   }
@@ -604,7 +611,7 @@ function entrada() {
     base: {
       revista: rev ? { paginas: Math.floor(num($('tsPaginas').value)), pagsCara, retiracion: $('tsMismaChapa').checked } : null, tapa,
       poses, colF: Math.floor(num($('tsColF').value)), colD: Math.floor(num($('tsColD').value)), mismaChapa: $('tsMismaChapa').checked,
-      papel: { nombre: `${$('tsPapelNombre').value.trim()} ${num($('tsGramaje').value) ? fmt(num($('tsGramaje').value), 0) + ' g' : ''}`.trim(), gramaje: num($('tsGramaje').value), precio: num($('tsPapelPrecio').value), unidad: $('tsPapelUnidad').value, moneda: papelMon },
+      papel: { nombre: `${$('tsPapelNombre').value.trim()} ${num($('tsGramaje').value) ? fmt(num($('tsGramaje').value), 0) + ' g' : ''}`.trim(), gramaje: gramajeCalc ?? num($('tsGramaje').value), precio: num($('tsPapelPrecio').value), unidad: $('tsPapelUnidad').value, moneda: papelMon },
       compra: { w: cw, h: ch }, corte: corte || 0, maq,
       maquina: maquina || {},
       demasia: { frente: num($('tsDemFrente').value), dorso: num($('tsDemDorso').value), pct: num($('tsDemPct').value) },
@@ -676,6 +683,12 @@ function calcular() {
   $('tsTapaMon').dataset.cur = tapaMon; $('tsTapaMon').textContent = tapaMon === 'USD' ? 'US$' : '$';
   const E = entrada(), b = E.base;
   $('tsCongelado').hidden = !preciosDistintos();
+  const nota = (id, calc, campo) => {
+    const g = num($(campo).value), ver = calc != null && Math.abs(calc - g) > 0.01;
+    $(id).hidden = !ver;
+    if (ver) $(id).textContent = `Presupuesto cerrado: el precio se calculó con ${fmt(calc, 0)} g y no cambia. El papel que se usa ahora es de ${fmt(g, 0)} g.`;
+  };
+  nota('tsGramajeNota', gramajeCalc, 'tsGramaje'); nota('tsTapaGramajeNota', tapaGramajeCalc, 'tsTapaGramaje');
   $('tsPmTxt').textContent = b.maq ? `${fmt(b.maq.w, 1)} × ${fmt(b.maq.h, 1)} cm${!E.corte && b.compra.w ? ` · salen ${piezasPorCompra(b.compra.w, b.compra.h, 0, b.maq)} por pliego de compra` : ''}` : '—';
   if (rev) $('tsPosesTxt').textContent = E.pagsCara ? String(E.pagsCara) + (num($('tsPagsCara').value) > 0 ? ' (a mano)' : '') : '—';
   else $('tsPosesTxt').textContent = E.poses ? String(E.poses) + (num($('tsPoses').value) > 0 ? ' (a mano)' : '') : '—';
@@ -998,7 +1011,7 @@ function aplicarDefaults(todo) {
 function nuevoPresupuesto(aviso = 'Presupuesto nuevo.') {
   ['tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsPoses', 'tsMicroTipo', 'tsMicroW', 'tsMicroH', 'tsMicroPrecio', 'tsMicroPlanchas', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsNumero', 'tsPaginas', 'tsPagsCara', 'tsTapaPoses'].forEach(id => $(id).value = '');
   $('tsFecha').value = fechaAuto = hoy(); $('tsDesc').value = '0'; abierto = null; aplicarDefaults(true); margenCant = {}; pintarMargenes.clave = null;
-  for (const k in termSel) delete termSel[k]; maquinaFija = null; pintarTerminaciones();
+  for (const k in termSel) delete termSel[k]; maquinaFija = null; gramajeCalc = tapaGramajeCalc = null; abiertoCerrado = false; pintarTerminaciones();
   $('tsClienteWrap').hidden = true; $('tsCorteWrap').hidden = true; $('tsGuardar').textContent = 'Guardar presupuesto';
   calcular(); pintarLista(); pintarCliente(); $('tsClienteSel').value = ''; msg(aviso);
 }
@@ -1008,6 +1021,59 @@ $('tsUsarCatalogo').addEventListener('click', () => {
   for (const k in termSel) { delete termSel[k].precio; delete termSel[k].postura; }
   pintarTerminaciones(); calcular(); msg('Se pusieron los precios actuales del catálogo. Guardá para que queden en el presupuesto.');
 });
+
+for (const [campo, tapa] of [['tsGramaje', false], ['tsTapaGramaje', true]]) {
+  $(campo).addEventListener('focus', e => { e.target.dataset.antes = e.target.value; });
+  $(campo).addEventListener('input', e => {
+    if (!abiertoCerrado) return;
+    const antes = num(e.target.dataset.antes);
+    if (tapa) { if (tapaGramajeCalc == null && antes) tapaGramajeCalc = antes; }
+    else if (gramajeCalc == null && antes) gramajeCalc = antes;
+  });
+}
+
+// ---------- Gramaje sincronizado entre Presupuesto y Planilla de pedidos ----------
+const gramajeDeTxt = t => { const m = String(t || '').match(/(\d+(?:[.,]\d+)?)\s*(?:g|gr|grs|gramos)\b/i); return m ? num(m[1]) : null; };
+const conGramaje = (t, g) => /(\d+(?:[.,]\d+)?)\s*(?:g|gr|grs|gramos)\b/i.test(t || '') ? String(t).replace(/(\d+(?:[.,]\d+)?)\s*(g|gr|grs|gramos)\b/i, `${fmt(g, 0)} g`) : `${String(t || '').trim()} ${fmt(g, 0)} g`.trim();
+const parteDePedido = p => p.parte || (/·\s*tapa\s*$/i.test(p.trabajo || '') ? 'tapa' : 'interior');
+// Presupuesto → pedidos: al guardar, los pedidos vinculados toman el gramaje nuevo (y recalculan los kilos)
+function gramajeAPedidos(presId, gInterior, gTapa) {
+  for (const p of pedidos.filter(x => x.presupuestoId === presId)) {
+    const g = parteDePedido(p) === 'tapa' ? gTapa : gInterior; if (!(g > 0)) continue;
+    const gOld = gramajeDeTxt(p.material); if (gOld != null && Math.abs(gOld - g) < 0.01) continue;
+    const m = String(p.formato || '').match(/(\d+(?:[.,]\d+)?)\s*[x×*]\s*(\d+(?:[.,]\d+)?)/i);
+    const cambios = { material: conGramaje(p.material, g), actualizado: FB.fb.serverTimestamp() };
+    if (m && p.pliegos > 0) {
+      const kilos = Math.round(num(m[1]) * num(m[2]) * g * p.pliegos / 1e7 * 100) / 100, f = 1 + (p.packaging > 0 ? p.packaging : 0) / 100;
+      Object.assign(cambios, { kilos, kilosTotal: Math.round(kilos * f * 100) / 100 });
+    }
+    FB.fb.updateDoc(FB.fb.doc(FB.fb.collection(FB.db, 'usuarios', usuario.uid, 'planilla'), p.id), cambios).catch(() => {});
+  }
+}
+// Pedido → presupuesto: lo llama la Planilla cuando se cambia el gramaje de un pedido vinculado
+export async function gramajeDesdePedido(presId, parte, g) {
+  const r = lista.find(x => x.id === presId); if (!r || !r.snapshot || !(g > 0)) return null;
+  const snap = structuredClone(r.snapshot), campo = parte === 'tapa' ? 'tsTapaGramaje' : 'tsGramaje';
+  const viejo = num(snap.campos?.[campo]); if (Math.abs(viejo - g) < 0.01) return null;
+  const esCerrado = cerrado(r);
+  if (esCerrado) { if (parte === 'tapa') snap.tapaGramajeCalc ??= viejo; else snap.gramajeCalc ??= viejo; }
+  snap.campos = { ...snap.campos, [campo]: String(g) };
+  const cambios = { snapshot: snap, actualizado: FB.fb.serverTimestamp() };
+  if (parte !== 'tapa') cambios.papel = conGramaje(r.papel || snap.campos.tsPapelNombre, g);
+  if (!esCerrado) {   // pendiente: el precio se recalcula con el gramaje nuevo
+    try {
+      const res = calcularDesdeSnapshot(snap).res.filter(x => x.ok);
+      if (res.length) cambios.resumen = res.map(x => ({ cant: x.cant, total: Math.round(x.total * 100) / 100, subtotal: Math.round(x.subtotal * 100) / 100, unitario: Math.round(x.unitario * 10000) / 10000, pm: x.pm, pc: x.pc, kilos: Math.round(x.kilos * 100) / 100 }));
+    } catch (e) {}
+  }
+  await FB.fb.updateDoc(FB.fb.doc(col(), presId), cambios);
+  if (abierto === presId) {   // si está abierto en pantalla, se actualiza el campo
+    $(campo).value = String(g).replace('.', ',');
+    if (esCerrado) { gramajeCalc = snap.gramajeCalc ?? null; tapaGramajeCalc = snap.tapaGramajeCalc ?? null; }
+    calcular();
+  }
+  return { numero: r.numero, cerrado: esCerrado };
+}
 
 // ---------- Guardar / registro (Firebase) ----------
 const col = () => FB.fb.collection(FB.db, 'usuarios', usuario.uid, 'presupuestosTest');
@@ -1027,6 +1093,7 @@ $('tsGuardar').addEventListener('click', () => {
   };
   if (abierto) {
     FB.fb.updateDoc(FB.fb.doc(col(), abierto), datos).catch(e => msg('Error: ' + e.code));
+    gramajeAPedidos(abierto, num($('tsGramaje').value), num($('tsTapaGramaje').value));
     nuevoPresupuesto(`Cambios guardados en el presupuesto N° ${$('tsNumero').value}. Ya podés armar uno nuevo.`);
   } else {
     const numero = lista.reduce((m, x) => Math.max(m, x.numero || 0), 0) + 1;
@@ -1037,7 +1104,7 @@ $('tsGuardar').addEventListener('click', () => {
   }
 });
 function abrirGuardado(r) {
-  restaurar(r.snapshot); $('tsNumero').value = r.numero || ''; abierto = r.id; verCant = 0;
+  restaurar(r.snapshot); abiertoCerrado = cerrado(r); $('tsNumero').value = r.numero || ''; abierto = r.id; verCant = 0;
   $('tsGuardar').textContent = 'Guardar cambios'; calcular(); pintarCliente(); $('tsClienteSel').value = clienteActual()?.id || ''; pintarLista();
   sec.scrollIntoView({ behavior: 'smooth' }); msg(`Presupuesto N° ${r.numero} abierto.`);
 }
@@ -1162,12 +1229,15 @@ $('tsLista').addEventListener('click', e => {
     const p = res[a === 'pedido-cant' ? +b.dataset.i : 0]; if (!p) return;
     pidiendo = null;
     const trab = [r.trabajo, r.cliente, fmt(p.cant, 0) + ' ej.'].filter(Boolean).join(' · ');
+    // presupuesto cerrado con gramaje cambiado: los kilos a pedir van con el gramaje real
+    const sn = r.snapshot || {}, real = c => num(sn.campos?.[c]);
+    const fI = sn.gramajeCalc && real('tsGramaje') ? real('tsGramaje') / sn.gramajeCalc : 1, fT = sn.tapaGramajeCalc && real('tsTapaGramaje') ? real('tsTapaGramaje') / sn.tapaGramajeCalc : 1;
     window.pedidosCola = [];
     if (p.revista && Er) {
       const bt = Er.base.tapa;
-      window.pedidoPendiente = { formato: r.compra, material: r.papel, pliegos: p.interior.pc, kilos: Math.round(p.interior.kilos * 100) / 100, trabajo: trab + ' · interior' };
-      if (bt && p.tapa) window.pedidosCola = [{ formato: `${fmt(bt.compra.w, 0)}×${fmt(bt.compra.h, 0)}`, material: bt.papel.nombre, pliegos: p.tapa.pc, kilos: Math.round(p.tapa.kilos * 100) / 100, trabajo: trab + ' · tapa' }];
-    } else window.pedidoPendiente = { formato: r.compra, material: r.papel, pliegos: p.pc, kilos: Math.round(p.kilos * 100) / 100, trabajo: trab };
+      window.pedidoPendiente = { presupuestoId: r.id, parte: 'interior', formato: r.compra, material: r.papel, pliegos: p.interior.pc, kilos: Math.round(p.interior.kilos * fI * 100) / 100, trabajo: trab + ' · interior' };
+      if (bt && p.tapa) window.pedidosCola = [{ formato: `${fmt(bt.compra.w, 0)}×${fmt(bt.compra.h, 0)}`, material: bt.papel.nombre, pliegos: p.tapa.pc, kilos: Math.round(p.tapa.kilos * fT * 100) / 100, trabajo: trab + ' · tapa', presupuestoId: r.id, parte: 'tapa' }];
+    } else window.pedidoPendiente = { presupuestoId: r.id, formato: r.compra, material: r.papel, pliegos: p.pc, kilos: Math.round(p.kilos * fI * 100) / 100, trabajo: trab };
     document.querySelector('[data-tool=planilla]').click();
     window.dispatchEvent(new Event('pedido-pendiente'));
     window.scrollTo({ top: 0, behavior: 'smooth' });
