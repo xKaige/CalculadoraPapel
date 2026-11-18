@@ -240,6 +240,7 @@
   .ts-lp-tabla select { max-width: 280px; }
   .ts-lp-tabla tr.off td, .pp-hist tr.off td { opacity: .5; }
   .ts-lp-raw { white-space: pre-wrap; font-size: .75rem; max-height: 260px; overflow: auto; background: var(--bg); padding: 8px; border-radius: 8px; }
+  .ts-gnota { font-size: .8rem; color: var(--pinza); margin-top: -4px; }
   .ts-umbral { font-size: .84rem; color: var(--muted); gap: 8px; }
   .ts-umbral label { color: var(--muted); font-size: .84rem; }
   .ts-dolar { grid-column: 1 / -1; grid-row: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: .84rem; color: var(--pinza); background: var(--pinza-soft); border-radius: 8px; padding: 6px 10px; }
@@ -1650,7 +1651,7 @@
   let filtroEtapa = '', etapaForm = 'Pendiente';
   const ponerEtapaForm = e => { etapaForm = e; document.querySelectorAll('#plEtapa button').forEach(b => b.setAttribute('aria-pressed', b.dataset.e === e)); };
   // ---------- Precios de las papeleras ----------
-  let precioMon = 'ARS', ppSel = '', origenPresupuesto = null;
+  let precioMon = 'ARS', ppSel = '', origenPresupuesto = null, origenParte = null;
   const dolarHoy = () => { try { return JSON.parse(localStorage.getItem('dolar-bna-v1') || 'null')?.venta || null; } catch (e) { return null; } };
   const clave = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').replace(/(\d)\s*(g|gr|grs|gramos)\b/g, '$1 g').trim();
   // $/kg y $/hoja en pesos de un registro (null si no tiene precio o faltan datos)
@@ -1762,7 +1763,7 @@
     $('plForm').reset(); $('plFecha').value = hoy(); $('plKilosInfo').textContent = ''; $('plPackInfo').textContent = ''; ponerEtapaForm('Pendiente'); precioMon = 'ARS'; pintarPrecioForm();
   }
   function cancelarEdicion() {
-    editando = null; borrando = null; origenPresupuesto = null; limpiarForm();
+    editando = null; borrando = null; origenPresupuesto = origenParte = null; limpiarForm();
     $('plFormTitulo').textContent = 'Nuevo registro';
     $('plGuardar').textContent = 'Guardar'; $('plCancelar').hidden = true;
   }
@@ -1774,7 +1775,7 @@
     if (!p || !usuario) return;
     window.pedidoPendiente = null;
     cancelarEdicion();
-    origenPresupuesto = p.presupuestoId || null;
+    origenPresupuesto = p.presupuestoId || null; origenParte = p.parte || null;
     $('plFormato').value = p.formato || '';
     $('plMaterial').value = p.material || '';
     $('plPliegos').value = p.pliegos != null ? p.pliegos : '';
@@ -1805,7 +1806,7 @@
       etapa: etapaForm,
       precio: num('plPrecio'), precioPor: $('plPrecioPor').value, precioMon: precioMon,
       dolar: precioMon === 'USD' ? dolarHoy() : null,
-      ...(!editando && origenPresupuesto ? { presupuestoId: origenPresupuesto } : {}),
+      ...(!editando && origenPresupuesto ? { presupuestoId: origenPresupuesto, parte: origenParte } : {}),
       actualizado: fb.serverTimestamp(),
     };
     if (!datos.proveedor || !datos.material) return estado('Completá proveedor y material.');
@@ -1814,9 +1815,18 @@
     cancelarEdicion();
     try {
       // sin await: con la base offline se guarda en el teléfono y se sube al volver la conexión
+      // gramaje cambiado en un pedido vinculado a un presupuesto → se actualiza el presupuesto
+      const previo = id && registros.find(r => r.id === id);
+      const gN = gramajeDe(datos.material), gV = previo ? gramajeDe(previo.material) : null;
+      if (previo && previo.presupuestoId && gN && gN !== gV) {
+        const parte = previo.parte || (/·\s*tapa\s*$/i.test(previo.trabajo || '') ? 'tapa' : 'interior');
+        import('./presupuesto.js').then(m => m.gramajeDesdePedido(previo.presupuestoId, parte, gN)).then(r => {
+          if (r) estado(`Gramaje actualizado también en el presupuesto N° ${r.numero}${r.cerrado ? ' (está cerrado: su precio no cambia)' : ' (se recalculó su precio)'}.`, 8000);
+        }).catch(err => console.error('gramaje → presupuesto', err));
+      }
       if (id) fb.updateDoc(fb.doc(col(), id), datos).catch(err => estado('Error: ' + err.code));
       else fb.addDoc(col(), { ...datos, creado: fb.serverTimestamp() }).catch(err => estado('Error: ' + err.code));
-      estado(id ? 'Cambios guardados.' : 'Registro guardado.');
+      if (!(previo && previo.presupuestoId && gN && gN !== gV)) estado(id ? 'Cambios guardados.' : 'Registro guardado.');
       $('plProveedor').focus();
       // revistas: después del papel del interior, se carga el de la tapa
       if (!id && window.pedidosCola && window.pedidosCola.length) {
