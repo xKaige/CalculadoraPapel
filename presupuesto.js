@@ -87,7 +87,7 @@ let ultimo = null;   // { entrada, resultados[] }
 // ---------- Estructura ----------
 const sec = $('presupuesto');
 sec.innerHTML = `
-  <div class="ts-top"><span class="ts-top-estado" id="tsTopEstado">Presupuesto nuevo</span><button type="button" class="btn small primary" id="tsNuevoArriba">+ Nuevo presupuesto</button></div>
+  <div class="ts-top"><span class="ts-top-estado" id="tsTopEstado">Presupuesto nuevo</span><div class="ts-top-acc"><button type="button" class="btn small" id="tsIrGuardados">Ir a presupuestos ↓</button><button type="button" class="btn small primary" id="tsNuevoArriba">+ Nuevo presupuesto</button></div></div>
   <h2 class="sec" style="margin-top:0">Datos</h2>
   <div class="grid">
     <div><label for="tsFecha">Fecha</label><input id="tsFecha" type="date" style="padding-right:12px"></div>
@@ -287,7 +287,7 @@ sec.innerHTML = `
     </div>
   </div>
 
-  <h2 class="sec">Presupuestos guardados</h2>
+  <h2 class="sec" id="tsGuardadosTit">Presupuestos guardados</h2>
   <div class="aviso" id="tsRegAviso"><span id="tsRegAvisoTxt">Cargando…</span></div>
   <div id="tsRegApp" hidden>
     <div class="chips ts-tabs" id="tsTabs"></div>
@@ -1017,6 +1017,7 @@ function nuevoPresupuesto(aviso = 'Presupuesto nuevo.') {
   calcular(); pintarLista(); pintarCliente(); $('tsClienteSel').value = ''; msg(aviso);
 }
 // "Nuevo" (arriba o abajo): limpia y vuelve al principio del formulario
+$('tsIrGuardados').addEventListener('click', () => $('tsGuardadosTit').scrollIntoView({ behavior: 'smooth' }));
 for (const id of ['tsNuevo', 'tsNuevoArriba']) $(id).addEventListener('click', () => { nuevoPresupuesto(); sec.scrollIntoView({ behavior: 'smooth' }); });
 $('tsUsarCatalogo').addEventListener('click', () => {
   maquinaFija = null;
