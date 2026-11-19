@@ -87,6 +87,7 @@ let ultimo = null;   // { entrada, resultados[] }
 // ---------- Estructura ----------
 const sec = $('presupuesto');
 sec.innerHTML = `
+  <div class="ts-top"><span class="ts-top-estado" id="tsTopEstado">Presupuesto nuevo</span><button type="button" class="btn small primary" id="tsNuevoArriba">+ Nuevo presupuesto</button></div>
   <h2 class="sec" style="margin-top:0">Datos</h2>
   <div class="grid">
     <div><label for="tsFecha">Fecha</label><input id="tsFecha" type="date" style="padding-right:12px"></div>
@@ -682,6 +683,7 @@ function calcular() {
   $('tsTapaBox').hidden = !(rev && $('tsTapaOn').checked);
   $('tsTapaMon').dataset.cur = tapaMon; $('tsTapaMon').textContent = tapaMon === 'USD' ? 'US$' : '$';
   const E = entrada(), b = E.base;
+  $('tsTopEstado').textContent = abierto ? `Editando el presupuesto N° ${$('tsNumero').value}` : 'Presupuesto nuevo';
   $('tsCongelado').hidden = !preciosDistintos();
   const nota = (id, calc, campo) => {
     const g = num($(campo).value), ver = calc != null && Math.abs(calc - g) > 0.01;
@@ -1016,6 +1018,7 @@ function nuevoPresupuesto(aviso = 'Presupuesto nuevo.') {
   calcular(); pintarLista(); pintarCliente(); $('tsClienteSel').value = ''; msg(aviso);
 }
 $('tsNuevo').addEventListener('click', () => nuevoPresupuesto());
+$('tsNuevoArriba').addEventListener('click', () => { nuevoPresupuesto(); sec.scrollIntoView({ behavior: 'smooth' }); });
 $('tsUsarCatalogo').addEventListener('click', () => {
   maquinaFija = null;
   for (const k in termSel) { delete termSel[k].precio; delete termSel[k].postura; }

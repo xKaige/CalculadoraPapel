@@ -252,6 +252,8 @@
   .aviso { background: var(--bg); border: 1px dashed var(--line); border-radius: 10px; padding: 16px; text-align: center; color: var(--muted); display: flex; flex-direction: column; gap: 12px; align-items: center; }
   .aviso b { color: var(--ink); }
   .pl-filtro { margin-top: 10px; }
+  .ts-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+  .ts-top-estado { color: var(--muted); font-size: .88rem; }
   .ts-gnota { font-size: .8rem; color: var(--pinza); margin-top: -4px; }
   .pl-total { font-weight: 600; color: var(--accent); }
   .pl-pack { display: block; font-size: .72rem; color: var(--muted); }
@@ -868,8 +870,15 @@
       if (tab.disabled) return;
       document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', t === tab));
       document.querySelectorAll('.tool').forEach(s => s.hidden = s.id !== tab.dataset.tool);
+      try { localStorage.setItem('pliego-pestana', tab.dataset.tool); } catch (e) {}
     });
   });
+  // Al recargar (F5) se vuelve a la pestaña en la que estabas
+  try {
+    const ultima = localStorage.getItem('pliego-pestana');
+    const t = ultima && document.querySelector(`.tab[data-tool="${ultima}"]`);
+    if (t && !t.disabled) t.click();
+  } catch (e) {}
 
   // ---------- Utilidades ----------
   // Acepta "72,5" o "72.5" y separadores de miles tipo "13.000"
