@@ -135,6 +135,14 @@
     background: transparent; color: var(--muted); cursor: pointer; font-weight: 500;
   }
   .mode button[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .mode button { transition: color .25s ease; }
+  /* indicador que se desliza entre las opciones (lo mueve el script de abajo) */
+  .mode { position: relative; }
+  .mode > button { position: relative; z-index: 1; }
+  .mode.desliza > button[aria-pressed="true"] { background: transparent; box-shadow: none; }
+  .mode-ind { position: absolute; z-index: 0; border-radius: 7px; background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,.18); pointer-events: none; }
+  .mode-ind.anim { transition: transform .32s cubic-bezier(.3, .7, .2, 1), width .32s cubic-bezier(.3, .7, .2, 1), height .32s cubic-bezier(.3, .7, .2, 1); }
+  @media (prefers-reduced-motion: reduce) { .mode-ind.anim { transition: none; } }
 
   .result {
     margin-top: 16px;
@@ -281,7 +289,8 @@
   .tsr-ed { color: var(--accent) !important; border: 1px solid var(--accent); border-radius: 999px; padding: 0 6px; margin-left: 4px; }
   .tsr-dol { color: var(--pinza) !important; margin-left: 4px; }
   .tsr-sub { display: none; }
-  .tsr-est { display: inline-block; font-size: .74rem; border: 1px solid currentColor; border-radius: 999px; padding: 1px 9px; color: var(--muted); }
+  .tsr-est { display: inline-block; min-width: 84px; text-align: center; font-size: .74rem; border: 1px solid currentColor; border-radius: 999px; padding: 1px 9px; color: var(--muted); }
+  .ts-tabla th.c-est { width: 104px; }
   .tsr-est.aprobado { color: var(--accent); } .tsr-est.rechazado { color: var(--rot); }
   .tsr-det td { white-space: normal; padding: 2px 10px 12px; }
   .tsr-det-in { display: flex; flex-direction: column; gap: 8px; }
@@ -911,6 +920,33 @@
       if (sp.textContent.trim() === 'Cargando…') sp.innerHTML = '<b>No se pudo conectar con Google.</b> Revisá la conexión y recargá la página.';
     });
     setTimeout(() => { if (!window.pliegoFB) window.pliegoSinConexion(); }, 20000);
+  })();
+
+  // ---------- Selectores de opciones (.mode): el fondo de la opción elegida se desliza suave ----------
+  (function () {
+    const ubicar = (m, animar) => {
+      const b = m.querySelector(':scope > button[aria-pressed="true"]');
+      let ind = m.querySelector(':scope > .mode-ind');
+      if (!b || !b.offsetWidth) { if (ind) ind.style.opacity = '0'; return; }
+      if (!ind) { ind = document.createElement('span'); ind.className = 'mode-ind'; m.prepend(ind); m.classList.add('desliza'); animar = false; }
+      ind.classList.toggle('anim', !!animar && ind.style.opacity !== '0');
+      ind.style.opacity = '1';
+      ind.style.width = b.offsetWidth + 'px'; ind.style.height = b.offsetHeight + 'px';
+      ind.style.left = '0'; ind.style.top = '0';
+      ind.style.transform = `translate(${b.offsetLeft}px, ${b.offsetTop}px)`;
+    };
+    const vistos = new WeakSet();
+    const ro = new ResizeObserver(es => es.forEach(e => ubicar(e.target, false)));
+    const preparar = () => document.querySelectorAll('.mode').forEach(m => { if (!vistos.has(m)) { vistos.add(m); ro.observe(m); ubicar(m, false); } });
+    new MutationObserver(ms => {
+      let nuevos = false;
+      for (const x of ms) {
+        if (x.type === 'attributes') { const m = x.target.closest('.mode'); if (m && x.target.parentElement === m) ubicar(m, true); }
+        else if (x.addedNodes.length) nuevos = true;
+      }
+      if (nuevos) preparar();
+    }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-pressed'] });
+    preparar();
   })();
 
   // ---------- Pestañas ----------
