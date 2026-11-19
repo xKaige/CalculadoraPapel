@@ -290,13 +290,11 @@ sec.innerHTML = `
   <h2 class="sec">Presupuestos guardados</h2>
   <div class="aviso" id="tsRegAviso"><span id="tsRegAvisoTxt">Cargando…</span></div>
   <div id="tsRegApp" hidden>
-    <div class="grid" style="grid-template-columns:1fr auto">
-      <div class="field"><input id="tsBuscar" placeholder="Buscar por cliente, trabajo o número" style="padding-right:12px"></div>
-      <select id="tsFiltro" class="ts-select" style="width:auto"><option value="">Todos</option><option>Pendiente</option><option>Aprobado</option><option>Rechazado</option></select>
-    </div>
+    <div class="chips ts-tabs" id="tsTabs"></div>
+    <div class="field"><input id="tsBuscar" placeholder="Buscar por cliente, trabajo o número" style="padding-right:12px"></div>
     <div class="actions ts-import ts-umbral"><label for="tsUmbral" style="margin:0">Avisar en los pendientes si el dólar subió más de</label><div class="field" style="width:84px"><input id="tsUmbral" inputmode="decimal" style="padding:6px 22px 6px 8px"><span class="unit">%</span></div></div>
     <div class="actions ts-import"><button type="button" class="btn small" id="tsImportar">Importar presupuesto…</button><input type="file" id="tsImportarArch" accept=".pliego,.json,application/json" multiple hidden><span class="estado">Para traer uno exportado desde otra cuenta (archivo .pliego).</span></div>
-    <div class="pl-lista" id="tsLista"></div>
+    <div class="ts-tabla-box" id="tsLista"></div>
     <details id="tsViejos" hidden style="margin-top:14px">
       <summary>Presupuestos de la versión anterior (<span id="tsViejosN">0</span>)</summary>
       <p class="estado">Se armaron con el presupuesto viejo: se pueden consultar y borrar, pero no abrir en esta versión.</p>
@@ -1112,28 +1110,79 @@ function abrirGuardado(r) {
   $('tsGuardar').textContent = 'Guardar cambios'; calcular(); pintarCliente(); $('tsClienteSel').value = clienteActual()?.id || ''; pintarLista();
   sec.scrollIntoView({ behavior: 'smooth' }); msg(`Presupuesto N° ${r.numero} abierto.`);
 }
-function pintarLista() {
-  const q = $('tsBuscar').value.trim().toLowerCase(), fe = $('tsFiltro').value;
-  const l = lista.filter(r => (!fe || r.estado === fe) && (!q || [r.cliente, r.trabajo, r.numero].join(' ').toLowerCase().includes(q)));
-  llenarClientes();
-  if (!l.length) { $('tsLista').innerHTML = `<div class="pl-vacio">${lista.length ? 'No hay presupuestos que coincidan.' : 'Todavía no guardaste presupuestos. Armá uno arriba y tocá "Guardar presupuesto".'}</div>`; return; }
-  $('tsLista').innerHTML = window.Paginas.html('pres', l, r => {
-    const p = r.resumen?.[0];
-    return `<div class="pl-item ts-item${abierto === r.id ? ' editando' : ''}" data-id="${r.id}">
-      <div class="ts-item-head">
-        <div class="t">N° ${esc(r.numero)} · ${esc(r.cliente || 'Sin cliente')}<span class="d"> · ${esc(fechaTxt(r.fecha))}${r.trabajo ? ' · ' + esc(r.trabajo) : ''}${r.tipo === 'revista' ? ` · Revista${r.paginas ? ' ' + r.paginas + ' págs.' : ''}` : ''}</span></div>
-      </div>
-      <div class="ts-cants">${(r.resumen || []).map(x => `<span class="ts-cant"><span>${fmt(x.cant, 0)} ej.</span> <b>${pesos(x.total)}</b> <small>(${pesos(x.unitario)} c/u)</small></span>`).join('') || '<span class="ts-cant">—</span>'}</div>
-      <select data-acc="estado" aria-label="Estado" class="ts-select ts-mini ts-estado ts-estado-sel ${String(r.estado || '').toLowerCase()}">${['Pendiente', 'Aprobado', 'Rechazado'].map(e => `<option ${r.estado === e ? 'selected' : ''}>${e}</option>`).join('')}</select>
-      ${pidiendo === r.id
-        ? `<div class="acc ts-confirma"><span class="estado">Pedir papel para:</span>${(r.resumen || []).map((x, i) => `<button type="button" class="btn small" data-acc="pedido-cant" data-i="${i}">${fmt(x.cant, 0)} ej.</button>`).join('')}<button type="button" class="btn small" data-acc="no">Cancelar</button></div>`
-        : borrando === r.id
-        ? `<div class="acc ts-confirma"><span class="estado">¿Borrar el N° ${esc(r.numero)}?</span><button type="button" class="btn small danger" data-acc="si">Sí, borrar</button><button type="button" class="btn small" data-acc="no">No</button></div>`
-        : `${avisoDolar(r)}<div class="acc ts-acc"><button type="button" class="btn small" data-acc="abrir">Abrir</button>${r.estado === 'Aprobado' ? '<button type="button" class="btn small" data-acc="pedido">Pedir papel</button>' : ''}<button type="button" class="btn small" data-acc="exportar" title="Descargar para importarlo en otra cuenta">Exportar</button><button type="button" class="btn small" data-acc="borrar">Borrar</button></div>`}
-    </div>`;
-  }, pintarLista);
+// ---------- Lista de guardados: pestañas por estado + tabla compacta ----------
+const ESTADOS = ['Pendiente', 'Aprobado', 'Rechazado'];
+let filtroEstado = '', orden = { k: 'numero', dir: -1 }, expandido = null;
+try { filtroEstado = localStorage.getItem('pliego-pres-filtro') || ''; } catch (e) {}
+const sinTl = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+const COLS = [
+  { k: 'numero', t: 'N°', v: r => r.numero || 0 },
+  { k: 'fecha', t: 'Fecha', v: r => r.fecha || '', cls: 'c-fecha' },
+  { k: 'cliente', t: 'Cliente', v: r => sinTl(r.cliente) },
+  { k: 'trabajo', t: 'Trabajo', v: r => sinTl(r.trabajo), cls: 'c-trab' },
+  { k: 'cant', t: 'Cantidad', v: r => r.resumen?.[0]?.cant || 0, cls: 'r c-cant' },
+  { k: 'total', t: 'Total', v: r => r.resumen?.[0]?.total || 0, cls: 'r' },
+  { k: 'estado', t: 'Estado', v: r => ESTADOS.indexOf(r.estado || 'Pendiente'), cls: 'c-est' },
+];
+function detalleFila(r) {
+  const acciones = pidiendo === r.id
+    ? `<span class="estado">Pedir papel para:</span>${(r.resumen || []).map((x, i) => `<button type="button" class="btn small" data-acc="pedido-cant" data-i="${i}">${fmt(x.cant, 0)} ej.</button>`).join('')}<button type="button" class="btn small" data-acc="no">Cancelar</button>`
+    : borrando === r.id
+    ? `<span class="estado">¿Borrar el N° ${esc(r.numero)}?</span><button type="button" class="btn small danger" data-acc="si">Sí, borrar</button><button type="button" class="btn small" data-acc="no">No</button>`
+    : `<button type="button" class="btn small" data-acc="abrir">Abrir</button>${r.estado === 'Aprobado' ? '<button type="button" class="btn small" data-acc="pedido">Pedir papel</button>' : ''}<button type="button" class="btn small" data-acc="exportar" title="Descargar para importarlo en otra cuenta">Exportar</button><button type="button" class="btn small" data-acc="borrar">Borrar</button>`;
+  const info = [r.tipo === 'revista' ? `Revista${r.paginas ? ' ' + r.paginas + ' págs.' : ''}` : '', r.papel ? 'Papel: ' + esc(r.papel) : '', r.compra && !/^0×0$/.test(r.compra) ? 'hoja ' + esc(r.compra) : ''].filter(Boolean).join(' · ');
+  return `<tr class="tsr-det" data-id="${r.id}"><td colspan="${COLS.length}"><div class="tsr-det-in">
+    <div class="ts-cants">${(r.resumen || []).map(x => `<span class="ts-cant"><span>${fmt(x.cant, 0)} ej.</span> <b>${pesos(x.total)}</b> <small>(${pesos(x.unitario)} c/u)</small></span>`).join('') || '<span class="ts-cant">—</span>'}</div>
+    ${info ? `<div class="tsr-info">${info}</div>` : ''}
+    ${avisoDolar(r)}
+    <div class="acc tsr-acc"><select data-acc="estado" aria-label="Estado" class="ts-select ts-mini ts-estado ts-estado-sel ${String(r.estado || '').toLowerCase()}">${ESTADOS.map(e => `<option ${r.estado === e ? 'selected' : ''}>${e}</option>`).join('')}</select>${acciones}</div>
+  </div></td></tr>`;
 }
-$('tsBuscar').addEventListener('input', () => { window.Paginas.reset('pres'); pintarLista(); });
+function pintarLista() {
+  const q = sinTl($('tsBuscar').value);
+  llenarClientes();
+  const buscados = lista.filter(r => !q || sinTl([r.cliente, r.trabajo, r.numero].join(' ')).includes(q));
+  const cuenta = e => buscados.filter(r => (r.estado || 'Pendiente') === e).length;
+  $('tsTabs').innerHTML = [['Pendiente', 'Pendientes'], ['Aprobado', 'Aprobados'], ['Rechazado', 'Rechazados'], ['', 'Todos']]
+    .map(([e, t]) => `<button type="button" class="chip${filtroEstado === e ? ' on' : ''}" aria-pressed="${filtroEstado === e}" data-f="${e}">${t}<b>${e ? cuenta(e) : buscados.length}</b></button>`).join('');
+  const l = buscados.filter(r => !filtroEstado || (r.estado || 'Pendiente') === filtroEstado);
+  if (!l.length) { $('tsLista').innerHTML = `<div class="pl-vacio">${!lista.length ? 'Todavía no guardaste presupuestos. Armá uno arriba y tocá "Guardar presupuesto".' : q ? 'No hay presupuestos que coincidan con la búsqueda.' : `No hay presupuestos ${filtroEstado.toLowerCase()}s.`}</div>`; return; }
+  const c = COLS.find(x => x.k === orden.k) || COLS[0];
+  l.sort((a, b) => { const x = c.v(a), y = c.v(b); return ((x < y ? -1 : x > y ? 1 : 0) * orden.dir) || ((b.numero || 0) - (a.numero || 0)); });
+  if (pidiendo || borrando) expandido = pidiendo || borrando;
+  $('tsLista').innerHTML = `<table class="ts-tabla"><thead><tr>${COLS.map(x => `<th class="${x.cls || ''}"><button type="button" data-orden="${x.k}">${x.t}${orden.k === x.k ? (orden.dir < 0 ? ' ▾' : ' ▴') : ''}</button></th>`).join('')}</tr></thead><tbody>
+    ${l.map(r => {
+      const p = r.resumen?.[0], est = r.estado || 'Pendiente', ab = expandido === r.id;
+      return `<tr class="tsr${ab ? ' ab' : ''}${abierto === r.id ? ' editando' : ''}" data-id="${r.id}" tabindex="0" aria-expanded="${ab}">
+        <td class="mono">${esc(r.numero)}</td>
+        <td class="mono c-fecha">${esc(fechaTxt(r.fecha).slice(0, 5))}</td>
+        <td class="c-cli"><b>${esc(r.cliente || 'Sin cliente')}</b>${abierto === r.id ? ' <small class="tsr-ed">abierto arriba</small>' : ''}${avisoDolar(r) ? ' <small class="tsr-dol" title="El dólar subió desde que se hizo">US$ ↑</small>' : ''}<small class="tsr-sub"><span class="tsr-est-m ${est.toLowerCase()}">${est}</span> · ${esc([fechaTxt(r.fecha), r.trabajo].filter(Boolean).join(' · '))}</small></td>
+        <td class="c-trab mut">${esc(r.trabajo || '')}${r.tipo === 'revista' ? ' <small>(revista)</small>' : ''}</td>
+        <td class="mono r c-cant">${p ? fmt(p.cant, 0) + ' ej.' : '—'}${(r.resumen || []).length > 1 ? ` <small>+${r.resumen.length - 1}</small>` : ''}</td>
+        <td class="mono r">${p ? '$ ' + fmt(p.total, 0) : '—'}</td>
+        <td class="c-est"><span class="tsr-est ${est.toLowerCase()}">${est}</span></td>
+      </tr>${ab ? detalleFila(r) : ''}`;
+    }).join('')}</tbody></table>`;
+}
+$('tsBuscar').addEventListener('input', () => { expandido = null; pintarLista(); });
+$('tsTabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-f]'); if (!b) return;
+  filtroEstado = b.dataset.f; expandido = null;
+  try { localStorage.setItem('pliego-pres-filtro', filtroEstado); } catch (err) {}
+  pintarLista();
+});
+// ordenar por columna y desplegar / plegar un renglón
+$('tsLista').addEventListener('click', e => {
+  const o = e.target.closest('[data-orden]');
+  if (o) { const k = o.dataset.orden; orden = orden.k === k ? { k, dir: -orden.dir } : { k, dir: ['numero', 'fecha', 'total', 'cant'].includes(k) ? -1 : 1 }; pintarLista(); return; }
+  const fila = e.target.closest('tr.tsr');
+  if (fila && !e.target.closest('button, select, a')) { expandido = expandido === fila.dataset.id ? null : fila.dataset.id; borrando = pidiendo = null; pintarLista(); }
+});
+$('tsLista').addEventListener('keydown', e => {
+  const fila = e.target.closest?.('tr.tsr'); if (!fila || (e.key !== 'Enter' && e.key !== ' ')) return;
+  e.preventDefault(); expandido = expandido === fila.dataset.id ? null : fila.dataset.id; pintarLista();
+  $('tsLista').querySelector(`tr.tsr[data-id="${fila.dataset.id}"]`)?.focus();
+});
 
 // ---------- Aviso de dólar en los presupuestos pendientes ----------
 // Cada presupuesto guarda el dólar con el que se hizo. Los pendientes se recalculan con el dólar de hoy
@@ -1283,15 +1332,14 @@ $('tsImportarArch').addEventListener('change', async e => {
   }
   if (ok.length) msg(`Importado${ok.length > 1 ? 's' : ''}: ${ok.map(h => 'N° ' + h.numero + (h.cliente ? ' (' + h.cliente + ')' : '')).join(', ')}.${agregados.length ? ' Se agregó a tu configuración: ' + [...new Set(agregados)].join(', ') + '.' : ''}`);
 });
-$('tsFiltro').addEventListener('change', () => { window.Paginas.reset('pres'); pintarLista(); });
 $('tsLista').addEventListener('change', e => {
   if (e.target.dataset.acc !== 'estado') return;
-  const id = e.target.closest('.pl-item').dataset.id;
+  const id = e.target.closest('[data-id]').dataset.id;
   FB.fb.updateDoc(FB.fb.doc(col(), id), { estado: e.target.value }).catch(err => msg('Error: ' + err.code));
 });
 $('tsLista').addEventListener('click', e => {
   const b = e.target.closest('button[data-acc]'); if (!b) return;
-  const id = b.closest('.pl-item').dataset.id, r = lista.find(x => x.id === id); if (!r) return;
+  const id = b.closest('[data-id]')?.dataset.id, r = lista.find(x => x.id === id); if (!r) return;
   const a = b.dataset.acc;
   if (a === 'borrar') borrando = id;
   else if (a === 'no') { borrando = null; pidiendo = null; }
