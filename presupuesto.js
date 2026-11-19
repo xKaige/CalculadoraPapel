@@ -1018,8 +1018,8 @@ function nuevoPresupuesto(aviso = 'Presupuesto nuevo.') {
   $('tsClienteWrap').hidden = true; $('tsCorteWrap').hidden = true; $('tsGuardar').textContent = 'Guardar presupuesto';
   calcular(); pintarLista(); pintarCliente(); $('tsClienteSel').value = ''; msg(aviso);
 }
-$('tsNuevo').addEventListener('click', () => nuevoPresupuesto());
-$('tsNuevoArriba').addEventListener('click', () => { nuevoPresupuesto(); sec.scrollIntoView({ behavior: 'smooth' }); });
+// "Nuevo" (arriba o abajo): limpia y vuelve al principio del formulario
+for (const id of ['tsNuevo', 'tsNuevoArriba']) $(id).addEventListener('click', () => { nuevoPresupuesto(); sec.scrollIntoView({ behavior: 'smooth' }); });
 $('tsUsarCatalogo').addEventListener('click', () => {
   maquinaFija = null;
   for (const k in termSel) { delete termSel[k].precio; delete termSel[k].postura; }
