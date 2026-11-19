@@ -294,6 +294,7 @@ sec.innerHTML = `
       <div class="field"><input id="tsBuscar" placeholder="Buscar por cliente, trabajo o número" style="padding-right:12px"></div>
       <select id="tsFiltro" class="ts-select" style="width:auto"><option value="">Todos</option><option>Pendiente</option><option>Aprobado</option><option>Rechazado</option></select>
     </div>
+    <div class="actions ts-import ts-umbral"><label for="tsUmbral" style="margin:0">Avisar en los pendientes si el dólar subió más de</label><div class="field" style="width:84px"><input id="tsUmbral" inputmode="decimal" style="padding:6px 22px 6px 8px"><span class="unit">%</span></div></div>
     <div class="actions ts-import"><button type="button" class="btn small" id="tsImportar">Importar presupuesto…</button><input type="file" id="tsImportarArch" accept=".pliego,.json,application/json" multiple hidden><span class="estado">Para traer uno exportado desde otra cuenta (archivo .pliego).</span></div>
     <div class="pl-lista" id="tsLista"></div>
     <details id="tsViejos" hidden style="margin-top:14px">
@@ -1092,7 +1093,7 @@ $('tsGuardar').addEventListener('click', () => {
     clienteId: clienteActual()?.id || null, clienteDatos: datosCliente(clienteActual()),
     resumen, papel: E.base.papel.nombre, compra: `${fmt(E.base.compra.w, 0)}×${fmt(E.base.compra.h, 0)}`, tipo,
     paginas: E.rev ? E.base.revista.paginas || 0 : null,
-    snapshot: snapshot(), actualizado: FB.fb.serverTimestamp(),
+    snapshot: snapshot(), actualizado: FB.fb.serverTimestamp(), dolar: dolar?.venta || null,
   };
   if (abierto) {
     FB.fb.updateDoc(FB.fb.doc(col(), abierto), datos).catch(e => msg('Error: ' + e.code));
@@ -1128,11 +1129,85 @@ function pintarLista() {
         ? `<div class="acc ts-confirma"><span class="estado">Pedir papel para:</span>${(r.resumen || []).map((x, i) => `<button type="button" class="btn small" data-acc="pedido-cant" data-i="${i}">${fmt(x.cant, 0)} ej.</button>`).join('')}<button type="button" class="btn small" data-acc="no">Cancelar</button></div>`
         : borrando === r.id
         ? `<div class="acc ts-confirma"><span class="estado">¿Borrar el N° ${esc(r.numero)}?</span><button type="button" class="btn small danger" data-acc="si">Sí, borrar</button><button type="button" class="btn small" data-acc="no">No</button></div>`
-        : `<div class="acc ts-acc"><button type="button" class="btn small" data-acc="abrir">Abrir</button>${r.estado === 'Aprobado' ? '<button type="button" class="btn small" data-acc="pedido">Pedir papel</button>' : ''}<button type="button" class="btn small" data-acc="exportar" title="Descargar para importarlo en otra cuenta">Exportar</button><button type="button" class="btn small" data-acc="borrar">Borrar</button></div>`}
+        : `${avisoDolar(r)}<div class="acc ts-acc"><button type="button" class="btn small" data-acc="abrir">Abrir</button>${r.estado === 'Aprobado' ? '<button type="button" class="btn small" data-acc="pedido">Pedir papel</button>' : ''}<button type="button" class="btn small" data-acc="exportar" title="Descargar para importarlo en otra cuenta">Exportar</button><button type="button" class="btn small" data-acc="borrar">Borrar</button></div>`}
     </div>`;
   }, pintarLista);
 }
 $('tsBuscar').addEventListener('input', () => { window.Paginas.reset('pres'); pintarLista(); });
+
+// ---------- Aviso de dólar en los presupuestos pendientes ----------
+// Cada presupuesto guarda el dólar con el que se hizo. Los pendientes se recalculan con el dólar de hoy
+// y, si subió más que el umbral, se avisa cuánto daría hoy y se puede actualizar con un toque.
+let umbralDolar = 3; try { umbralDolar = num(localStorage.getItem('pliego-umbral-dolar') || '3') || 3; } catch (e) {}
+$('tsUmbral').value = String(umbralDolar).replace('.', ',');
+$('tsUmbral').addEventListener('change', () => { umbralDolar = Math.max(0, num($('tsUmbral').value)); try { localStorage.setItem('pliego-umbral-dolar', String(umbralDolar)); } catch (e) {} pintarLista(); });
+const revisionDolar = new Map();   // id → { clave, viejo, nuevo, cambioTotal, res }
+let historicoDolar = null;          // { 'AAAA-MM-DD': venta } para presupuestos guardados antes de esta función
+async function cargarHistorico() {
+  if (historicoDolar) return historicoDolar;
+  try { const c = JSON.parse(localStorage.getItem('pliego-dolar-hist') || 'null'); if (c && Date.now() - c.t < 6 * 3600e3) return historicoDolar = c.m; } catch (e) {}
+  try {
+    const r = await fetch('https://api.argentinadatos.com/v1/cotizaciones/dolares/oficial');
+    const arr = await r.json(), m = {};
+    for (const x of arr) if (x.fecha && x.venta) m[x.fecha] = x.venta;
+    historicoDolar = m; try { localStorage.setItem('pliego-dolar-hist', JSON.stringify({ t: Date.now(), m })); } catch (e) {}
+  } catch (e) { historicoDolar = {}; }
+  return historicoDolar;
+}
+function dolarDelDia(fecha) {
+  if (!historicoDolar || !fecha) return null;
+  for (let i = 0; i < 10; i++) {   // fin de semana / feriado: el último día hábil anterior
+    const d = new Date(fecha + 'T12:00:00'); d.setDate(d.getDate() - i);
+    const v = historicoDolar[d.toISOString().slice(0, 10)]; if (v) return v;
+  }
+  return null;
+}
+function usaDolares(snap) {
+  if (!snap) return false;
+  if (snap.papelMon === 'USD' || snap.microMon === 'USD' || (snap.tipo === 'revista' && snap.tapaOn !== false && snap.tapaMon === 'USD')) return true;
+  if (snap.maquinaFija?.moneda === 'USD' || cat.maquinas.find(m => m.id === snap.campos?.tsMaquina)?.moneda === 'USD') return true;
+  return Object.entries(snap.termSel || {}).some(([id, s]) => s?.on && (cat.terminaciones.find(t => t.id === id)?.moneda === 'USD' || s.cunoMon === 'USD' || s.foilMon === 'USD'));
+}
+let revisarT = null;
+function revisarDolar() { clearTimeout(revisarT); revisarT = setTimeout(revisarAhora, 700); }
+async function revisarAhora() {
+  if (!dolar?.venta || !usuario) return;
+  // no recalcular mientras se escribe en el formulario
+  if (sec.contains(document.activeElement) && document.activeElement.matches('input, textarea')) { revisarDolar(); return; }
+  const pend = lista.filter(r => (r.estado || 'Pendiente') === 'Pendiente' && r.snapshot && r.resumen?.length && usaDolares(r.snapshot));
+  if (pend.some(r => !r.dolar)) await cargarHistorico();
+  let cambio = false;
+  for (const r of pend) {
+    const viejo = r.dolar || dolarDelDia(r.fecha);
+    const clave = [r.actualizado?.seconds || 0, dolar.venta, viejo, JSON.stringify(r.resumen.map(x => x.total))].join('|');
+    if (revisionDolar.get(r.id)?.clave === clave) continue;
+    let res = [];
+    try { res = calcularDesdeSnapshot(r.snapshot).res.filter(x => x.ok); } catch (e) {}
+    const antes = r.resumen.reduce((a, x) => a + (x.total || 0), 0);
+    const ahora = r.resumen.reduce((a, x) => a + (res.find(y => y.cant === x.cant)?.total || 0), 0);
+    revisionDolar.set(r.id, { clave, viejo, nuevo: dolar.venta, cambioTotal: antes && ahora ? (ahora / antes - 1) * 100 : 0, res });
+    cambio = true;
+  }
+  if (cambio) pintarLista();
+}
+function avisoDolar(r) {
+  const v = revisionDolar.get(r.id);
+  if (!v || (r.estado || 'Pendiente') !== 'Pendiente') return '';
+  const subaDolar = v.viejo ? (v.nuevo / v.viejo - 1) * 100 : null;
+  const avisar = subaDolar != null ? subaDolar >= umbralDolar : v.cambioTotal >= umbralDolar;
+  if (!avisar || v.cambioTotal < 0.5) return '';
+  const pct = x => (x >= 0 ? '+' : '') + fmt(x, 1) + ' %';
+  return `<div class="ts-dolar"><span>Dólar ${v.viejo ? `${pesos(v.viejo)} → ` : 'hoy '}${pesos(v.nuevo)}${subaDolar != null ? ` (${pct(subaDolar)})` : ''}. Hecho hoy, este presupuesto daría <b>${pct(v.cambioTotal)}</b>.</span><button type="button" class="btn small" data-acc="act-dolar">Actualizar precios</button></div>`;
+}
+function actualizarAlDolar(r) {
+  let res = [];
+  try { res = calcularDesdeSnapshot(r.snapshot).res.filter(x => x.ok); } catch (e) {}
+  if (!res.length) return msg('No se pudo recalcular este presupuesto.');
+  const resumen = res.map(x => ({ cant: x.cant, total: Math.round(x.total * 100) / 100, subtotal: Math.round(x.subtotal * 100) / 100, unitario: Math.round(x.unitario * 10000) / 10000, pm: x.pm, pc: x.pc, kilos: Math.round(x.kilos * 100) / 100 }));
+  FB.fb.updateDoc(FB.fb.doc(col(), r.id), { resumen, dolar: dolar.venta, dolarAnterior: revisionDolar.get(r.id)?.viejo || r.dolar || null, actualizado: FB.fb.serverTimestamp() })
+    .then(() => msg(`Presupuesto N° ${r.numero} actualizado al dólar de hoy (${pesos(dolar.venta)}).`)).catch(e => msg('Error: ' + e.code));
+}
+
 
 // ---------- Exportar / importar entre cuentas (archivo .pliego) ----------
 // El archivo lleva el presupuesto y lo del catálogo que usa (máquina y terminaciones, con sus precios),
@@ -1223,6 +1298,7 @@ $('tsLista').addEventListener('click', e => {
   else if (a === 'si') { borrando = null; if (abierto === id) abierto = null; FB.fb.deleteDoc(FB.fb.doc(col(), id)); msg('Presupuesto borrado.'); }
   else if (a === 'abrir') { abrirGuardado(r); }
   else if (a === 'exportar') { exportarPresupuesto(r); return; }
+  else if (a === 'act-dolar') { actualizarAlDolar(r); return; }
   else if (a === 'pedido' || a === 'pedido-cant') {
     // se recalcula desde lo guardado (así los presupuestos viejos también piden bien el papel)
     let res = [], Er = null;
@@ -1266,7 +1342,7 @@ window.addEventListener('focus', refrescarFecha);
 aplicarDefaults(false);
 calcular();
 traerDolar();
-window.addEventListener('dolar-actualizado', e => { const o = e.detail?.oficial; if (o) { dolar = { ...o, chequeado: e.detail.chequeado }; calcular(); } });
+window.addEventListener('dolar-actualizado', e => { const o = e.detail?.oficial; if (o) { dolar = { ...o, chequeado: e.detail.chequeado }; calcular(); revisarDolar(); } });
 document.querySelector('[data-tool=presupuesto]').addEventListener('click', () => { refrescarFecha(); calcular(); });
 
 let viejos = [], dejarViejos = null, viejoBorrando = null;
@@ -1314,7 +1390,7 @@ function conectar(fbInfo) {
   }).catch(() => {});
   dejarLista = FB.fb.onSnapshot(col(), snap => {
     lista = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.numero || 0) - (a.numero || 0));
-    pintarLista();
+    pintarLista(); revisarDolar();
   }, e => { $('tsLista').innerHTML = '<div class="pl-vacio">No se pudo leer (' + esc(e.code || e.message) + ').</div>'; });
   dejarViejos = FB.fb.onSnapshot(FB.fb.collection(FB.db, 'usuarios', usuario.uid, 'presupuestos'), snap => {
     viejos = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
