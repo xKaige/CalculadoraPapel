@@ -102,7 +102,7 @@ sec.innerHTML = `
 
   <h2 class="sec">Trabajo y armado</h2>
   <div class="grid">
-    <div class="full"><label>Tipo de trabajo</label><div class="mode tres" role="group" id="tsTipo"><button type="button" data-t="comun" aria-pressed="true">Común</button><button type="button" data-t="revista" aria-pressed="false">Revista</button><button type="button" data-t="pack" aria-pressed="false">Packaging</button></div></div>
+    <div class="full"><label>Tipo de trabajo</label><div class="mode tres" role="group" id="tsTipo"><button type="button" data-t="comun" aria-pressed="true">Imprenta</button><button type="button" data-t="pack" aria-pressed="false">Packaging</button><button type="button" data-t="revista" aria-pressed="false">Editorial</button></div></div>
     <div class="full" data-solo="pack"><label for="tsCajaTipo">Tipo de caja</label><select id="tsCajaTipo" class="ts-select">
       <option value="">—</option><option>Estuche solapa recta</option><option>Estuche solapa cruzada</option><option>Estuche fondo automático</option><option>Estuche fondo 1-2-3</option>
       <option>Caja base y tapa</option><option>Bandeja</option><option>Caja con ventana</option><option>Display / exhibidor</option><option>Porta / sobre</option><option>Otro</option></select></div>
@@ -1247,7 +1247,7 @@ function pintarLista() {
         <td class="mono">${esc(r.numero)}</td>
         <td class="mono c-fecha">${esc(fechaTxt(r.fecha).slice(0, 5))}</td>
         <td class="c-cli"><b>${esc(r.cliente || 'Sin cliente')}</b>${abierto === r.id ? ' <small class="tsr-ed">abierto arriba</small>' : ''}${avisoDolar(r) ? ' <small class="tsr-dol" title="El dólar subió desde que se hizo">US$ ↑</small>' : ''}<small class="tsr-sub"><span class="tsr-est-m ${est.toLowerCase()}">${est}</span> · ${esc([fechaTxt(r.fecha), r.trabajo].filter(Boolean).join(' · '))}</small></td>
-        <td class="c-trab mut">${esc(r.trabajo || '')}${r.tipo === 'revista' ? ' <small>(revista)</small>' : r.tipo === 'pack' ? ' <small>(packaging)</small>' : ''}</td>
+        <td class="c-trab mut">${esc(r.trabajo || '')}${r.tipo === 'revista' ? ' <small>(editorial)</small>' : r.tipo === 'pack' ? ' <small>(packaging)</small>' : ''}</td>
         <td class="mono r c-cant">${p ? fmt(p.cant, 0) + ' ej.' : '—'}${(r.resumen || []).length > 1 ? ` <small>+${r.resumen.length - 1}</small>` : ''}</td>
         <td class="mono r">${p ? '$ ' + fmt(p.total, 0) : '—'}</td>
         <td class="c-est"><span class="tsr-est ${est.toLowerCase()}">${est}</span></td>
