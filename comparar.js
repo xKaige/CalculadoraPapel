@@ -334,7 +334,7 @@ function htmlOT(numero, r, q, calc, extra) {
     ['Impresión', `${b.colF}/${b.colD}${b.mismaChapa ? ' · tira y retira' : ''}`],
     b.maquina?.nombre && ['Máquina', b.maquina.nombre],
     b.compra.w && ['Pliego de compra', `${fmt(b.compra.w, 1)} × ${fmt(b.compra.h, 1)} cm${E.corte > 1 ? ` · cortar en ${E.corte}` : ''}`],
-    b.maq && ['Pliego de máquina', `${fmt(b.maq.w, 1)} × ${fmt(b.maq.h, 1)} cm · ${E.poses} pose${E.poses === 1 ? '' : 's'} · pinza ${fmt(pinza, 0)} mm${calle ? ` · calle ${fmt(calle, 1)} mm` : ''}`],
+    b.maq && ['Pliego de máquina', `${fmt(b.maq.w, 1)} × ${fmt(b.maq.h, 1)} cm · ${E.porTroquel > 1 ? `${E.posesDibujo} sacabocado${E.posesDibujo === 1 ? '' : 's'} × ${E.porTroquel} = ${E.poses} cajas` : `${E.poses} pose${E.poses === 1 ? '' : 's'}`} · pinza ${fmt(pinza, 0)} mm${calle ? ` · calle ${fmt(calle, 1)} mm` : ''}`],
     x && ['Pliegos a imprimir', `${fmtN(x.netos)} + ${fmtN(x.dem)} de demasía = ${fmtN(x.pm)} pliegos de máquina`],
     x && b.compra.w && ['Papel a pedir', `${fmtN(x.pc)} hojas de ${fmt(b.compra.w, 0)}×${fmt(b.compra.h, 0)}${x.piezas > 1 ? ` (salen ${x.piezas} pliegos de máquina por hoja)` : ''}${x.kilos ? ` · ${fmt(x.kilos, 1)} kg` : ''}`],
     terms && ['Terminaciones', terms],
@@ -350,7 +350,7 @@ function htmlOT(numero, r, q, calc, extra) {
       ${ai ? `<div class="ts-fig"><h4>Interior: ${ai.rects.length} páginas por cara</h4>${svgMaquina(ai, pinza, calle)}</div>` : ''}
       ${at ? `<div class="ts-fig"><h4>Tapa: ${at.rects.length} por pliego</h4>${svgMaquina(at, pinza, calle)}</div>` : ''}</div>`;
   } else if (extra.diagrama && b.maq && E.tw && window.armadoPoses) {
-    const a = window.armadoPoses(b.maq.w * 10, b.maq.h * 10, E.tw, E.th, { pinza, calleX: calle, calleY: calle, poses: E.poses });
+    const a = window.armadoPoses(b.maq.w * 10, b.maq.h * 10, E.tw, E.th, { pinza, calleX: calle, calleY: calle, poses: E.posesDibujo || E.poses });
     diagrama = `<div class="ot-salto"></div><h3 class="ot-h3">Diagrama de corte · OT N° ${numero}</h3><div class="ts-figs">
       ${E.corte && b.compra.w ? `<div class="ts-fig"><h4>Pliego de compra: cortar en ${E.corte}</h4>${svgCompra(b.compra.w, b.compra.h, E.corte)}</div>` : ''}
       ${a ? `<div class="ts-fig"><h4>Pliego de máquina: ${a.rects.length} pose${a.rects.length === 1 ? '' : 's'}</h4>${svgMaquina(a, pinza, calle)}</div>` : ''}</div>`;

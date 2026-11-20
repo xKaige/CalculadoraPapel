@@ -112,7 +112,9 @@ sec.innerHTML = `
       <div><label for="tsCajaA">Ancho</label><div class="field"><input id="tsCajaA" inputmode="decimal"><span class="unit tsUT">mm</span></div></div>
       <div><label for="tsCajaH">Alto</label><div class="field"><input id="tsCajaH" inputmode="decimal"><span class="unit tsUT">mm</span></div></div>
     </div>
-    <div class="full estado" data-solo="pack" style="align-self:end">Abajo cargá el desplegado: la medida corte a corte del sacabocado (la pieza abierta, con solapas y aletas).</div>
+    <div class="full" data-solo="pack"><label>¿Qué medida cargás abajo?</label><div class="mode" role="group" id="tsPackMed"><button type="button" data-m="troquel" aria-pressed="true">El sacabocado completo</button><button type="button" data-m="pieza" aria-pressed="false">Una sola caja (desplegado)</button></div></div>
+    <div data-solo="pack" id="tsPiezasWrap"><label for="tsPiezasTroquel">Cajas por sacabocado</label><div class="field"><input id="tsPiezasTroquel" inputmode="numeric" placeholder="1"><span class="unit">cajas</span></div></div>
+    <div class="full estado" data-solo="pack" id="tsPackAyuda"></div>
     <div><label for="tsTw" id="tsTwLbl">Corte a corte ancho</label><div class="field"><input id="tsTw" inputmode="decimal" placeholder="210"><span class="unit tsUT">mm</span></div></div>
     <div><label for="tsTh" id="tsThLbl">Corte a corte alto</label><div class="field"><input id="tsTh" inputmode="decimal" placeholder="297"><span class="unit tsUT">mm</span></div></div>
     <div class="full"><div class="mode" role="group" id="tsUTr"><button type="button" data-u="cm" aria-pressed="false">Centímetros</button><button type="button" data-u="mm" aria-pressed="true">Milímetros</button></div></div>
@@ -128,6 +130,7 @@ sec.innerHTML = `
   <h2 class="sec" id="tsPapelTit">Papel</h2>
   <div class="grid">
     <div class="full"><label for="tsPapelSel">Papel del catálogo</label><select id="tsPapelSel" class="ts-select"></select></div>
+    <div class="full ts-sug" data-solo="pack" id="tsSug"></div>
     <div><label for="tsPapelNombre">Tipo</label><input id="tsPapelNombre" placeholder="Ilustración" style="padding-right:12px"></div>
     <div><label for="tsGramaje">Gramaje</label><div class="field"><input id="tsGramaje" inputmode="decimal"><span class="unit">g/m²</span></div></div>
     <div class="full ts-gnota" id="tsGramajeNota" hidden></div>
@@ -368,18 +371,19 @@ function preciosDistintos() {
   if (m && maquinaFija && maquinaFija.id === m.id && PRECIOS_MAQ.some(k => (maquinaFija[k] ?? null) !== (m[k] ?? null))) return true;
   return cat.terminaciones.some(t => { const s = termSel[t.id]; return s?.on && ((s.precio != null && num(s.precio) !== t.precio) || (s.postura != null && num(s.postura) !== (t.postura || 0))); });
 }
+let packMed = 'troquel';   // packaging: la medida cargada es el sacabocado completo o una sola caja
 let uMicro = 'cm', uTr = 'mm', demModo = 'auto', iva = 21, papelMon = 'USD', microMon = 'ARS', tipo = 'comun', tapaMon = 'USD';
 let margenCant = {};   // cantidad → ganancia % propia (texto como se escribió)
 const termSel = {};   // id → { on, lados }
 const CAMPOS = ['tsFecha', 'tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsCalle', 'tsPinza', 'tsPoses', 'tsPapelSel', 'tsPapelNombre', 'tsGramaje',
   'tsPapelPrecio', 'tsPapelUnidad', 'tsCw', 'tsCh', 'tsCorte', 'tsMw', 'tsMh', 'tsMaquina', 'tsColF', 'tsColD', 'tsDemFrente', 'tsDemDorso', 'tsDemPct',
   'tsMicroTipo', 'tsMicroW', 'tsMicroH', 'tsMicroPor', 'tsMicroPrecio', 'tsMicroPlanchas', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsMargen', 'tsDesc', 'tsSacabocado', 'tsCunoMolde',
-  'tsCajaTipo', 'tsCajaL', 'tsCajaA', 'tsCajaH', 'tsDesbarbado', 'tsVentana', 'tsArmado', 'tsEmpaque',
+  'tsCajaTipo', 'tsCajaL', 'tsCajaA', 'tsCajaH', 'tsPiezasTroquel', 'tsDesbarbado', 'tsVentana', 'tsArmado', 'tsEmpaque',
   'tsPaginas', 'tsPagsCara', 'tsTapaPapelSel', 'tsTapaPapelNombre', 'tsTapaGramaje', 'tsTapaPrecio', 'tsTapaUnidad', 'tsTapaCw', 'tsTapaCh', 'tsTapaCorte', 'tsTapaColF', 'tsTapaColD', 'tsTapaLomo', 'tsTapaPoses'];
 
 function snapshot() {
   const c = {}; CAMPOS.forEach(k => c[k] = $(k).value);
-  return { campos: c, uTr, demModo, iva, papelMon, microMon, margenCant: { ...margenCant }, mismaChapa: $('tsMismaChapa').checked, termSel: structuredClone(termSel), tipo, tapaMon, tapaOn: $('tsTapaOn').checked, tapaMismaChapa: $('tsTapaMismaChapa').checked, uMicro, maquinaFija, gramajeCalc, tapaGramajeCalc };
+  return { campos: c, uTr, demModo, iva, papelMon, microMon, margenCant: { ...margenCant }, mismaChapa: $('tsMismaChapa').checked, termSel: structuredClone(termSel), tipo, tapaMon, tapaOn: $('tsTapaOn').checked, tapaMismaChapa: $('tsTapaMismaChapa').checked, uMicro, maquinaFija, gramajeCalc, tapaGramajeCalc, packMed };
 }
 function restaurar(s) {
   if (!s) return;
@@ -387,7 +391,7 @@ function restaurar(s) {
   uTr = s.uTr || 'mm'; demModo = s.demModo || 'auto'; iva = s.iva ?? 21; papelMon = s.papelMon || 'USD'; microMon = s.microMon || 'ARS'; margenCant = { ...(s.margenCant || {}) }; pintarMargenes.clave = null;
   $('tsMismaChapa').checked = !!s.mismaChapa;
   uMicro = s.uMicro || 'cm'; maquinaFija = s.maquinaFija || null;
-  gramajeCalc = s.gramajeCalc ?? null; tapaGramajeCalc = s.tapaGramajeCalc ?? null;
+  gramajeCalc = s.gramajeCalc ?? null; tapaGramajeCalc = s.tapaGramajeCalc ?? null; packMed = s.packMed || 'troquel';
   // presupuestos viejos: el formato del micro era un texto ("70×100")
   if (s.campos && s.campos.tsMicroW == null) {
     const m = String(s.campos.tsMicroFormato || '').match(/(\d+(?:[.,]\d+)?)\s*[x×*]\s*(\d+(?:[.,]\d+)?)/i);
@@ -603,8 +607,12 @@ function entrada() {
   const maqCat = cat.maquinas.find(m => m.id === $('tsMaquina').value) || null;
   const maquina = maqCat && maquinaFija && maquinaFija.id === maqCat.id ? { ...maqCat, ...maquinaFija } : maqCat;
   const calle = num($('tsCalle').value), pinza = num($('tsPinza').value);
-  const autoPoses = maq && tw > 0 && th > 0 && window.mejorPoses ? window.mejorPoses(maq.w * 10, maq.h * 10, tw, th, { pinza, calleX: calle, calleY: calle }) : 0;
+  const entran = maq && tw > 0 && th > 0 && window.mejorPoses ? window.mejorPoses(maq.w * 10, maq.h * 10, tw, th, { pinza, calleX: calle, calleY: calle }) : 0;
+  // Packaging con el sacabocado completo: lo que entra son sacabocados; las cajas son sacabocados × cajas por sacabocado
+  const porTroquel = tipo === 'pack' && packMed === 'troquel' ? Math.max(1, Math.floor(num($('tsPiezasTroquel').value)) || 1) : 1;
+  const autoPoses = entran * porTroquel;
   const poses = num($('tsPoses').value) > 0 ? Math.floor(num($('tsPoses').value)) : autoPoses;
+  const posesDibujo = porTroquel > 1 ? Math.max(1, Math.round(poses / porTroquel)) : poses;
   const rev = tipo === 'revista';
   // Revista: páginas por cara del pliego (lo que entra, redondeado a 1, 2, 4, 8, 16, 32 para que pliegue)
   const entranPags = rev && maq && tw > 0 && th > 0 && window.mejorPoses ? window.mejorPoses(maq.w * 10, maq.h * 10, tw, th, { pinza, calleX: calle, calleY: calle }) : 0;
@@ -637,7 +645,7 @@ function entrada() {
   const otros = [['Sacabocado', 'tsSacabocado', 'Moldes'], ['Cuño', 'tsCunoMolde', 'Moldes'], ['Diseño / preimpresión', 'tsPreimp'], ['Pruebas de color', 'tsPruebas'], ['Flete', 'tsFlete'], ['Otros', 'tsOtro']]
     .map(([nombre, id, grupo]) => ({ nombre, precio: num($(id).value), moneda: 'ARS', grupo })).filter(o => o.precio > 0);
   return {
-    tw, th, autoPoses, poses, maquinaObj: maquina, corte, rev, pack, caja, entranPags, autoPagsCara, pagsCara, tapaAbierta, tapaAutoPoses,
+    tw, th, autoPoses, poses, posesDibujo, porTroquel, maquinaObj: maquina, corte, rev, pack, caja, entranPags, autoPagsCara, pagsCara, tapaAbierta, tapaAutoPoses,
     base: {
       revista: rev ? { paginas: Math.floor(num($('tsPaginas').value)), pagsCara, retiracion: $('tsMismaChapa').checked } : null, tapa,
       poses, colF: Math.floor(num($('tsColF').value)), colD: Math.floor(num($('tsColD').value)), mismaChapa: $('tsMismaChapa').checked,
@@ -675,6 +683,29 @@ function microDatos() {
     planchas: num($('tsMicroPlanchas').value), moneda: microMon,
   };
 }
+// Packaging: qué hojas (del catálogo y la cargada) y qué corte sirven para el sacabocado, ordenadas por aprovechamiento
+function pintarSugerencias(E) {
+  const box = $('tsSug');
+  if (tipo !== 'pack' || !(E.tw > 0 && E.th > 0) || !window.mejorPoses) { box.innerHTML = ''; return; }
+  const pinza = num($('tsPinza').value), calle = num($('tsCalle').value);
+  const hojas = new Map();
+  const cw0 = num($('tsCw').value), ch0 = num($('tsCh').value);
+  if (cw0 && ch0) hojas.set(`${Math.min(cw0, ch0)}x${Math.max(cw0, ch0)}`, { w: Math.min(cw0, ch0), h: Math.max(cw0, ch0) });
+  for (const p of cat.papeles) if (p.w && p.h) hojas.set(`${Math.min(p.w, p.h)}x${Math.max(p.w, p.h)}`, { w: Math.min(p.w, p.h), h: Math.max(p.w, p.h) });
+  const ops = [];
+  for (const hj of hojas.values()) for (const n of [1, 2, 3, 4, 6]) {
+    const m = pliegoMaquina(hj.w, hj.h, n); if (!m) continue;
+    if (E.maquinaObj && !entraEnMaquina(m, E.maquinaObj)) continue;
+    const k = window.mejorPoses(m.w * 10, m.h * 10, E.tw, E.th, { pinza, calleX: calle, calleY: calle }); if (!k) continue;
+    ops.push({ hj, n, m, k, apr: k * E.tw * E.th / (m.w * m.h * 100) });
+  }
+  ops.sort((a, b) => b.apr - a.apr || b.k - a.k);
+  const corteTxt = { 1: 'entero', 2: 'al medio', 3: 'en 3', 4: 'en 4', 6: 'en 6' };
+  const unidad = E.porTroquel > 1 ? 'sacabocado' : 'caja';
+  box.innerHTML = ops.length ? `<div class="ts-sug-t">Hojas que te sirven para este ${E.porTroquel > 1 ? 'sacabocado' : 'desplegado'}:</div>` + ops.slice(0, 5).map(o =>
+    `<div class="ts-sug-f"><span><b>${fmt(o.hj.w, 0)}×${fmt(o.hj.h, 0)}</b> ${corteTxt[o.n]} → pliego ${fmt(o.m.w, 1)}×${fmt(o.m.h, 1)} · ${o.k} ${unidad}${o.k > 1 ? 's' : ''}${E.porTroquel > 1 ? ` (${o.k * E.porTroquel} cajas)` : ''} · aprovecha <b>${fmt(o.apr * 100, 0)} %</b></span><button type="button" class="btn small" data-sug="${o.hj.w}|${o.hj.h}|${o.n}">Usar</button></div>`).join('')
+    : '<div class="ts-sug-t">Con las hojas del catálogo no entra este tamaño. Cargá una hoja de compra más grande abajo.</div>';
+}
 function margenDe(cant) {
   const v = margenCant[cant];
   return v != null && String(v).trim() !== '' ? num(v) : num($('tsMargen').value);
@@ -705,9 +736,13 @@ function calcular() {
   const rev = tipo === 'revista', pk = tipo === 'pack';
   for (const t of ['comun', 'revista', 'pack']) sec.classList.toggle('tipo-' + t, tipo === t);
   document.querySelectorAll('#tsTipo button').forEach(x => x.setAttribute('aria-pressed', x.dataset.t === tipo));
-  $('tsTwLbl').textContent = rev ? 'Página cerrada ancho' : pk ? 'Desplegado (sacabocado) ancho' : 'Corte a corte ancho';
-  $('tsThLbl').textContent = rev ? 'Página cerrada alto' : pk ? 'Desplegado (sacabocado) alto' : 'Corte a corte alto';
-  $('tsPosesTit').textContent = pk ? 'Poses del sacabocado por pliego (golpes)' : 'Poses por pliego de máquina';
+  const tq = pk && packMed === 'troquel';
+  document.querySelectorAll('#tsPackMed button').forEach(x => x.setAttribute('aria-pressed', x.dataset.m === packMed));
+  $('tsPiezasWrap').hidden = !tq;
+  $('tsTwLbl').textContent = rev ? 'Página cerrada ancho' : tq ? 'Sacabocado completo ancho' : pk ? 'Desplegado de una caja ancho' : 'Corte a corte ancho';
+  $('tsThLbl').textContent = rev ? 'Página cerrada alto' : tq ? 'Sacabocado completo alto' : pk ? 'Desplegado de una caja alto' : 'Corte a corte alto';
+  $('tsPackAyuda').textContent = tq ? 'Abajo cargá la medida final del sacabocado, corte a corte de punta a punta (con las cajas ya encastradas). La app ve en qué pliego entra.' : 'Abajo cargá el desplegado de una caja (la pieza abierta, con solapas y aletas). La app acomoda cuántas entran en el pliego, sin encastrarlas.';
+  $('tsPosesTit').textContent = tq ? 'Cajas por pliego' : pk ? 'Cajas por pliego (golpes del sacabocado)' : 'Poses por pliego de máquina';
   $('tsPapelTit').textContent = rev ? 'Papel del interior' : pk ? 'Cartulina / cartón' : 'Papel';
   $('tsImpTit').textContent = rev ? 'Impresión del interior' : 'Impresión';
   $('tsMismaChapaLbl').textContent = rev ? 'Retiración: frente y dorso con la misma chapa (cada pliego da 2 juegos)' : 'El dorso usa las mismas chapas (tira y retira)';
@@ -725,7 +760,8 @@ function calcular() {
   nota('tsGramajeNota', gramajeCalc, 'tsGramaje'); nota('tsTapaGramajeNota', tapaGramajeCalc, 'tsTapaGramaje');
   $('tsPmTxt').textContent = b.maq ? `${fmt(b.maq.w, 1)} × ${fmt(b.maq.h, 1)} cm${!E.corte && b.compra.w ? ` · salen ${piezasPorCompra(b.compra.w, b.compra.h, 0, b.maq)} por pliego de compra` : ''}` : '—';
   if (rev) $('tsPosesTxt').textContent = E.pagsCara ? String(E.pagsCara) + (num($('tsPagsCara').value) > 0 ? ' (a mano)' : '') : '—';
-  else $('tsPosesTxt').textContent = E.poses ? String(E.poses) + (num($('tsPoses').value) > 0 ? ' (a mano)' : '') : '—';
+  else $('tsPosesTxt').textContent = E.poses ? (E.porTroquel > 1 && !(num($('tsPoses').value) > 0) ? `${E.posesDibujo} sacab. × ${E.porTroquel} = ${E.poses}` : String(E.poses)) + (num($('tsPoses').value) > 0 ? ' (a mano)' : '') : '—';
+  pintarSugerencias(E);
   $('tsPoses').placeholder = E.autoPoses ? String(E.autoPoses) : 'auto';
   $('tsPagsCara').placeholder = E.autoPagsCara ? String(E.autoPagsCara) : 'auto';
   $('tsTapaPoses').placeholder = E.tapaAutoPoses ? String(E.tapaAutoPoses) : 'auto';
@@ -896,13 +932,14 @@ function pintarDocCorte() {
   const calle = num($('tsCalle').value), pinza = num($('tsPinza').value);
   if (!b.maq || !E.tw || !E.th) { doc.innerHTML = '<p>Cargá el corte a corte y el pliego para ver el diagrama.</p>'; return; }
   if (E.rev) { pintarCorteRevista(doc, E, r, calle, pinza, im); return; }
-  const a = window.armadoPoses ? window.armadoPoses(b.maq.w * 10, b.maq.h * 10, E.tw, E.th, { pinza, calleX: calle, calleY: calle, poses: E.poses }) : null;
+  const a = window.armadoPoses ? window.armadoPoses(b.maq.w * 10, b.maq.h * 10, E.tw, E.th, { pinza, calleX: calle, calleY: calle, poses: E.posesDibujo || E.poses }) : null;
   const filas = [
     ['Corte a corte', `${fmt(E.tw, 1)} × ${fmt(E.th, 1)} mm`],
     b.papel.nombre && ['Papel', b.papel.nombre],
     b.compra.w && ['Pliego de compra', `${fmt(b.compra.w, 1)} × ${fmt(b.compra.h, 1)} cm`],
     ['Pliego de máquina', `${fmt(b.maq.w, 1)} × ${fmt(b.maq.h, 1)} cm${E.corte ? ` (${E.corte === 1 ? 'entero' : 'pliego de compra en ' + E.corte})` : r && r.piezas ? ` (salen ${r.piezas} por pliego de compra)` : ''}`],
-    ['Poses por pliego', String(E.poses) + (a && E.poses > a.maximo ? ` (ojo: con estas medidas entran como máximo ${a.maximo}; el dibujo muestra ${a.maximo})` : '')],
+    E.porTroquel > 1 && ['Sacabocado', `${fmt(E.tw, 1)} × ${fmt(E.th, 1)} mm con ${E.porTroquel} cajas · ${E.posesDibujo} por pliego`],
+    ['Poses por pliego', String(E.poses) + (E.porTroquel > 1 ? ' cajas' : '') + (a && (E.posesDibujo || E.poses) > a.maximo ? ` (ojo: con estas medidas entran como máximo ${a.maximo}; el dibujo muestra ${a.maximo})` : '')],
     ['Pinza / calle', `${fmt(pinza, 0)} mm / ${calle ? fmt(calle, 1) + ' mm' : 'sin calle'}`],
     ['Impresión', `${b.colF}/${b.colD}`],
     r && r.ok && ['Cantidad', `${fmt(r.cant, 0)} ej. → ${fmt(r.netos, 0)} pl. + ${fmt(r.dem, 0)} demasía = ${fmt(r.pm, 0)} pl. de máquina${b.compra.w ? ` = ${fmt(r.pc, 0)} pl. de compra` : ''}`],
@@ -993,6 +1030,13 @@ $('tsUTr').addEventListener('click', e => {
   ['tsTw', 'tsTh', 'tsCajaL', 'tsCajaA', 'tsCajaH'].forEach(id => { const v = num($(id).value); if (v > 0) $(id).value = fmt(v * f, 2).replace(/\./g, '').replace(/,00$/, ''); });
   uTr = b.dataset.u; calcular();
 });
+$('tsSug').addEventListener('click', e => {
+  const b = e.target.closest('[data-sug]'); if (!b) return;
+  const [w, h, n] = b.dataset.sug.split('|');
+  $('tsCw').value = String(w).replace('.', ','); $('tsCh').value = String(h).replace('.', ','); $('tsCorte').value = n;
+  $('tsMaqManual').hidden = true; calcular();
+});
+$('tsPackMed').addEventListener('click', e => { const x = e.target.closest('button'); if (!x || x.dataset.m === packMed) return; packMed = x.dataset.m; calcular(); });
 $('tsTipo').addEventListener('click', e => { const x = e.target.closest('button'); if (!x || x.dataset.t === tipo) return; tipo = x.dataset.t; pintarTerminaciones(); calcular(); });
 $('tsTapaOn').addEventListener('change', () => { pintarTerminaciones(); });
 $('tsTapaMon').addEventListener('click', () => { tapaMon = tapaMon === 'USD' ? 'ARS' : 'USD'; calcular(); });
