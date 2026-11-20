@@ -151,7 +151,7 @@ function cerrar(e, r, L, add, faltas, ctx) {
   }
 
   // Otros
-  for (const o of e.otros || []) add('Otros', o.nombre, 'fijo', aPesos(o.precio || 0, o.moneda, e.dolar, faltas));
+  for (const o of e.otros || []) add(o.grupo || 'Otros', o.nombre, 'fijo', aPesos(o.precio || 0, o.moneda, e.dolar, faltas));
   const cj = e.cajas || {};
   if (cj.porCaja > 0 && cj.precio > 0) {
     const nc = Math.ceil(cant / cj.porCaja), pr = aPesos(cj.precio, cj.moneda, e.dolar, faltas);
