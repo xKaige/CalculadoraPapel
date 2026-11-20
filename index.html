@@ -280,7 +280,7 @@
   /* Presupuestos guardados: pestañas + tabla compacta */
   .ts-tabs { margin: 0 0 10px; }
   .ts-tabs .chip b { font-weight: 500; opacity: .7; margin-left: 5px; }
-  .ts-tabla-box { margin-top: 10px; max-height: 560px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+  .ts-tabla-box { margin-top: 10px; max-height: 560px; overflow-y: auto; overflow-x: hidden; border: 1px solid var(--line); border-radius: 10px; container-type: inline-size; }
   .ts-tabla { width: 100%; border-collapse: collapse; font-size: .88rem; }
   .ts-tabla th { position: sticky; top: 0; z-index: 1; background: var(--card); border-bottom: 1px solid var(--line); text-align: left; padding: 0; }
   .ts-tabla th button { all: unset; cursor: pointer; display: block; padding: 8px 10px; color: var(--muted); font-size: .76rem; font-weight: 500; white-space: nowrap; }
@@ -288,8 +288,10 @@
   .ts-tabla th button:hover { color: var(--ink); }
   .ts-tabla td { padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: middle; }
   .ts-tabla td.r { text-align: right; }
-  .ts-tabla td.mut { color: var(--muted); max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
-  .ts-tabla td.c-cli { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+  /* las columnas de texto se achican con "…" para que la tabla nunca sea más ancha que la pantalla */
+  .ts-tabla td.c-cli, .ts-tabla td.c-trab { max-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .ts-tabla td.c-cli { width: 40%; } .ts-tabla td.c-trab { width: 30%; color: var(--muted); }
+  .ts-tabla td.c-cli > b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ts-tabla td small { color: var(--muted); font-size: .74rem; }
   .ts-tabla .mono { font-family: "JetBrains Mono", monospace; }
   .tsr { cursor: pointer; transition: background-color .12s; }
@@ -300,28 +302,35 @@
   .tsr.editando td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
   .tsr-ed { color: var(--accent) !important; border: 1px solid var(--accent); border-radius: 999px; padding: 0 6px; margin-left: 4px; }
   .tsr-dol { color: var(--pinza) !important; margin-left: 4px; }
-  .tsr-sub { display: none; }
+  .tsr-sub, .tsr-sub-est { display: none; }
   .tsr-est { display: inline-block; min-width: 84px; text-align: center; font-size: .74rem; border: 1px solid currentColor; border-radius: 999px; padding: 1px 9px; color: var(--muted); }
   .ts-tabla th.c-est { width: 104px; }
-  .tsr-est.aprobado { color: var(--accent); } .tsr-est.rechazado { color: var(--rot); }
+  .tsr-est.aprobado, .tsr-est.entregado { color: var(--accent); } .tsr-est.rechazado { color: var(--rot); } .tsr-est.pendiente.pl { color: var(--pinza); }
   .tsr-det td { white-space: normal; padding: 2px 10px 12px; }
-  .tsr-det-in { display: flex; flex-direction: column; gap: 8px; }
+  .tsr-det-in { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .tsr-det .ts-cant { white-space: normal; }
   .tsr-info { font-size: .8rem; color: var(--muted); }
   .tsr-det .ts-dolar { grid-column: auto; grid-row: auto; }
   .tsr-acc { display: flex; gap: 6px; align-items: center; margin-top: 0 !important; justify-content: flex-end; flex-wrap: wrap; }
-  .tsr-est-m { color: var(--muted); } .tsr-est-m.aprobado { color: var(--accent); } .tsr-est-m.rechazado { color: var(--rot); }
-  .tsr-acc .ts-estado-sel { width: 120px; margin-right: auto; padding: 4px 8px; font-size: .78rem; }
-  @media (max-width: 700px) {
-    .ts-tabla .c-fecha, .ts-tabla .c-trab, .ts-tabla .c-cant, .ts-tabla .c-est { display: none; }
-    .ts-tabla td, .ts-tabla th button { padding-left: 8px; padding-right: 8px; }
-    .tsr-acc select.ts-estado-sel { flex: 1 1 100%; width: 100%; margin-right: 0; }
-    .tsr-acc .btn.small { flex: 1 1 auto; white-space: nowrap; }
-    .ts-tabla td.c-cli { white-space: normal; max-width: none; }
-    .ts-tabla td.c-cli { width: 100%; max-width: 0; }
-    .ts-tabla td.c-cli b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tsr-est-m { color: var(--muted); } .tsr-est-m.aprobado, .tsr-est-m.entregado { color: var(--accent); } .tsr-est-m.rechazado { color: var(--rot); } .tsr-est-m.pendiente.pl { color: var(--pinza); }
+  .tsr-acc .ts-estado-sel, .tsr-acc .pl-etapa-sel { width: 120px; margin-right: auto; padding: 4px 8px; font-size: .78rem; }
+  /* según el ancho disponible se van ocultando columnas (y su dato pasa a la línea chica debajo del nombre) */
+  @container (max-width: 760px) {
+    .ts-tabla .c-trab { display: none; }
+    .ts-tabla td.c-cli { width: 100%; }
     .tsr-sub { display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .ts-tabla-box { max-height: 70vh; }
   }
+  @container (max-width: 600px) {
+    .ts-tabla .c-fecha, .ts-tabla .c-cant { display: none; }
+  }
+  @container (max-width: 470px) {
+    .ts-tabla .c-est { display: none; }
+    .tsr-sub-est { display: inline; }
+    .ts-tabla td, .ts-tabla th button { padding-left: 8px; padding-right: 8px; }
+    .tsr-acc select.ts-estado-sel, .tsr-acc select.pl-etapa-sel { flex: 1 1 100%; width: 100%; margin-right: 0; }
+    .tsr-acc .btn.small { flex: 1 1 auto; white-space: nowrap; }
+  }
+  @media (max-width: 700px) { .ts-tabla-box { max-height: 70vh; } }
   .ts-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
   .ts-top-estado { color: var(--muted); font-size: .88rem; }
   .ts-top-acc { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -813,7 +822,7 @@
         <div><small>Hojas</small><b id="plTotP">0</b></div>
         <div><small>Kilos a pedir</small><b id="plTotK">0</b></div>
       </div>
-      <div class="pl-lista" id="plLista"></div>
+      <div class="ts-tabla-box" id="plLista"></div>
     </div>
   </section>
 
@@ -1675,7 +1684,7 @@
     const q = $('plBuscar').value.trim().toLowerCase();
     const buscados = q ? registros.filter(r => [r.proveedor, r.material, r.trabajo, r.formato].join(' ').toLowerCase().includes(q)) : registros;
     const cuenta = e => buscados.filter(r => etapaDe(r) === e).length;
-    $('plFiltro').innerHTML = ['', ...ETAPAS].map(e => `<button type="button" class="chip${filtroEtapa === e ? ' on' : ''}" data-f="${e}" aria-pressed="${filtroEtapa === e}">${e || 'Todos'}<b>${e ? cuenta(e) : buscados.length}</b></button>`).join('');
+    $('plFiltro').innerHTML = [...ETAPAS, ''].map(e => `<button type="button" class="chip${filtroEtapa === e ? ' on' : ''}" data-f="${e}" aria-pressed="${filtroEtapa === e}">${e || 'Todos'}<b>${e ? cuenta(e) : buscados.length}</b></button>`).join('');
     const lista = filtroEtapa ? buscados.filter(r => etapaDe(r) === filtroEtapa) : buscados;
     $('plTotN').textContent = fmtN(lista.length);
     $('plTotP').textContent = fmtN(lista.reduce((a, r) => a + (r.pliegos || 0), 0));
@@ -1688,21 +1697,44 @@
       $('plLista').innerHTML = `<div class="pl-vacio">${registros.length ? 'No hay registros que coincidan.' : 'Todavía no cargaste registros. Completá el formulario y tocá Guardar.'}</div>`;
       return;
     }
-    $('plLista').innerHTML = window.Paginas.html('pedidos', lista, r => `
-      <div class="pl-item${editando === r.id ? ' editando' : ''}" data-id="${r.id}">
-        <div class="t">${esc(r.proveedor)}</div>
-        <div class="n">${r.pliegos != null ? fmtN(r.pliegos) + ' hojas' : '—'}</div>
-        <div class="d">${esc(fechaTxt(r.fecha))} · ${esc(r.material)}${r.formato ? ' · ' + esc(r.formato) : ''}${r.pendiente ? ' · <i>sin sincronizar</i>' : ''}</div>
-        <div class="n">${r.kilos != null ? fmtN(r.kilosTotal ?? r.kilos, 2) + ' kg' : '—'}${r.packaging ? `<small class="pl-pack">${fmtN(r.kilos, 2)} + ${fmtN(r.packaging, 1)} %</small>` : ''}</div>
-        ${r.trabajo ? `<div class="d tr">Trabajo: <b>${esc(r.trabajo)}</b></div>` : ''}
-        <div class="acc">
-          <select data-acc="etapa" aria-label="Etapa" class="ts-select pl-etapa-sel ${etapaDe(r).toLowerCase()}">${ETAPAS.map(e => `<option ${etapaDe(r) === e ? 'selected' : ''}>${e}</option>`).join('')}</select>
-          ${borrando === r.id
-          ? `<span class="estado">¿Borrar este registro?</span><button type="button" class="btn small danger" data-acc="si">Sí, borrar</button><button type="button" class="btn small" data-acc="no">No</button>`
-          : `<button type="button" class="btn small" data-acc="editar">Editar</button><button type="button" class="btn small" data-acc="borrar">Borrar</button>`}
-        </div>
-      </div>`, pintar);
+    // tabla compacta (como en Presupuestos): tocás un renglón y se despliega
+    const c = PL_COLS.find(x => x.k === plOrden.k) || PL_COLS[0];
+    const l = lista.slice().sort((a, b) => { const x = c.v(a), y = c.v(b); return ((x < y ? -1 : x > y ? 1 : 0) * plOrden.dir) || (b.fecha || '').localeCompare(a.fecha || ''); });
+    if (borrando) plAbierto = borrando;
+    const kg = r => r.kilos != null ? fmtN(r.kilosTotal ?? r.kilos, 2) + ' kg' : '—';
+    $('plLista').innerHTML = `<table class="ts-tabla"><thead><tr>${PL_COLS.map(x => `<th class="${x.cls || ''}"><button type="button" data-orden="${x.k}">${x.t}${plOrden.k === x.k ? (plOrden.dir < 0 ? ' ▾' : ' ▴') : ''}</button></th>`).join('')}</tr></thead><tbody>
+      ${l.map(r => {
+        const et = etapaDe(r), ab = plAbierto === r.id;
+        return `<tr class="tsr${ab ? ' ab' : ''}${editando === r.id ? ' editando' : ''}" data-id="${r.id}" tabindex="0" aria-expanded="${ab}">
+          <td class="mono c-fecha">${esc(fechaTxt(r.fecha).slice(0, 5))}</td>
+          <td class="c-cli"><b>${esc(r.proveedor || '—')}</b>${editando === r.id ? ' <small class="tsr-ed">editando</small>' : ''}${r.pendiente ? ' <small><i>sin sincronizar</i></small>' : ''}<small class="tsr-sub"><span class="tsr-sub-est"><span class="tsr-est-m pl ${et.toLowerCase()}">${et}</span> · </span>${esc([fechaTxt(r.fecha), r.material, r.formato, r.pliegos != null ? fmtN(r.pliegos) + ' h.' : ''].filter(Boolean).join(' · '))}</small></td>
+          <td class="c-trab">${esc(r.material || '')}</td>
+          <td class="mono c-cant">${esc(r.formato || '')}</td>
+          <td class="mono r c-cant">${r.pliegos != null ? fmtN(r.pliegos) : '—'}</td>
+          <td class="mono r">${kg(r)}</td>
+          <td class="c-est"><span class="tsr-est pl ${et.toLowerCase()}">${et}</span></td>
+        </tr>${ab ? `<tr class="tsr-det" data-id="${r.id}"><td colspan="${PL_COLS.length}"><div class="tsr-det-in">
+          <div class="tsr-info">${[r.trabajo && 'Trabajo: <b>' + esc(r.trabajo) + '</b>', r.packaging && `${fmtN(r.kilos, 2)} kg + ${fmtN(r.packaging, 1)} % de packaging = ${fmtN(r.kilosTotal, 2)} kg${r.hojasTotal ? ' · ' + fmtN(r.hojasTotal) + ' hojas' : ''}`, r.pliegos != null && !r.packaging && fmtN(r.pliegos) + ' hojas de ' + esc(r.formato || '—')].filter(Boolean).join('<br>') || 'Sin más datos.'}</div>
+          <div class="acc tsr-acc">
+            <select data-acc="etapa" aria-label="Etapa" class="ts-select pl-etapa-sel ${et.toLowerCase()}">${ETAPAS.map(e => `<option ${et === e ? 'selected' : ''}>${e}</option>`).join('')}</select>
+            ${borrando === r.id
+            ? `<span class="estado">¿Borrar este registro?</span><button type="button" class="btn small danger" data-acc="si">Sí, borrar</button><button type="button" class="btn small" data-acc="no">No</button>`
+            : `<button type="button" class="btn small" data-acc="editar">Editar</button><button type="button" class="btn small" data-acc="borrar">Borrar</button>`}
+          </div></div></td></tr>` : ''}`;
+      }).join('')}</tbody></table>`;
+    const det = $('plLista').querySelector('.tsr-det-in'), cli = $('plLista').querySelector('tr.tsr.ab td.c-cli');
+    if (det && cli) det.style.paddingLeft = Math.max(0, cli.getBoundingClientRect().left - det.getBoundingClientRect().left + parseFloat(getComputedStyle(cli).paddingLeft)) + 'px';
   }
+  const PL_COLS = [
+    { k: 'fecha', t: 'Fecha', v: r => r.fecha || '', cls: 'c-fecha' },
+    { k: 'proveedor', t: 'Proveedor', v: r => (r.proveedor || '').toLowerCase() },
+    { k: 'material', t: 'Material', v: r => (r.material || '').toLowerCase(), cls: 'c-trab' },
+    { k: 'formato', t: 'Formato', v: r => r.formato || '', cls: 'c-cant' },
+    { k: 'hojas', t: 'Hojas', v: r => r.pliegos || 0, cls: 'r c-cant' },
+    { k: 'kilos', t: 'Kilos', v: r => r.kilosTotal ?? r.kilos ?? 0, cls: 'r' },
+    { k: 'etapa', t: 'Etapa', v: r => ETAPAS.indexOf(etapaDe(r)), cls: 'c-est' },
+  ];
+  let plOrden = { k: 'fecha', dir: -1 }, plAbierto = null;
 
   function limpiarForm() {
     $('plForm').reset(); $('plFecha').value = hoy(); $('plKilosInfo').textContent = ''; $('plPackInfo').textContent = ''; ponerEtapaForm('Pendiente');
@@ -1829,7 +1861,7 @@
   $('plFiltro').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; filtroEtapa = b.dataset.f; window.Paginas.reset('pedidos'); pintar(); });
   $('plLista').addEventListener('change', e => {
     if (e.target.dataset.acc !== 'etapa') return;
-    const id = e.target.closest('.pl-item').dataset.id, etapa = e.target.value;
+    const id = e.target.closest('[data-id]').dataset.id, etapa = e.target.value;
     const r = registros.find(x => x.id === id); if (r) r.etapa = etapa;
     fb.updateDoc(fb.doc(col(), id), { etapa, actualizado: fb.serverTimestamp() }).catch(err => estado('Error: ' + err.code));
     if (editando === id) ponerEtapaForm(etapa);
@@ -1837,8 +1869,12 @@
   });
 
   $('plLista').addEventListener('click', e => {
+    const o = e.target.closest('[data-orden]');
+    if (o) { const k = o.dataset.orden; plOrden = plOrden.k === k ? { k, dir: -plOrden.dir } : { k, dir: ['fecha', 'hojas', 'kilos'].includes(k) ? -1 : 1 }; pintar(); return; }
+    const fila = e.target.closest('tr.tsr');
+    if (fila && !e.target.closest('button, select, a')) { plAbierto = plAbierto === fila.dataset.id ? null : fila.dataset.id; borrando = null; pintar(); return; }
     const b = e.target.closest('[data-acc]'); if (!b) return;
-    const id = b.closest('.pl-item').dataset.id, r = registros.find(x => x.id === id);
+    const id = b.closest('[data-id]').dataset.id, r = registros.find(x => x.id === id);
     if (!r) return;
     const acc = b.dataset.acc;
     if (acc === 'borrar') { borrando = id; pintar(); }

@@ -1246,8 +1246,8 @@ function pintarLista() {
       return `<tr class="tsr${ab ? ' ab' : ''}${abierto === r.id ? ' editando' : ''}" data-id="${r.id}" tabindex="0" aria-expanded="${ab}">
         <td class="mono">${esc(r.numero)}</td>
         <td class="mono c-fecha">${esc(fechaTxt(r.fecha).slice(0, 5))}</td>
-        <td class="c-cli"><b>${esc(r.cliente || 'Sin cliente')}</b>${abierto === r.id ? ' <small class="tsr-ed">abierto arriba</small>' : ''}${avisoDolar(r) ? ' <small class="tsr-dol" title="El dólar subió desde que se hizo">US$ ↑</small>' : ''}<small class="tsr-sub"><span class="tsr-est-m ${est.toLowerCase()}">${est}</span> · ${esc([fechaTxt(r.fecha), r.trabajo].filter(Boolean).join(' · '))}</small></td>
-        <td class="c-trab mut">${esc(r.trabajo || '')}${r.tipo === 'revista' ? ' <small>(editorial)</small>' : r.tipo === 'pack' ? ' <small>(packaging)</small>' : ''}</td>
+        <td class="c-cli"><b>${esc(r.cliente || 'Sin cliente')}</b>${abierto === r.id ? ' <small class="tsr-ed">abierto arriba</small>' : ''}${avisoDolar(r) ? ' <small class="tsr-dol" title="El dólar subió desde que se hizo">US$ ↑</small>' : ''}<small class="tsr-sub"><span class="tsr-sub-est"><span class="tsr-est-m ${est.toLowerCase()}">${est}</span> · </span>${esc([fechaTxt(r.fecha), r.trabajo].filter(Boolean).join(' · '))}</small></td>
+        <td class="c-trab">${esc(r.trabajo || '')}${r.tipo === 'revista' ? ' <small>(editorial)</small>' : r.tipo === 'pack' ? ' <small>(packaging)</small>' : ''}</td>
         <td class="mono r c-cant">${p ? fmt(p.cant, 0) + ' ej.' : '—'}${(r.resumen || []).length > 1 ? ` <small>+${r.resumen.length - 1}</small>` : ''}</td>
         <td class="mono r">${p ? '$ ' + fmt(p.total, 0) : '—'}</td>
         <td class="c-est"><span class="tsr-est ${est.toLowerCase()}">${est}</span></td>
