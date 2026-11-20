@@ -1168,7 +1168,16 @@ function pintarLista() {
         <td class="c-est"><span class="tsr-est ${est.toLowerCase()}">${est}</span></td>
       </tr>${ab ? detalleFila(r) : ''}`;
     }).join('')}</tbody></table>`;
+  alinearDetalle();
 }
+// el detalle desplegado empieza a la altura del nombre del cliente (en la compu y en el celular)
+function alinearDetalle() {
+  const det = $('tsLista').querySelector('.tsr-det-in'), cli = $('tsLista').querySelector('tr.tsr.ab td.c-cli');
+  if (!det || !cli) return;
+  det.style.paddingLeft = '0';
+  det.style.paddingLeft = Math.max(0, cli.getBoundingClientRect().left - det.getBoundingClientRect().left + parseFloat(getComputedStyle(cli).paddingLeft)) + 'px';
+}
+window.addEventListener('resize', alinearDetalle);
 $('tsBuscar').addEventListener('input', () => { expandido = null; pintarLista(); });
 $('tsTabs').addEventListener('click', e => {
   const b = e.target.closest('[data-f]'); if (!b) return;

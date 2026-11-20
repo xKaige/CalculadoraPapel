@@ -284,7 +284,7 @@
   @media (hover: hover) { .tsr:hover td { background: var(--hover); } }
   .tsr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   .tsr.ab td, .tsr-det td { background: var(--accent-soft); }
-  .tsr.ab td { border-bottom-color: transparent; }
+  .tsr.ab td { border-bottom: none; }
   .tsr.editando td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
   .tsr-ed { color: var(--accent) !important; border: 1px solid var(--accent); border-radius: 999px; padding: 0 6px; margin-left: 4px; }
   .tsr-dol { color: var(--pinza) !important; margin-left: 4px; }
@@ -302,7 +302,8 @@
   @media (max-width: 700px) {
     .ts-tabla .c-fecha, .ts-tabla .c-trab, .ts-tabla .c-cant, .ts-tabla .c-est { display: none; }
     .ts-tabla td, .ts-tabla th button { padding-left: 8px; padding-right: 8px; }
-    .tsr-acc .ts-estado-sel { width: 100%; margin-right: 0; }
+    .tsr-acc select.ts-estado-sel { flex: 1 1 100%; width: 100%; margin-right: 0; }
+    .tsr-acc .btn.small { flex: 1 1 auto; white-space: nowrap; }
     .ts-tabla td.c-cli { white-space: normal; max-width: none; }
     .ts-tabla td.c-cli { width: 100%; max-width: 0; }
     .ts-tabla td.c-cli b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
