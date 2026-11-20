@@ -171,6 +171,9 @@
   .chip:hover { border-color: var(--accent); color: var(--accent); }
   .chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
   .mode.four { grid-template-columns: repeat(4, 1fr); }
+  .mode.tres { grid-template-columns: repeat(3, 1fr); }
+  .ts-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 12px; }
+  .ts-3-tit { grid-column: 1 / -1; font-size: .86rem; font-weight: 600; }
   .mode.four button { padding: 10px 4px; font-size: .88rem; }
   .sheet-view { margin-top: 14px; }
   .sheet-view svg { width: 100%; height: auto; display: block; max-height: 60vh; }
@@ -238,7 +241,10 @@
   .ts-ajuste .ts-aj-op .lbl { color: var(--muted); font-size: .8rem; width: 100%; }
   .ts-ajuste .ts-aj-op label { display: inline-flex; align-items: center; gap: 5px; margin: 0; color: var(--ink); font-size: .88rem; }
   .ts-ajuste .actions { width: 100%; }
-  #presupuesto:not(.es-revista) [data-solo="revista"], #presupuesto.es-revista [data-solo="comun"] { display: none !important; }
+  /* qué campos se ven según el tipo de trabajo (data-solo="comun pack" = solo en esos tipos) */
+  #presupuesto.tipo-comun [data-solo]:not([data-solo~="comun"]),
+  #presupuesto.tipo-revista [data-solo]:not([data-solo~="revista"]),
+  #presupuesto.tipo-pack [data-solo]:not([data-solo~="pack"]) { display: none !important; }
   .ts-term .ts-parte { margin-left: 4px; }
   .ts-precio { display: inline-flex; align-items: center; gap: 4px; font-size: .82rem; color: var(--muted); }
   .ts-precio input { width: 92px; padding: 4px 6px; }

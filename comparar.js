@@ -326,8 +326,10 @@ function htmlOT(numero, r, q, calc, extra) {
     terms && ['Terminaciones', terms],
     b.cajas?.porCaja > 0 && ['Embalaje', `cajas de ${fmtN(b.cajas.porCaja)} ejemplares`],
   ].filter(Boolean) : [
-    ['Cantidad', `${fmtN(q.cant)} ejemplares`],
-    E.tw && ['Medida terminada', `${fmt(E.tw, 1)} × ${fmt(E.th, 1)} mm`],
+    ['Cantidad', `${fmtN(q.cant)} ${E.pack ? 'cajas' : 'ejemplares'}`],
+    E.pack && E.caja?.tipo && ['Tipo de caja', E.caja.tipo],
+    E.pack && E.caja?.l && E.caja?.a && E.caja?.h && ['Caja armada', `${fmt(E.caja.l, 0)} × ${fmt(E.caja.a, 0)} × ${fmt(E.caja.h, 0)} mm (largo × ancho × alto)`],
+    E.tw && [E.pack ? 'Desplegado (sacabocado)' : 'Medida terminada', `${fmt(E.tw, 1)} × ${fmt(E.th, 1)} mm`],
     b.papel.nombre && ['Papel', b.papel.nombre],
     ['Impresión', `${b.colF}/${b.colD}${b.mismaChapa ? ' · tira y retira' : ''}`],
     b.maquina?.nombre && ['Máquina', b.maquina.nombre],

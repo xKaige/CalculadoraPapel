@@ -102,13 +102,23 @@ sec.innerHTML = `
 
   <h2 class="sec">Trabajo y armado</h2>
   <div class="grid">
-    <div class="full"><label>Tipo de trabajo</label><div class="mode" role="group" id="tsTipo"><button type="button" data-t="comun" aria-pressed="true">Común</button><button type="button" data-t="revista" aria-pressed="false">Revista</button></div></div>
+    <div class="full"><label>Tipo de trabajo</label><div class="mode tres" role="group" id="tsTipo"><button type="button" data-t="comun" aria-pressed="true">Común</button><button type="button" data-t="revista" aria-pressed="false">Revista</button><button type="button" data-t="pack" aria-pressed="false">Packaging</button></div></div>
+    <div class="full" data-solo="pack"><label for="tsCajaTipo">Tipo de caja</label><select id="tsCajaTipo" class="ts-select">
+      <option value="">—</option><option>Estuche solapa recta</option><option>Estuche solapa cruzada</option><option>Estuche fondo automático</option><option>Estuche fondo 1-2-3</option>
+      <option>Caja base y tapa</option><option>Bandeja</option><option>Caja con ventana</option><option>Display / exhibidor</option><option>Porta / sobre</option><option>Otro</option></select></div>
+    <div class="full ts-3" data-solo="pack">
+      <div class="ts-3-tit">Medidas de la caja armada</div>
+      <div><label for="tsCajaL">Largo</label><div class="field"><input id="tsCajaL" inputmode="decimal"><span class="unit tsUT">mm</span></div></div>
+      <div><label for="tsCajaA">Ancho</label><div class="field"><input id="tsCajaA" inputmode="decimal"><span class="unit tsUT">mm</span></div></div>
+      <div><label for="tsCajaH">Alto</label><div class="field"><input id="tsCajaH" inputmode="decimal"><span class="unit tsUT">mm</span></div></div>
+    </div>
+    <div class="full estado" data-solo="pack" style="align-self:end">Abajo cargá el desplegado: la medida corte a corte del sacabocado (la pieza abierta, con solapas y aletas).</div>
     <div><label for="tsTw" id="tsTwLbl">Corte a corte ancho</label><div class="field"><input id="tsTw" inputmode="decimal" placeholder="210"><span class="unit tsUT">mm</span></div></div>
     <div><label for="tsTh" id="tsThLbl">Corte a corte alto</label><div class="field"><input id="tsTh" inputmode="decimal" placeholder="297"><span class="unit tsUT">mm</span></div></div>
     <div class="full"><div class="mode" role="group" id="tsUTr"><button type="button" data-u="cm" aria-pressed="false">Centímetros</button><button type="button" data-u="mm" aria-pressed="true">Milímetros</button></div></div>
     <div><label for="tsCalle">Calle entre poses</label><div class="field"><input id="tsCalle" inputmode="decimal" value="0"><span class="unit">mm</span></div></div>
     <div><label for="tsPinza">Pinza</label><div class="field"><input id="tsPinza" inputmode="decimal" value="10"><span class="unit">mm</span></div></div>
-    <div class="full" data-solo="comun"><label for="tsPoses">Poses por pliego de máquina</label><div class="field"><input id="tsPoses" inputmode="numeric" placeholder="auto"><span class="unit">poses</span></div></div>
+    <div class="full" data-solo="comun pack"><label for="tsPoses" id="tsPosesTit">Poses por pliego de máquina</label><div class="field"><input id="tsPoses" inputmode="numeric" placeholder="auto"><span class="unit">poses</span></div></div>
     <div data-solo="revista"><label for="tsPaginas">Páginas del interior</label><div class="field"><input id="tsPaginas" inputmode="numeric" placeholder="32"><span class="unit">págs.</span></div></div>
     <div data-solo="revista"><label for="tsPagsCara">Páginas por cara del pliego</label><div class="field"><input id="tsPagsCara" inputmode="numeric" placeholder="auto"><span class="unit">págs.</span></div></div>
     <label class="full ts-check" data-solo="revista"><input type="checkbox" id="tsTapaOn" checked> La tapa va aparte, con su propio papel (se carga más abajo)</label>
@@ -198,14 +208,23 @@ sec.innerHTML = `
   <p class="estado" data-solo="revista" style="margin-top:-4px">Las que se cobran por pliego o por m² se calculan sobre la tapa o sobre el interior, según elijas en cada una. Las que van por ejemplar, sobre las revistas terminadas.</p>
   <div id="tsTerms" class="ts-terms"></div>
 
+  <h2 class="sec" data-solo="pack">Troquelado y armado</h2>
+  <div class="grid" data-solo="pack">
+    <div><label for="tsDesbarbado">Desbarbado / descartonado</label><div class="field"><input id="tsDesbarbado" inputmode="decimal" placeholder="0"><span class="unit">$ x mil pl.</span></div></div>
+    <div><label for="tsVentana">Colocación de ventana</label><div class="field"><input id="tsVentana" inputmode="decimal" placeholder="0"><span class="unit">$ x mil cajas</span></div></div>
+    <div><label for="tsArmado">Armado / plegado a mano</label><div class="field"><input id="tsArmado" inputmode="decimal" placeholder="0"><span class="unit">$ x mil cajas</span></div></div>
+    <div><label for="tsEmpaque">Empaque / encintado</label><div class="field"><input id="tsEmpaque" inputmode="decimal" placeholder="0"><span class="unit">$ x mil cajas</span></div></div>
+    <div class="full estado">El troquelado (golpes), el pegado y los laminados se eligen en Terminaciones. El sacabocado y el cuño, en Moldes.</div>
+  </div>
+
   <h2 class="sec">Moldes</h2>
   <div class="grid">
     <div><label for="tsSacabocado">Sacabocado</label><div class="field"><input id="tsSacabocado" inputmode="decimal" placeholder="0"><span class="unit">$</span></div></div>
     <div><label for="tsCunoMolde">Cuño</label><div class="field"><input id="tsCunoMolde" inputmode="decimal" placeholder="0"><span class="unit">$</span></div></div>
   </div>
 
-  <h2 class="sec" data-solo="comun">Microcorrugado</h2>
-  <div class="grid" data-solo="comun">
+  <h2 class="sec" data-solo="comun pack">Microcorrugado</h2>
+  <div class="grid" data-solo="comun pack">
     <div><label for="tsMicroTipo">Tipo de micro</label><input id="tsMicroTipo" placeholder="Ej. Onda E blanco" style="padding-right:12px"></div>
     <div><label for="tsMicroPor">El precio es por</label><select id="tsMicroPor" class="ts-select"><option value="plancha">Plancha</option><option value="m2">Metro cuadrado (m²)</option></select></div>
     <div class="full"><div class="mode" role="group" id="tsMicroU"><button type="button" data-u="cm" aria-pressed="true">Centímetros</button><button type="button" data-u="mm" aria-pressed="false">Milímetros</button></div></div>
@@ -355,6 +374,7 @@ const termSel = {};   // id → { on, lados }
 const CAMPOS = ['tsFecha', 'tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsCalle', 'tsPinza', 'tsPoses', 'tsPapelSel', 'tsPapelNombre', 'tsGramaje',
   'tsPapelPrecio', 'tsPapelUnidad', 'tsCw', 'tsCh', 'tsCorte', 'tsMw', 'tsMh', 'tsMaquina', 'tsColF', 'tsColD', 'tsDemFrente', 'tsDemDorso', 'tsDemPct',
   'tsMicroTipo', 'tsMicroW', 'tsMicroH', 'tsMicroPor', 'tsMicroPrecio', 'tsMicroPlanchas', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsMargen', 'tsDesc', 'tsSacabocado', 'tsCunoMolde',
+  'tsCajaTipo', 'tsCajaL', 'tsCajaA', 'tsCajaH', 'tsDesbarbado', 'tsVentana', 'tsArmado', 'tsEmpaque',
   'tsPaginas', 'tsPagsCara', 'tsTapaPapelSel', 'tsTapaPapelNombre', 'tsTapaGramaje', 'tsTapaPrecio', 'tsTapaUnidad', 'tsTapaCw', 'tsTapaCh', 'tsTapaCorte', 'tsTapaColF', 'tsTapaColD', 'tsTapaLomo', 'tsTapaPoses'];
 
 function snapshot() {
@@ -608,10 +628,16 @@ function entrada() {
     const s = termSel[t.id], hs = /stamping/i.test(t.nombre);
     return { ...t, precio: s.precio != null ? num(s.precio) : t.precio, postura: s.postura != null ? num(s.postura) : t.postura, unidades: Math.max(1, Math.floor(num(s.unid ?? 1)) || 1), parte: rev && tapa ? parteDe(t) : 'interior', lados: t.porLado ? (+s.lados || 1) : 1, cuno: hs ? num(s.cuno) : 0, foil: hs ? num(s.foil) : 0, cunoMon: s.cunoMon || 'ARS', foilMon: s.foilMon || 'ARS' };
   });
+  const pack = tipo === 'pack';
+  if (pack) for (const [nombre, id, unidad] of [['Desbarbado / descartonado', 'tsDesbarbado', 'millarPl'], ['Colocación de ventana', 'tsVentana', 'millarEj'], ['Armado / plegado a mano', 'tsArmado', 'millarEj'], ['Empaque / encintado', 'tsEmpaque', 'millarEj']]) {
+    const precio = num($(id).value);
+    if (precio > 0) terminaciones.push({ id: 'pk-' + id, nombre, unidad, precio, postura: 0, moneda: 'ARS', lados: 1, unidades: 1, parte: 'interior' });
+  }
+  const caja = pack ? { tipo: $('tsCajaTipo').value, l: num($('tsCajaL').value) * kT, a: num($('tsCajaA').value) * kT, h: num($('tsCajaH').value) * kT } : null;
   const otros = [['Sacabocado', 'tsSacabocado', 'Moldes'], ['Cuño', 'tsCunoMolde', 'Moldes'], ['Diseño / preimpresión', 'tsPreimp'], ['Pruebas de color', 'tsPruebas'], ['Flete', 'tsFlete'], ['Otros', 'tsOtro']]
     .map(([nombre, id, grupo]) => ({ nombre, precio: num($(id).value), moneda: 'ARS', grupo })).filter(o => o.precio > 0);
   return {
-    tw, th, autoPoses, poses, maquinaObj: maquina, corte, rev, entranPags, autoPagsCara, pagsCara, tapaAbierta, tapaAutoPoses,
+    tw, th, autoPoses, poses, maquinaObj: maquina, corte, rev, pack, caja, entranPags, autoPagsCara, pagsCara, tapaAbierta, tapaAutoPoses,
     base: {
       revista: rev ? { paginas: Math.floor(num($('tsPaginas').value)), pagsCara, retiracion: $('tsMismaChapa').checked } : null, tapa,
       poses, colF: Math.floor(num($('tsColF').value)), colD: Math.floor(num($('tsColD').value)), mismaChapa: $('tsMismaChapa').checked,
@@ -676,11 +702,14 @@ function calcular() {
   $('tsTotalLabel').textContent = iva ? 'Total con IVA' : 'Total';
   $('tsDolarInfo').textContent = dolar?.venta ? `Dólar oficial (venta) para los precios en US$: ${pesos(dolar.venta)}` : 'Sin cotización del dólar: los precios en US$ no se pueden pasar a pesos.';
 
-  const rev = tipo === 'revista';
-  sec.classList.toggle('es-revista', rev);
+  const rev = tipo === 'revista', pk = tipo === 'pack';
+  for (const t of ['comun', 'revista', 'pack']) sec.classList.toggle('tipo-' + t, tipo === t);
   document.querySelectorAll('#tsTipo button').forEach(x => x.setAttribute('aria-pressed', x.dataset.t === tipo));
-  $('tsTwLbl').textContent = rev ? 'Página cerrada ancho' : 'Corte a corte ancho'; $('tsThLbl').textContent = rev ? 'Página cerrada alto' : 'Corte a corte alto';
-  $('tsPapelTit').textContent = rev ? 'Papel del interior' : 'Papel'; $('tsImpTit').textContent = rev ? 'Impresión del interior' : 'Impresión';
+  $('tsTwLbl').textContent = rev ? 'Página cerrada ancho' : pk ? 'Desplegado (sacabocado) ancho' : 'Corte a corte ancho';
+  $('tsThLbl').textContent = rev ? 'Página cerrada alto' : pk ? 'Desplegado (sacabocado) alto' : 'Corte a corte alto';
+  $('tsPosesTit').textContent = pk ? 'Poses del sacabocado por pliego (golpes)' : 'Poses por pliego de máquina';
+  $('tsPapelTit').textContent = rev ? 'Papel del interior' : pk ? 'Cartulina / cartón' : 'Papel';
+  $('tsImpTit').textContent = rev ? 'Impresión del interior' : 'Impresión';
   $('tsMismaChapaLbl').textContent = rev ? 'Retiración: frente y dorso con la misma chapa (cada pliego da 2 juegos)' : 'El dorso usa las mismas chapas (tira y retira)';
   $('tsPosesLbl').textContent = rev ? 'Páginas por cara' : 'Poses';
   $('tsTapaBox').hidden = !(rev && $('tsTapaOn').checked);
@@ -771,6 +800,18 @@ function especificacion(E) {
       P && ['Páginas', `${P} páginas interiores${b.tapa ? ' + tapa' : ' (tapa incluida)'}`],
       ['Interior', [b.papel.nombre, colTxt(b.colF, b.colD)].filter(Boolean).join(' · ')],
       b.tapa && ['Tapa', [b.tapa.papel.nombre, colTxt(b.tapa.colF, b.tapa.colD)].filter(Boolean).join(' · ')],
+      terms && ['Terminaciones', terms],
+    ].filter(Boolean);
+  }
+  if (E.pack) {
+    const c = E.caja, mm = v => fmt(v, 0);
+    return [
+      c.tipo && ['Tipo de caja', c.tipo],
+      c.l && c.a && c.h && ['Medidas (armada)', `${mm(c.l)} × ${mm(c.a)} × ${mm(c.h)} mm (largo × ancho × alto)`],
+      medida && ['Desplegado', medida],
+      b.papel.nombre && ['Material', b.papel.nombre],
+      ['Impresión', colTxt(b.colF, b.colD)],
+      (b.micro.tipo || b.micro.formato) && ['Microcorrugado', [b.micro.tipo, b.micro.formato].filter(Boolean).join(' · ')],
       terms && ['Terminaciones', terms],
     ].filter(Boolean);
   }
@@ -949,7 +990,7 @@ sec.addEventListener('change', e => { if (e.target.closest('#tsConfig') || e.tar
 $('tsUTr').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b || b.dataset.u === uTr) return;
   const f = b.dataset.u === 'cm' ? 0.1 : 10;
-  ['tsTw', 'tsTh'].forEach(id => { const v = num($(id).value); if (v > 0) $(id).value = fmt(v * f, 2).replace(/\./g, '').replace(/,00$/, ''); });
+  ['tsTw', 'tsTh', 'tsCajaL', 'tsCajaA', 'tsCajaH'].forEach(id => { const v = num($(id).value); if (v > 0) $(id).value = fmt(v * f, 2).replace(/\./g, '').replace(/,00$/, ''); });
   uTr = b.dataset.u; calcular();
 });
 $('tsTipo').addEventListener('click', e => { const x = e.target.closest('button'); if (!x || x.dataset.t === tipo) return; tipo = x.dataset.t; pintarTerminaciones(); calcular(); });
@@ -1014,7 +1055,7 @@ function aplicarDefaults(todo) {
   if (todo) { $('tsPinza').value = d.pinza; iva = d.iva; }
 }
 function nuevoPresupuesto(aviso = 'Presupuesto nuevo.') {
-  ['tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsPoses', 'tsMicroTipo', 'tsMicroW', 'tsMicroH', 'tsMicroPrecio', 'tsMicroPlanchas', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsNumero', 'tsSacabocado', 'tsCunoMolde', 'tsPaginas', 'tsPagsCara', 'tsTapaPoses'].forEach(id => $(id).value = '');
+  ['tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsPoses', 'tsMicroTipo', 'tsMicroW', 'tsMicroH', 'tsMicroPrecio', 'tsMicroPlanchas', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsNumero', 'tsSacabocado', 'tsCunoMolde', 'tsCajaL', 'tsCajaA', 'tsCajaH', 'tsDesbarbado', 'tsVentana', 'tsArmado', 'tsEmpaque', 'tsPaginas', 'tsPagsCara', 'tsTapaPoses'].forEach(id => $(id).value = '');
   $('tsFecha').value = fechaAuto = hoy(); $('tsDesc').value = '0'; abierto = null; aplicarDefaults(true); margenCant = {}; pintarMargenes.clave = null;
   for (const k in termSel) delete termSel[k]; maquinaFija = null; gramajeCalc = tapaGramajeCalc = null; abiertoCerrado = false; pintarTerminaciones();
   $('tsClienteWrap').hidden = true; $('tsCorteWrap').hidden = true; $('tsGuardar').textContent = 'Guardar presupuesto';
@@ -1135,7 +1176,7 @@ function detalleFila(r) {
     : borrando === r.id
     ? `<span class="estado">¿Borrar el N° ${esc(r.numero)}?</span><button type="button" class="btn small danger" data-acc="si">Sí, borrar</button><button type="button" class="btn small" data-acc="no">No</button>`
     : `<button type="button" class="btn small" data-acc="abrir">Abrir</button>${r.estado === 'Aprobado' ? '<button type="button" class="btn small" data-acc="pedido">Pedir papel</button>' : ''}<button type="button" class="btn small" data-acc="exportar" title="Descargar para importarlo en otra cuenta">Exportar</button><button type="button" class="btn small" data-acc="borrar">Borrar</button>`;
-  const info = [r.tipo === 'revista' ? `Revista${r.paginas ? ' ' + r.paginas + ' págs.' : ''}` : '', r.papel ? 'Papel: ' + esc(r.papel) : '', r.compra && !/^0×0$/.test(r.compra) ? 'hoja ' + esc(r.compra) : ''].filter(Boolean).join(' · ');
+  const info = [r.tipo === 'revista' ? `Revista${r.paginas ? ' ' + r.paginas + ' págs.' : ''}` : r.tipo === 'pack' ? 'Packaging' + (r.snapshot?.campos?.tsCajaTipo ? ': ' + esc(r.snapshot.campos.tsCajaTipo) : '') : '', r.papel ? 'Papel: ' + esc(r.papel) : '', r.compra && !/^0×0$/.test(r.compra) ? 'hoja ' + esc(r.compra) : ''].filter(Boolean).join(' · ');
   return `<tr class="tsr-det" data-id="${r.id}"><td colspan="${COLS.length}"><div class="tsr-det-in">
     <div class="ts-cants">${(r.resumen || []).map(x => `<span class="ts-cant"><span>${fmt(x.cant, 0)} ej.</span> <b>${pesos(x.total)}</b> <small>(${pesos(x.unitario)} c/u)</small></span>`).join('') || '<span class="ts-cant">—</span>'}</div>
     ${info ? `<div class="tsr-info">${info}</div>` : ''}
@@ -1162,7 +1203,7 @@ function pintarLista() {
         <td class="mono">${esc(r.numero)}</td>
         <td class="mono c-fecha">${esc(fechaTxt(r.fecha).slice(0, 5))}</td>
         <td class="c-cli"><b>${esc(r.cliente || 'Sin cliente')}</b>${abierto === r.id ? ' <small class="tsr-ed">abierto arriba</small>' : ''}${avisoDolar(r) ? ' <small class="tsr-dol" title="El dólar subió desde que se hizo">US$ ↑</small>' : ''}<small class="tsr-sub"><span class="tsr-est-m ${est.toLowerCase()}">${est}</span> · ${esc([fechaTxt(r.fecha), r.trabajo].filter(Boolean).join(' · '))}</small></td>
-        <td class="c-trab mut">${esc(r.trabajo || '')}${r.tipo === 'revista' ? ' <small>(revista)</small>' : ''}</td>
+        <td class="c-trab mut">${esc(r.trabajo || '')}${r.tipo === 'revista' ? ' <small>(revista)</small>' : r.tipo === 'pack' ? ' <small>(packaging)</small>' : ''}</td>
         <td class="mono r c-cant">${p ? fmt(p.cant, 0) + ' ej.' : '—'}${(r.resumen || []).length > 1 ? ` <small>+${r.resumen.length - 1}</small>` : ''}</td>
         <td class="mono r">${p ? '$ ' + fmt(p.total, 0) : '—'}</td>
         <td class="c-est"><span class="tsr-est ${est.toLowerCase()}">${est}</span></td>
