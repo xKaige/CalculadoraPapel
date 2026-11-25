@@ -1201,7 +1201,7 @@ function abrirGuardado(r) {
   sec.scrollIntoView({ behavior: 'smooth' }); msg(`Presupuesto N° ${r.numero} abierto.`);
 }
 // ---------- Lista de guardados: pestañas por estado + tabla compacta ----------
-const ESTADOS = ['Pendiente', 'Aprobado', 'Rechazado'];
+const ESTADOS = ['Pendiente', 'Aprobado', 'Finalizado', 'Rechazado'];
 let filtroEstado = '', orden = { k: 'numero', dir: -1 }, expandido = null;
 try { filtroEstado = localStorage.getItem('pliego-pres-filtro') || ''; } catch (e) {}
 const sinTl = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
@@ -1233,7 +1233,7 @@ function pintarLista() {
   llenarClientes();
   const buscados = lista.filter(r => !q || sinTl([r.cliente, r.trabajo, r.numero].join(' ')).includes(q));
   const cuenta = e => buscados.filter(r => (r.estado || 'Pendiente') === e).length;
-  $('tsTabs').innerHTML = [['Pendiente', 'Pendientes'], ['Aprobado', 'Aprobados'], ['Rechazado', 'Rechazados'], ['', 'Todos']]
+  $('tsTabs').innerHTML = [['Pendiente', 'Pendientes'], ['Aprobado', 'Aprobados'], ['Finalizado', 'Finalizados'], ['Rechazado', 'Rechazados'], ['', 'Todos']]
     .map(([e, t]) => `<button type="button" class="chip${filtroEstado === e ? ' on' : ''}" aria-pressed="${filtroEstado === e}" data-f="${e}">${t}<b>${e ? cuenta(e) : buscados.length}</b></button>`).join('');
   const l = buscados.filter(r => !filtroEstado || (r.estado || 'Pendiente') === filtroEstado);
   if (!l.length) { $('tsLista').innerHTML = `<div class="pl-vacio">${!lista.length ? 'Todavía no guardaste presupuestos. Armá uno arriba y tocá "Guardar presupuesto".' : q ? 'No hay presupuestos que coincidan con la búsqueda.' : `No hay presupuestos ${filtroEstado.toLowerCase()}s.`}</div>`; return; }
