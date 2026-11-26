@@ -222,7 +222,8 @@ sec.innerHTML = `
 
   <h2 class="sec">Moldes</h2>
   <div class="grid">
-    <div><label for="tsSacabocado">Sacabocado</label><div class="field"><input id="tsSacabocado" inputmode="decimal" placeholder="0"><span class="unit">$</span></div></div>
+    <div><label for="tsSacabocado">Sacabocado</label><div class="field"><input id="tsSacabocado" inputmode="decimal" placeholder="0"><span class="unit">$</span></div>
+      <label class="ts-check ts-check-chico"><input type="checkbox" id="tsSacabocadoSuma" checked> Sumarlo al presupuesto</label></div>
     <div><label for="tsCunoMolde">Cuño</label><div class="field"><input id="tsCunoMolde" inputmode="decimal" placeholder="0"><span class="unit">$</span></div></div>
   </div>
 
@@ -383,7 +384,7 @@ const CAMPOS = ['tsFecha', 'tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'ts
 
 function snapshot() {
   const c = {}; CAMPOS.forEach(k => c[k] = $(k).value);
-  return { campos: c, uTr, demModo, iva, papelMon, microMon, margenCant: { ...margenCant }, microPlanchas: { ...microPlanchas }, mismaChapa: $('tsMismaChapa').checked, termSel: structuredClone(termSel), tipo, tapaMon, tapaOn: $('tsTapaOn').checked, tapaMismaChapa: $('tsTapaMismaChapa').checked, uMicro, maquinaFija, gramajeCalc, tapaGramajeCalc, packMed };
+  return { campos: c, uTr, demModo, iva, papelMon, microMon, margenCant: { ...margenCant }, microPlanchas: { ...microPlanchas }, sacabocadoSuma: $('tsSacabocadoSuma').checked, mismaChapa: $('tsMismaChapa').checked, termSel: structuredClone(termSel), tipo, tapaMon, tapaOn: $('tsTapaOn').checked, tapaMismaChapa: $('tsTapaMismaChapa').checked, uMicro, maquinaFija, gramajeCalc, tapaGramajeCalc, packMed };
 }
 function restaurar(s) {
   if (!s) return;
@@ -392,7 +393,7 @@ function restaurar(s) {
   // presupuestos viejos: un solo número de planchas para todas las cantidades
   microPlanchas = { ...(s.microPlanchas || (s.campos?.tsMicroPlanchas ? { '*': s.campos.tsMicroPlanchas } : {})) }; pintarPlanchas.clave = null;
   $('tsMismaChapa').checked = !!s.mismaChapa;
-  uMicro = s.uMicro || 'cm'; maquinaFija = s.maquinaFija || null;
+  uMicro = s.uMicro || 'cm'; maquinaFija = s.maquinaFija || null; $('tsSacabocadoSuma').checked = s.sacabocadoSuma !== false;
   gramajeCalc = s.gramajeCalc ?? null; tapaGramajeCalc = s.tapaGramajeCalc ?? null; packMed = s.packMed || 'troquel';
   // presupuestos viejos: el formato del micro era un texto ("70×100")
   if (s.campos && s.campos.tsMicroW == null) {
@@ -645,6 +646,7 @@ function entrada() {
   }
   const caja = pack ? { tipo: $('tsCajaTipo').value, l: num($('tsCajaL').value) * kT, a: num($('tsCajaA').value) * kT, h: num($('tsCajaH').value) * kT } : null;
   const otros = [['Sacabocado', 'tsSacabocado', 'Moldes'], ['Cuño', 'tsCunoMolde', 'Moldes'], ['Diseño / preimpresión', 'tsPreimp'], ['Pruebas de color', 'tsPruebas'], ['Flete', 'tsFlete'], ['Otros', 'tsOtro']]
+    .filter(([, id]) => id !== 'tsSacabocado' || $('tsSacabocadoSuma').checked)   // sacabocado: solo si está tildado
     .map(([nombre, id, grupo]) => ({ nombre, precio: num($(id).value), moneda: 'ARS', grupo })).filter(o => o.precio > 0);
   return {
     tw, th, autoPoses, poses, posesDibujo, porTroquel, maquinaObj: maquina, corte, rev, pack, caja, entranPags, autoPagsCara, pagsCara, tapaAbierta, tapaAutoPoses,
@@ -1114,7 +1116,7 @@ function aplicarDefaults(todo) {
 }
 function nuevoPresupuesto(aviso = 'Presupuesto nuevo.') {
   ['tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsPoses', 'tsMicroTipo', 'tsMicroW', 'tsMicroH', 'tsMicroPrecio', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsNumero', 'tsSacabocado', 'tsCunoMolde', 'tsCajaL', 'tsCajaA', 'tsCajaH', 'tsDesbarbado', 'tsVentana', 'tsArmado', 'tsEmpaque', 'tsPaginas', 'tsPagsCara', 'tsTapaPoses'].forEach(id => $(id).value = '');
-  $('tsFecha').value = fechaAuto = hoy(); $('tsDesc').value = '0'; abierto = null; aplicarDefaults(true); margenCant = {}; pintarMargenes.clave = null; microPlanchas = {}; pintarPlanchas.clave = null; $('tsMicroPor').value = 'm2';
+  $('tsFecha').value = fechaAuto = hoy(); $('tsDesc').value = '0'; abierto = null; aplicarDefaults(true); margenCant = {}; pintarMargenes.clave = null; microPlanchas = {}; pintarPlanchas.clave = null; $('tsMicroPor').value = 'm2'; $('tsSacabocadoSuma').checked = true;
   for (const k in termSel) delete termSel[k]; maquinaFija = null; gramajeCalc = tapaGramajeCalc = null; abiertoCerrado = false; pintarTerminaciones();
   $('tsClienteWrap').hidden = true; $('tsCorteWrap').hidden = true; $('tsGuardar').textContent = 'Guardar presupuesto';
   calcular(); pintarLista(); pintarCliente(); $('tsClienteSel').value = ''; msg(aviso);
