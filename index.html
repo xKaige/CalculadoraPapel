@@ -522,6 +522,12 @@
     #printArea .ts-doc { margin: 0; border-radius: 0; padding: 0; }
     :root:has(body.imprimiendo) { padding: 0 !important; background: #fff !important; }
     .ts-fig { break-inside: avoid; }
+    #printArea .ts-doc { font-size: 10pt; line-height: 1.35; }
+    #printArea .ts-doc td, #printArea .ts-doc th { padding: 4px 6px; }
+    #printArea .ot-ruta td { font-size: 9pt; }
+    #printArea .ot-firmas { margin-top: 26px; break-inside: avoid; }
+    #printArea .ts-fig svg { max-height: 95mm; }
+    #printArea .ot-guill svg { max-height: 110mm; }
   }
   /* ---------- Comparar ---------- */
   .cmp-top { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -546,6 +552,28 @@
   .ot-control td { height: 26px; }
   .ot-control .ot-box { text-align: center; font-size: 1.1rem; width: 40px; }
   .ot-salto { break-before: page; }
+  .ot-cliente { display: grid; grid-template-columns: 1.4fr 1.6fr 1fr; gap: 8px; margin: 4px 0 6px; }
+  .ot-cliente > div { border: 1px solid #ddd; border-radius: 8px; padding: 6px 10px; min-width: 0; }
+  .ot-cliente small { display: block; color: #666; font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; }
+  .ot-cliente b { font-size: 1rem; overflow-wrap: anywhere; }
+  .ot-entrega b { font-size: 1.05rem; color: #b4386e; }
+  .ot-obs { border-left: 3px solid #c9a227; background: #fbf6e6; padding: 8px 12px; margin: 10px 0; border-radius: 0 6px 6px 0; }
+  .ot-ruta td { vertical-align: top; font-size: .84rem; overflow-wrap: anywhere; }
+  .ot-ruta .ot-n { width: 26px; color: #666; text-align: center; }
+  .ot-ruta .ot-f { width: 70px; }
+  .ot-ruta td:nth-child(2) { width: 22%; }
+  .ot-firmas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin: 34px 0 6px; }
+  .ot-firmas div { border-top: 1px solid #333; padding-top: 4px; font-size: .78rem; color: #555; text-align: center; }
+  .ot-guill { grid-column: 1 / -1; break-inside: avoid; }
+  .ot-guill-in { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; align-items: start; }
+  .ot-cortes { margin: 0; padding-left: 20px; font-size: .84rem; }
+  .ot-cortes li { margin: 3px 0; }
+  .ot-cortes .ot-cortes { margin-top: 2px; list-style: lower-alpha; }
+  @media (max-width: 640px) { .ot-guill-in, .ot-cliente { grid-template-columns: 1fr; } .ot-ruta .ot-f { display: none; } }
+  .ot-dlg { width: min(920px, calc(100% - 20px)); max-height: calc(100% - 30px); border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); color: var(--ink); padding: 18px; }
+  .ot-dlg::backdrop { background: rgba(0,0,0,.55); }
+  .ot-dlg-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .ot-previas { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 10px; }
   .cmp-dif { font-size: .76rem; color: var(--rot); margin-top: 3px; font-weight: 600; }
   .cmp-mio { font-family: "JetBrains Mono", monospace; font-size: .88rem; overflow-wrap: anywhere; }
   .cmp-pre { white-space: pre-wrap; font-size: .78rem; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; max-height: 320px; overflow: auto; }

@@ -1236,7 +1236,7 @@ function detalleFila(r) {
     ? `<span class="estado">Pedir papel para:</span>${(r.resumen || []).map((x, i) => `<button type="button" class="btn small" data-acc="pedido-cant" data-i="${i}">${fmt(x.cant, 0)} ej.</button>`).join('')}<button type="button" class="btn small" data-acc="no">Cancelar</button>`
     : borrando === r.id
     ? `<span class="estado">¿Borrar el N° ${esc(r.numero)}?</span><button type="button" class="btn small danger" data-acc="si">Sí, borrar</button><button type="button" class="btn small" data-acc="no">No</button>`
-    : `<button type="button" class="btn small" data-acc="abrir">Abrir</button>${['Aprobado', 'En proceso'].includes(r.estado) ? '<button type="button" class="btn small" data-acc="pedido">Pedir papel</button>' : ''}<button type="button" class="btn small" data-acc="exportar" title="Descargar para importarlo en otra cuenta">Exportar</button><button type="button" class="btn small" data-acc="borrar">Borrar</button>`;
+    : `<button type="button" class="btn small" data-acc="abrir">Abrir</button>${r.estado !== 'Rechazado' ? '<button type="button" class="btn small" data-acc="ot">Orden de trabajo</button>' : ''}${['Aprobado', 'En proceso'].includes(r.estado) ? '<button type="button" class="btn small" data-acc="pedido">Pedir papel</button>' : ''}<button type="button" class="btn small" data-acc="exportar" title="Descargar para importarlo en otra cuenta">Exportar</button><button type="button" class="btn small" data-acc="borrar">Borrar</button>`;
   const info = [r.tipo === 'revista' ? `Revista${r.paginas ? ' ' + r.paginas + ' págs.' : ''}` : r.tipo === 'pack' ? 'Packaging' + (r.snapshot?.campos?.tsCajaTipo ? ': ' + esc(r.snapshot.campos.tsCajaTipo) : '') : '', r.papel ? 'Papel: ' + esc(r.papel) : '', r.compra && !/^0×0$/.test(r.compra) ? 'hoja ' + esc(r.compra) : ''].filter(Boolean).join(' · ');
   return `<tr class="tsr-det" data-id="${r.id}"><td colspan="${COLS.length}"><div class="tsr-det-in">
     <div class="ts-cants">${(r.resumen || []).map(x => `<span class="ts-cant"><span>${fmt(x.cant, 0)} ej.</span> <b>${pesos(x.total)}</b> <small>(${pesos(x.unitario)} c/u)</small></span>`).join('') || '<span class="ts-cant">—</span>'}</div>
@@ -1462,6 +1462,7 @@ $('tsLista').addEventListener('click', e => {
   else if (a === 'si') { borrando = null; if (abierto === id) abierto = null; FB.fb.deleteDoc(FB.fb.doc(col(), id)); msg('Presupuesto borrado.'); }
   else if (a === 'abrir') { abrirGuardado(r); }
   else if (a === 'exportar') { exportarPresupuesto(r); return; }
+  else if (a === 'ot') { import('./orden-trabajo.js').then(m => m.abrirOrdenTrabajo(r)).catch(e => alert('No se pudo abrir la orden de trabajo: ' + (e.message || e))); return; }
   else if (a === 'act-dolar') { actualizarAlDolar(r); return; }
   else if (a === 'pedido' || a === 'pedido-cant') {
     // se recalcula desde lo guardado (así los presupuestos viejos también piden bien el papel)

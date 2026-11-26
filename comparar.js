@@ -1,8 +1,7 @@
 // Pestaña "Comparar": PDF de una orden de trabajo recibida vs. un presupuesto propio guardado.
 import { leerOrden, comparar, CAMPOS, numero } from './comparar-lector.js';
-import { pliegoMaquina, fmt, resumenFormas } from './presupuesto-calculo.js';
-// presupuesto.js se carga cuando hace falta (así, si falla, el resto de Comparar sigue andando)
-let svgCompra, svgMaquina;
+import { pliegoMaquina, fmt } from './presupuesto-calculo.js';
+// presupuesto.js y orden-trabajo.js se cargan cuando hacen falta (así, si fallan, el resto de Comparar sigue andando)
 
 const $ = id => document.getElementById(id);
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -50,7 +49,8 @@ sec.innerHTML = `
     <div><label for="otEntrega">Fecha de entrega</label><input id="otEntrega" type="date" style="padding-right:12px"></div>
     <div><label for="otRef">Referencia del cliente</label><input id="otRef" placeholder="Ej. OC 4521" style="padding-right:12px"></div>
     <div class="full"><label for="otObs">Observaciones para producción</label><textarea id="otObs" rows="3" class="ts-select" style="resize:vertical" placeholder="Ej. respetar pantone 485 · entregar en cajas de 500"></textarea></div>
-    <label class="full ts-check"><input type="checkbox" id="otDiagrama" checked> Incluir el diagrama de corte</label>
+    <label class="full ts-check"><input type="checkbox" id="otDiagrama" checked> Incluir imposición y corte en guillotina</label>
+    <label class="full ts-check"><input type="checkbox" id="otPrecios"> Mostrar los precios</label>
     <label class="full ts-check"><input type="checkbox" id="otAprobar" checked> Marcar el presupuesto como aprobado</label>
   </div>
   <div class="actions">
@@ -305,89 +305,19 @@ function estadoOT() {
   else e.innerHTML = `<span style="color:var(--accent)">Todo coincide.</span> La orden se genera con los datos del presupuesto N° ${r.numero}.`;
 }
 
-const pesos = v => '$ ' + fmt(v, 2);
-function htmlOT(numero, r, q, calc, extra) {
-  const { E, res, calle, pinza, imprenta: im } = calc, b = E.base;
-  const x = res.find(z => z.ok && z.cant === q.cant) || res.find(z => z.ok);
-  const terms = b.terminaciones.map(t => t.nombre + (t.lados > 1 ? ' (frente y dorso)' : '')).join(', ');
-  const tapa = b.tapa, ab = E.tapaAbierta;
-  const filas = E.rev ? [
-    ['Cantidad', `${fmtN(q.cant)} revistas`],
-    E.tw && ['Formato cerrado', `${fmt(E.tw, 1)} × ${fmt(E.th, 1)} mm`],
-    ['Páginas', `${b.revista.paginas || 0} interiores${tapa ? ' + tapa' : ' (tapa incluida)'}`],
-    b.maquina?.nombre && ['Máquina', b.maquina.nombre],
-    ['Interior', `${b.papel.nombre || '—'} · ${b.colF}/${b.colD}${b.revista.retiracion ? ' · retiración (misma chapa)' : ''}`],
-    b.maq && ['Pliego del interior', `${fmt(b.maq.w, 1)} × ${fmt(b.maq.h, 1)} cm · ${E.pagsCara} págs. por cara · pinza ${fmt(pinza, 0)} mm${b.compra.w && E.corte > 1 ? ` · hoja de ${fmt(b.compra.w, 0)}×${fmt(b.compra.h, 0)} cortada en ${E.corte}` : ''}`],
-    x && x.formas && ['Armado del interior', `${resumenFormas(x.formas)} · ${fmtN(x.interior.chapas)} chapas`],
-    x && x.interior && ['Pliegos del interior', `${fmtN(x.interior.netos)} + ${fmtN(x.interior.dem)} de demasía = ${fmtN(x.interior.pm)} pliegos de máquina`],
-    x && x.interior && b.compra.w && ['Papel interior a pedir', `${fmtN(x.interior.pc)} hojas de ${fmt(b.compra.w, 0)}×${fmt(b.compra.h, 0)}${x.interior.kilos ? ` · ${fmt(x.interior.kilos, 1)} kg` : ''}`],
-    tapa && ['Tapa', `${tapa.papel.nombre || '—'} · ${tapa.colF}/${tapa.colD}${tapa.mismaChapa && tapa.colD ? ' · tira y retira' : ''}${ab ? ` · abierta ${fmt(ab.w / 10, 1)} × ${fmt(ab.h / 10, 1)} cm` : ''} · ${tapa.poses} por pliego`],
-    x && x.tapa && tapa.compra.w && ['Papel tapa a pedir', `${fmtN(x.tapa.pc)} hojas de ${fmt(tapa.compra.w, 0)}×${fmt(tapa.compra.h, 0)} (${fmtN(x.tapa.pm)} pliegos de máquina)${x.tapa.kilos ? ` · ${fmt(x.tapa.kilos, 1)} kg` : ''}`],
-    terms && ['Terminaciones', terms],
-    b.cajas?.porCaja > 0 && ['Embalaje', `cajas de ${fmtN(b.cajas.porCaja)} ejemplares`],
-  ].filter(Boolean) : [
-    ['Cantidad', `${fmtN(q.cant)} ${E.pack ? 'cajas' : 'ejemplares'}`],
-    E.pack && E.caja?.tipo && ['Tipo de caja', E.caja.tipo],
-    E.pack && E.caja?.l && E.caja?.a && E.caja?.h && ['Caja armada', `${fmt(E.caja.l, 0)} × ${fmt(E.caja.a, 0)} × ${fmt(E.caja.h, 0)} mm (largo × ancho × alto)`],
-    E.tw && [E.pack ? 'Desplegado (sacabocado)' : 'Medida terminada', `${fmt(E.tw, 1)} × ${fmt(E.th, 1)} mm`],
-    b.papel.nombre && ['Papel', b.papel.nombre],
-    ['Impresión', `${b.colF}/${b.colD}${b.mismaChapa ? ' · tira y retira' : ''}`],
-    b.maquina?.nombre && ['Máquina', b.maquina.nombre],
-    b.compra.w && ['Pliego de compra', `${fmt(b.compra.w, 1)} × ${fmt(b.compra.h, 1)} cm${E.corte > 1 ? ` · cortar en ${E.corte}` : ''}`],
-    b.maq && ['Pliego de máquina', `${fmt(b.maq.w, 1)} × ${fmt(b.maq.h, 1)} cm · ${E.porTroquel > 1 ? `${E.posesDibujo} sacabocado${E.posesDibujo === 1 ? '' : 's'} × ${E.porTroquel} = ${E.poses} cajas` : `${E.poses} pose${E.poses === 1 ? '' : 's'}`} · pinza ${fmt(pinza, 0)} mm${calle ? ` · calle ${fmt(calle, 1)} mm` : ''}`],
-    x && ['Pliegos a imprimir', `${fmtN(x.netos)} + ${fmtN(x.dem)} de demasía = ${fmtN(x.pm)} pliegos de máquina`],
-    x && b.compra.w && ['Papel a pedir', `${fmtN(x.pc)} hojas de ${fmt(b.compra.w, 0)}×${fmt(b.compra.h, 0)}${x.piezas > 1 ? ` (salen ${x.piezas} pliegos de máquina por hoja)` : ''}${x.kilos ? ` · ${fmt(x.kilos, 1)} kg` : ''}`],
-    terms && ['Terminaciones', terms],
-    (b.micro.tipo || b.micro.formato) && ['Microcorrugado', [b.micro.tipo, b.micro.formato].filter(Boolean).join(' · ')],
-    b.cajas?.porCaja > 0 && ['Embalaje', `cajas de ${fmtN(b.cajas.porCaja)} ejemplares`],
-  ].filter(Boolean);
-  const pasos = E.rev ? ['Preimpresión / CTP', 'Impresión interior', ...(tapa ? ['Impresión tapa'] : []), ...b.terminaciones.map(t => t.nombre), 'Corte final', 'Empaque', 'Entrega'] : ['Preimpresión / CTP', 'Impresión', ...b.terminaciones.map(t => t.nombre), ...(b.micro.precio ? ['Microcorrugado'] : []), 'Corte final', 'Empaque', 'Entrega'];
-  let diagrama = '';
-  if (extra.diagrama && E.rev && b.maq && E.tw && window.armadoPoses) {
-    const ai = window.armadoPoses(b.maq.w * 10, b.maq.h * 10, E.tw, E.th, { pinza, calleX: calle, calleY: calle, poses: E.pagsCara });
-    const at = tapa && tapa.maq && ab ? window.armadoPoses(tapa.maq.w * 10, tapa.maq.h * 10, ab.w, ab.h, { pinza, calleX: calle, calleY: calle, poses: tapa.poses }) : null;
-    diagrama = `<div class="ot-salto"></div><h3 class="ot-h3">Armado · OT N° ${numero}</h3><div class="ts-figs">
-      ${ai ? `<div class="ts-fig"><h4>Interior: ${ai.rects.length} páginas por cara</h4>${svgMaquina(ai, pinza, calle)}</div>` : ''}
-      ${at ? `<div class="ts-fig"><h4>Tapa: ${at.rects.length} por pliego</h4>${svgMaquina(at, pinza, calle)}</div>` : ''}</div>`;
-  } else if (extra.diagrama && b.maq && E.tw && window.armadoPoses) {
-    const a = window.armadoPoses(b.maq.w * 10, b.maq.h * 10, E.tw, E.th, { pinza, calleX: calle, calleY: calle, poses: E.posesDibujo || E.poses });
-    diagrama = `<div class="ot-salto"></div><h3 class="ot-h3">Diagrama de corte · OT N° ${numero}</h3><div class="ts-figs">
-      ${E.corte && b.compra.w ? `<div class="ts-fig"><h4>Pliego de compra: cortar en ${E.corte}</h4>${svgCompra(b.compra.w, b.compra.h, E.corte)}</div>` : ''}
-      ${a ? `<div class="ts-fig"><h4>Pliego de máquina: ${a.rects.length} pose${a.rects.length === 1 ? '' : 's'}</h4>${svgMaquina(a, pinza, calle)}</div>` : ''}</div>`;
-  }
-  return `
-    <div class="ts-doc-head">
-      <div><div class="ts-doc-imp">ORDEN DE TRABAJO N° ${numero}</div>
-        <div class="ts-doc-sub">${[im.nombre && esc(im.nombre), 'Presupuesto N° ' + esc(r.numero), extra.ref && 'Ref. cliente: ' + esc(extra.ref)].filter(Boolean).join(' · ')}</div></div>
-      <div class="ts-doc-num">Emitida: <b>${fechaTxt(extra.fecha)}</b><br>Entrega: <b>${extra.entrega ? fechaTxt(extra.entrega) : 'a definir'}</b></div>
-    </div>
-    <p><b>Cliente:</b> ${esc(r.cliente) || '—'}<br><b>Trabajo:</b> ${esc(r.trabajo) || '—'}</p>
-    <table class="ts-doc-spec">${filas.map(([k, v]) => `<tr><td>${k}</td><td>${esc(v)}</td></tr>`).join('')}</table>
-    <table class="ts-doc-precios"><thead><tr><th>Precio acordado</th><th class="r">Unitario s/IVA</th><th class="r">Total s/IVA</th><th class="r">Total c/IVA</th></tr></thead>
-      <tbody><tr><td>${fmtN(q.cant)} ej.</td><td class="r">${pesos(q.unitario)}</td><td class="r">${pesos(q.subtotal)}</td><td class="r">${pesos(q.total)}</td></tr></tbody></table>
-    ${extra.obs ? `<p><b>Observaciones:</b><br>${esc(extra.obs).replace(/\n/g, '<br>')}</p>` : ''}
-    <table class="ts-doc-precios ot-control"><thead><tr><th>Control de producción</th><th>Fecha</th><th>Responsable</th><th>OK</th></tr></thead>
-      <tbody>${pasos.map(p => `<tr><td>${esc(p)}</td><td></td><td></td><td class="ot-box">☐</td></tr>`).join('')}</tbody></table>
-    ${diagrama}`;
-}
-
 $('otGenerar').addEventListener('click', async () => {
   const r = presupuestoElegido(); if (!r || !usuario || !FB) return;
   if (ultimaComp.no && !confirmarRojo) {
     confirmarRojo = true; $('otGenerar').textContent = 'Generar igual (hay diferencias)';
     $('otMsg').textContent = 'Tocá de nuevo para confirmar.'; return;
   }
-  const q = (r.resumen || [])[+$('cmpCant').value || 0]; if (!q) return;
-  let calc;
-  try {
-    const P = await import('./presupuesto.js');
-    ({ svgCompra, svgMaquina } = P);
-    calc = P.calcularDesdeSnapshot(r.snapshot);
-  } catch (err) { $('otMsg').textContent = 'No se pudo armar la orden: ' + (err.message || err); return; }
+  const qi = +$('cmpCant').value || 0, q = (r.resumen || [])[qi]; if (!q) return;
   const hoy = new Date(); hoy.setMinutes(hoy.getMinutes() - hoy.getTimezoneOffset());
-  const extra = { fecha: hoy.toISOString().slice(0, 10), entrega: $('otEntrega').value, ref: $('otRef').value.trim(), obs: $('otObs').value.trim(), diagrama: $('otDiagrama').checked };
+  const extra = { fecha: hoy.toISOString().slice(0, 10), entrega: $('otEntrega').value, ref: $('otRef').value.trim(), obs: $('otObs').value.trim(), diagrama: $('otDiagrama').checked, precios: $('otPrecios').checked };
   const numero = ordenes.reduce((m, o) => Math.max(m, o.numero || 0), 0) + 1;
-  const html = htmlOT(numero, r, q, calc, extra);
+  let html;
+  try { html = await (await import('./orden-trabajo.js')).htmlOrden(numero, r, qi, extra); }
+  catch (err) { $('otMsg').textContent = 'No se pudo armar la orden: ' + (err.message || err); return; }
   $('otDoc').innerHTML = html; $('otWrap').hidden = false;
   const col = FB.fb.collection(FB.db, 'usuarios', usuario.uid, 'ordenes');
   FB.fb.addDoc(col, { numero, ...extra, cliente: r.cliente || '', trabajo: r.trabajo || '', presupuestoId: r.id, presupuestoNumero: r.numero,
