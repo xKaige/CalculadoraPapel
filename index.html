@@ -982,6 +982,54 @@
 </div>
 
 <script>
+  // ---------- Navegando con Tab: si una parte se vuelve a dibujar, el foco vuelve al mismo lugar ----------
+  (function () {
+    const ATTRS = ['data-id', 'data-k', 'data-i', 'data-tipo', 'data-col', 'data-key', 'data-c', 'data-e', 'data-acc', 'data-v', 'name', 'value'];
+    let ruta = null, ultimo = null;
+    const firma = el => ATTRS.filter(a => el.hasAttribute(a)).map(a => [a, el.getAttribute(a)]);
+    function calcular(el) {
+      const pasos = [];
+      while (el && el !== document.body) {
+        if (el.id) return { raiz: el.id, pasos: pasos.reverse() };
+        // Una tarjeta o fila con data-id se busca por su id aunque haya cambiado de lugar
+        if (el.dataset.id && pasos.length) return { dataId: el.dataset.id, pasos: pasos.reverse() };
+        const f = firma(el), p = el.parentElement;
+        const hermanos = p ? [...p.children].filter(h => h.tagName === el.tagName) : [el];
+        pasos.push({ tag: el.tagName, f, idx: hermanos.indexOf(el) });
+        el = p;
+      }
+      return null;
+    }
+    function buscar(r) {
+      let el = r.raiz ? document.getElementById(r.raiz) : document.querySelector('[data-id="' + CSS.escape(r.dataId) + '"]');
+      for (const s of r.pasos) {
+        if (!el) return null;
+        const cand = [...el.children].filter(h => h.tagName === s.tag);
+        el = (s.f.length && cand.find(h => s.f.every(([a, v]) => h.getAttribute(a) === v))) || cand[s.idx] || null;
+      }
+      return el;
+    }
+    document.addEventListener('focusin', e => {
+      const t = e.target; if (!(t instanceof Element) || t === document.body) return;
+      ultimo = t; ruta = t.id ? { raiz: t.id, pasos: [] } : calcular(t);
+    });
+    let pendiente = false;
+    const restaurar = () => {
+      pendiente = false;
+      if (!ruta || !ultimo || ultimo.isConnected) return;
+      const a = document.activeElement; if (a && a !== document.body) return;
+      const el = buscar(ruta);
+      if (!el || el === document.body || el.offsetParent === null) return;
+      // Si el botón quedó deshabilitado (p. ej. ▶ en la última columna), el foco va a otro del mismo grupo
+      const sel = 'button:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
+      const dest = el.matches(':disabled') ? el.parentElement?.querySelector(sel) : el;
+      dest?.focus({ preventScroll: true });
+    };
+    new MutationObserver(() => { if (!pendiente && ultimo && !ultimo.isConnected) { pendiente = true; queueMicrotask(restaurar); } })
+      .observe(document.documentElement, { childList: true, subtree: true });
+  })();
+</script>
+<script>
   // ---------- Si algo falla, mostrarlo arriba (para poder avisarlo) ----------
   (function () {
     const mostrar = t => {
