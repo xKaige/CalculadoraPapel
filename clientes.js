@@ -93,7 +93,7 @@ function pintar() {
       <div class="n">${aprobados ? aprobados + ' aprobado' + (aprobados > 1 ? 's' : '') : ''}</div>
       ${c.notas ? `<div class="d" style="grid-column:1/-1">${esc(c.notas)}</div>` : ''}
       ${abierto ? `<div class="cl-pres">${ps.length ? ps.map(p => `<div class="cl-p">
-          <div><b>N° ${esc(p.numero)}</b> · ${fechaTxt(p.fecha)}${p.trabajo ? ' · ' + esc(p.trabajo) : ''} <span class="cl-estado ${sinT(p.estado || 'pendiente')}">${esc(p.estado || 'Pendiente')}</span></div>
+          <div><b>N° ${esc(p.numero)}</b> · ${fechaTxt(p.fecha)}${p.trabajo ? ' · ' + esc(p.trabajo) : ''} <span class="cl-estado ${sinT(p.estado || 'pendiente').replace(/\s+/g, '-')}">${esc(p.estado || 'Pendiente')}</span></div>
           <div class="estado">${(p.resumen || []).map(x => `${fmtN(x.cant)} ej.: ${pesos(x.total)}`).join(' · ') || '—'}</div>
           <button type="button" class="btn small" data-acc="abrir-pres" data-pid="${p.id}">Abrir</button>
         </div>`).join('') : '<div class="estado">Todavía no tiene presupuestos.</div>'}</div>` : ''}

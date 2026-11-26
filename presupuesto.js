@@ -1217,7 +1217,8 @@ function abrirGuardado(r) {
   sec.scrollIntoView({ behavior: 'smooth' }); msg(`Presupuesto N° ${r.numero} abierto.`);
 }
 // ---------- Lista de guardados: pestañas por estado + tabla compacta ----------
-const ESTADOS = ['Pendiente', 'Aprobado', 'Finalizado', 'Rechazado'];
+const ESTADOS = ['Pendiente', 'Aprobado', 'En proceso', 'Finalizado', 'Rechazado'];
+const claseEstado = e => String(e || 'Pendiente').toLowerCase().replace(/\s+/g, '-');   // 'En proceso' → 'en-proceso'
 let filtroEstado = '', orden = { k: 'numero', dir: -1 }, expandido = null;
 try { filtroEstado = localStorage.getItem('pliego-pres-filtro') || ''; } catch (e) {}
 const sinTl = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
@@ -1235,13 +1236,13 @@ function detalleFila(r) {
     ? `<span class="estado">Pedir papel para:</span>${(r.resumen || []).map((x, i) => `<button type="button" class="btn small" data-acc="pedido-cant" data-i="${i}">${fmt(x.cant, 0)} ej.</button>`).join('')}<button type="button" class="btn small" data-acc="no">Cancelar</button>`
     : borrando === r.id
     ? `<span class="estado">¿Borrar el N° ${esc(r.numero)}?</span><button type="button" class="btn small danger" data-acc="si">Sí, borrar</button><button type="button" class="btn small" data-acc="no">No</button>`
-    : `<button type="button" class="btn small" data-acc="abrir">Abrir</button>${r.estado === 'Aprobado' ? '<button type="button" class="btn small" data-acc="pedido">Pedir papel</button>' : ''}<button type="button" class="btn small" data-acc="exportar" title="Descargar para importarlo en otra cuenta">Exportar</button><button type="button" class="btn small" data-acc="borrar">Borrar</button>`;
+    : `<button type="button" class="btn small" data-acc="abrir">Abrir</button>${['Aprobado', 'En proceso'].includes(r.estado) ? '<button type="button" class="btn small" data-acc="pedido">Pedir papel</button>' : ''}<button type="button" class="btn small" data-acc="exportar" title="Descargar para importarlo en otra cuenta">Exportar</button><button type="button" class="btn small" data-acc="borrar">Borrar</button>`;
   const info = [r.tipo === 'revista' ? `Revista${r.paginas ? ' ' + r.paginas + ' págs.' : ''}` : r.tipo === 'pack' ? 'Packaging' + (r.snapshot?.campos?.tsCajaTipo ? ': ' + esc(r.snapshot.campos.tsCajaTipo) : '') : '', r.papel ? 'Papel: ' + esc(r.papel) : '', r.compra && !/^0×0$/.test(r.compra) ? 'hoja ' + esc(r.compra) : ''].filter(Boolean).join(' · ');
   return `<tr class="tsr-det" data-id="${r.id}"><td colspan="${COLS.length}"><div class="tsr-det-in">
     <div class="ts-cants">${(r.resumen || []).map(x => `<span class="ts-cant"><span>${fmt(x.cant, 0)} ej.</span> <b>${pesos(x.total)}</b> <small>(${pesos(x.unitario)} c/u)</small></span>`).join('') || '<span class="ts-cant">—</span>'}</div>
     ${info ? `<div class="tsr-info">${info}</div>` : ''}
     ${avisoDolar(r)}
-    <div class="acc tsr-acc"><select data-acc="estado" aria-label="Estado" class="ts-select ts-mini ts-estado ts-estado-sel ${String(r.estado || '').toLowerCase()}">${ESTADOS.map(e => `<option ${r.estado === e ? 'selected' : ''}>${e}</option>`).join('')}</select>${acciones}</div>
+    <div class="acc tsr-acc"><select data-acc="estado" aria-label="Estado" class="ts-select ts-mini ts-estado ts-estado-sel ${claseEstado(r.estado)}">${ESTADOS.map(e => `<option ${r.estado === e ? 'selected' : ''}>${e}</option>`).join('')}</select>${acciones}</div>
   </div></td></tr>`;
 }
 function pintarLista() {
@@ -1249,10 +1250,10 @@ function pintarLista() {
   llenarClientes();
   const buscados = lista.filter(r => !q || sinTl([r.cliente, r.trabajo, r.numero].join(' ')).includes(q));
   const cuenta = e => buscados.filter(r => (r.estado || 'Pendiente') === e).length;
-  $('tsTabs').innerHTML = [['Pendiente', 'Pendientes'], ['Aprobado', 'Aprobados'], ['Finalizado', 'Finalizados'], ['Rechazado', 'Rechazados'], ['', 'Todos']]
+  $('tsTabs').innerHTML = [['Pendiente', 'Pendientes'], ['Aprobado', 'Aprobados'], ['En proceso', 'En proceso'], ['Finalizado', 'Finalizados'], ['Rechazado', 'Rechazados'], ['', 'Todos']]
     .map(([e, t]) => `<button type="button" class="chip${filtroEstado === e ? ' on' : ''}" aria-pressed="${filtroEstado === e}" data-f="${e}">${t}<b>${e ? cuenta(e) : buscados.length}</b></button>`).join('');
   const l = buscados.filter(r => !filtroEstado || (r.estado || 'Pendiente') === filtroEstado);
-  if (!l.length) { $('tsLista').innerHTML = `<div class="pl-vacio">${!lista.length ? 'Todavía no guardaste presupuestos. Armá uno arriba y tocá "Guardar presupuesto".' : q ? 'No hay presupuestos que coincidan con la búsqueda.' : `No hay presupuestos ${filtroEstado.toLowerCase()}s.`}</div>`; return; }
+  if (!l.length) { $('tsLista').innerHTML = `<div class="pl-vacio">${!lista.length ? 'Todavía no guardaste presupuestos. Armá uno arriba y tocá "Guardar presupuesto".' : q ? 'No hay presupuestos que coincidan con la búsqueda.' : filtroEstado === 'En proceso' ? 'No hay presupuestos en proceso.' : `No hay presupuestos ${filtroEstado.toLowerCase()}s.`}</div>`; return; }
   const c = COLS.find(x => x.k === orden.k) || COLS[0];
   l.sort((a, b) => { const x = c.v(a), y = c.v(b); return ((x < y ? -1 : x > y ? 1 : 0) * orden.dir) || ((b.numero || 0) - (a.numero || 0)); });
   if (pidiendo || borrando) expandido = pidiendo || borrando;
@@ -1262,11 +1263,11 @@ function pintarLista() {
       return `<tr class="tsr${ab ? ' ab' : ''}${abierto === r.id ? ' editando' : ''}" data-id="${r.id}" tabindex="0" aria-expanded="${ab}">
         <td class="mono">${esc(r.numero)}</td>
         <td class="mono c-fecha">${esc(fechaTxt(r.fecha).slice(0, 5))}</td>
-        <td class="c-cli"><b>${esc(r.cliente || 'Sin cliente')}</b>${abierto === r.id ? ' <small class="tsr-ed">abierto arriba</small>' : ''}${avisoDolar(r) ? ' <small class="tsr-dol" title="El dólar subió desde que se hizo">US$ ↑</small>' : ''}<small class="tsr-sub"><span class="tsr-sub-est"><span class="tsr-est-m ${est.toLowerCase()}">${est}</span> · </span>${esc([fechaTxt(r.fecha), r.trabajo].filter(Boolean).join(' · '))}</small></td>
+        <td class="c-cli"><b>${esc(r.cliente || 'Sin cliente')}</b>${abierto === r.id ? ' <small class="tsr-ed">abierto arriba</small>' : ''}${avisoDolar(r) ? ' <small class="tsr-dol" title="El dólar subió desde que se hizo">US$ ↑</small>' : ''}<small class="tsr-sub"><span class="tsr-sub-est"><span class="tsr-est-m ${claseEstado(est)}">${est}</span> · </span>${esc([fechaTxt(r.fecha), r.trabajo].filter(Boolean).join(' · '))}</small></td>
         <td class="c-trab">${esc(r.trabajo || '')}${r.tipo === 'revista' ? ' <small>(editorial)</small>' : r.tipo === 'pack' ? ' <small>(packaging)</small>' : ''}</td>
         <td class="mono r c-cant">${p ? fmt(p.cant, 0) + ' ej.' : '—'}${(r.resumen || []).length > 1 ? ` <small>+${r.resumen.length - 1}</small>` : ''}</td>
         <td class="mono r">${p ? '$ ' + fmt(p.total, 0) : '—'}</td>
-        <td class="c-est"><span class="tsr-est ${est.toLowerCase()}">${est}</span></td>
+        <td class="c-est"><span class="tsr-est ${claseEstado(est)}">${est}</span></td>
       </tr>${ab ? detalleFila(r) : ''}`;
     }).join('')}</tbody></table>`;
   alinearDetalle();

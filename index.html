@@ -279,6 +279,58 @@
   /* ---------- Planilla ---------- */
   .aviso { background: var(--bg); border: 1px dashed var(--line); border-radius: 10px; padding: 16px; text-align: center; color: var(--muted); display: flex; flex-direction: column; gap: 12px; align-items: center; }
   .aviso b { color: var(--ink); }
+  @media (min-width: 1000px) { body:has(#produccion:not([hidden])) .wrap { max-width: 1180px; } }
+  /* Producción */
+  .pr-resumen { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .pr-resumen > div { background: var(--bg); border-radius: 8px; padding: 8px 10px; }
+  .pr-resumen small { display: block; color: var(--muted); font-size: .74rem; }
+  .pr-resumen b { font-family: "JetBrains Mono", monospace; font-weight: 500; font-size: 1.1rem; }
+  .pr-resumen .mal b { color: var(--rot); }
+  .pr-resumen .pr-msg { grid-column: 1 / -1; margin: 0; }
+  .pr-nuevos { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
+  .pr-nuevos summary { cursor: pointer; font-weight: 600; font-size: .92rem; }
+  .pr-nuevo { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+  .pr-nuevo:first-child { border-top: 0; margin-top: 6px; }
+  .pr-nuevo input[type=date] { width: auto; }
+  .pr-tablero { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-top: 6px; align-items: start; }
+  .pr-col { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px; min-height: 140px; transition: border-color .15s; }
+  .pr-col.sobre { border-color: var(--accent); background: var(--accent-soft); }
+  .pr-col h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 2px 2px 8px; display: flex; justify-content: space-between; }
+  .pr-col h3 span { font-family: "JetBrains Mono", monospace; }
+  .pr-cards { display: flex; flex-direction: column; gap: 7px; }
+  .pr-vacia { color: var(--muted); text-align: center; font-size: .85rem; padding: 10px 0; }
+  .pr-card { background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--line); border-radius: 8px; padding: 8px; font-size: .84rem; cursor: grab; }
+  .pr-card.atrasado { border-left-color: var(--rot); }
+  .pr-card.pronto { border-left-color: var(--pinza); }
+  .pr-card.arrastrando { opacity: .4; }
+  .pr-card-top { display: flex; flex-direction: column; gap: 3px; cursor: pointer; }
+  .pr-card-top b { font-size: .88rem; overflow-wrap: anywhere; }
+  .pr-card-top span { overflow-wrap: anywhere; }
+  .pr-meta { color: var(--muted); font-size: .78rem; }
+  .pr-notas { color: var(--muted); font-size: .78rem; font-style: italic; }
+  .pr-tag { align-self: flex-start; font-size: .7rem; border-radius: 999px; padding: 1px 7px; border: 1px solid currentColor; }
+  .pr-tag.atrasado { color: var(--rot); } .pr-tag.pronto { color: var(--pinza); }
+  .pr-tag.papel.falta { color: var(--pinza); } .pr-tag.papel.pedido { color: var(--muted); } .pr-tag.papel.ok { color: var(--accent); }
+  .pr-mover { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-top: 7px; }
+  .pr-mover span { font-size: .7rem; color: var(--muted); }
+  .pr-mover .btn.small { padding: 2px 8px; font-size: .72rem; }
+  .pr-mover .btn[disabled] { opacity: .3; }
+  .pr-edit { display: grid; grid-template-columns: 1fr; gap: 6px; margin-top: 8px; }
+  .pr-edit input, .pr-edit textarea { width: 100%; min-width: 0; }
+  .pr-edit label { font-size: .74rem; color: var(--muted); margin: 0; display: flex; flex-direction: column; gap: 3px; }
+  .pr-edit label.full { grid-column: 1 / -1; }
+  .pr-edit input { padding: 5px 6px; font-size: .82rem; }
+  .pr-edit textarea { padding: 5px 6px; font-size: .82rem; resize: vertical; }
+  .pr-edit-acc { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 5px; }
+  .pr-edit-acc .btn.small { padding: 3px 8px; font-size: .74rem; }
+  .pr-ver { margin-top: 6px; width: 100%; }
+  @media (max-width: 900px) {
+    .pr-tablero { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; }
+    .pr-col { flex: 0 0 78%; scroll-snap-align: start; }
+    .pr-nuevo { grid-template-columns: 1fr 1fr; }
+    .pr-nuevo > div:first-child { grid-column: 1 / -1; }
+    .pr-nuevo .btn { grid-column: 1 / -1; }
+  }
   .pl-filtro { margin-top: 10px; }
   /* Presupuestos guardados: pestañas + tabla compacta */
   .ts-tabs { margin: 0 0 10px; }
@@ -308,14 +360,14 @@
   .tsr-sub, .tsr-sub-est { display: none; }
   .tsr-est { display: inline-block; min-width: 84px; text-align: center; font-size: .74rem; border: 1px solid currentColor; border-radius: 999px; padding: 1px 9px; color: var(--muted); }
   .ts-tabla th.c-est { width: 104px; }
-  .tsr-est.aprobado, .tsr-est.entregado { color: var(--accent); } .tsr-est.rechazado { color: var(--rot); } .tsr-est.finalizado { color: var(--fin); } .tsr-est.pendiente.pl { color: var(--pinza); }
+  .tsr-est.aprobado, .tsr-est.entregado { color: var(--accent); } .tsr-est.rechazado { color: var(--rot); } .tsr-est.en-proceso { color: var(--pinza); } .tsr-est.finalizado { color: var(--fin); } .tsr-est.pendiente.pl { color: var(--pinza); }
   .tsr-det td { white-space: normal; padding: 2px 10px 12px; }
   .tsr-det-in { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
   .tsr-det .ts-cant { white-space: normal; }
   .tsr-info { font-size: .8rem; color: var(--muted); }
   .tsr-det .ts-dolar { grid-column: auto; grid-row: auto; }
   .tsr-acc { display: flex; gap: 6px; align-items: center; margin-top: 0 !important; justify-content: flex-end; flex-wrap: wrap; }
-  .tsr-est-m { color: var(--muted); } .tsr-est-m.aprobado, .tsr-est-m.entregado { color: var(--accent); } .tsr-est-m.rechazado { color: var(--rot); } .tsr-est-m.finalizado { color: var(--fin); } .tsr-est-m.pendiente.pl { color: var(--pinza); }
+  .tsr-est-m { color: var(--muted); } .tsr-est-m.aprobado, .tsr-est-m.entregado { color: var(--accent); } .tsr-est-m.rechazado { color: var(--rot); } .tsr-est-m.en-proceso { color: var(--pinza); } .tsr-est-m.finalizado { color: var(--fin); } .tsr-est-m.pendiente.pl { color: var(--pinza); }
   .tsr-acc .ts-estado-sel, .tsr-acc .pl-etapa-sel { width: 120px; margin-right: auto; padding: 4px 8px; font-size: .78rem; }
   /* según el ancho disponible se van ocultando columnas (y su dato pasa a la línea chica debajo del nombre) */
   @container (max-width: 760px) {
@@ -372,6 +424,7 @@
   .cl-estado.aprobado { color: var(--accent); border-color: var(--accent); }
   .cl-estado.rechazado { color: var(--rot); border-color: var(--rot); }
   .cl-estado.finalizado { color: var(--fin); border-color: var(--fin); }
+  .cl-estado.en-proceso { color: var(--pinza); border-color: var(--pinza); }
   .error-bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: var(--rot-soft); border: 1px solid var(--rot); color: var(--ink); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; font-size: .85rem; }
   .error-bar span { flex: 1 1 240px; }
   .ver-mas { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 0 2px; border-top: 1px solid var(--line); }
@@ -440,6 +493,7 @@
   .ts-estado.aprobado { color: var(--accent); border-color: var(--accent); }
   .ts-estado.rechazado { color: var(--rot); border-color: var(--rot); }
   .ts-estado.finalizado { color: var(--fin); border-color: var(--fin); }
+  .ts-estado.en-proceso { color: var(--pinza); border-color: var(--pinza); }
   .chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
   /* Presupuesto para el cliente: siempre claro, como papel */
   .ts-doc { background: #fff; color: #1d1d1d; border-radius: 10px; padding: 22px; margin-top: 16px; font-size: .9rem; line-height: 1.5; }
@@ -543,6 +597,7 @@
     <button class="tab" role="tab" data-tool="planilla" aria-selected="false">Planilla de pedidos</button>
     <button class="tab" role="tab" data-tool="clientes" aria-selected="false">Clientes</button>
     <button class="tab" role="tab" data-tool="presupuesto" aria-selected="false">Presupuesto</button>
+    <button class="tab" role="tab" data-tool="produccion" aria-selected="false">Producción</button>
     <button class="tab" role="tab" data-tool="comparar" aria-selected="false">Comparar</button>
     <button class="tab" role="tab" data-tool="poses" aria-selected="false">Poses por pliego</button>
     <button class="tab" role="tab" data-tool="horas" aria-selected="false">Cálculo de horas</button>
@@ -911,6 +966,9 @@
 
   <!-- ===== Herramienta: Clientes (código en clientes.js) ===== -->
   <section class="tool card" id="clientes" hidden></section>
+
+  <!-- ===== Herramienta: Producción (tablero por etapas, produccion.js) ===== -->
+  <section class="tool card" id="produccion" hidden></section>
 
   <!-- ===== Herramienta: Comparar orden recibida vs. presupuesto (código en comparar.js) ===== -->
   <section class="tool card" id="comparar" hidden></section>
@@ -1967,6 +2025,7 @@
 <script type="module" src="presupuesto.js"></script>
 <script type="module" src="comparar.js"></script>
 <script type="module" src="clientes.js"></script>
+<script type="module" src="produccion.js"></script>
 <script>
   // Botón sol/luna: alterna modo claro y oscuro y lo recuerda en esta compu
   (function () {

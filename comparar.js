@@ -392,7 +392,7 @@ $('otGenerar').addEventListener('click', async () => {
   const col = FB.fb.collection(FB.db, 'usuarios', usuario.uid, 'ordenes');
   FB.fb.addDoc(col, { numero, ...extra, cliente: r.cliente || '', trabajo: r.trabajo || '', presupuestoId: r.id, presupuestoNumero: r.numero,
     cantidad: q.cant, total: q.total, html, creado: FB.fb.serverTimestamp() }).catch(e => $('otMsg').textContent = 'Error al guardar: ' + e.code);
-  if ($('otAprobar').checked && !['Aprobado', 'Finalizado'].includes(r.estado))
+  if ($('otAprobar').checked && !['Aprobado', 'En proceso', 'Finalizado'].includes(r.estado))
     FB.fb.updateDoc(FB.fb.doc(FB.fb.collection(FB.db, 'usuarios', usuario.uid, 'presupuestosTest'), r.id), { estado: 'Aprobado' }).catch(() => {});
   $('otMsg').textContent = `Orden de trabajo N° ${numero} generada y guardada.`;
   confirmarRojo = false; $('otGenerar').textContent = 'Generar orden de trabajo';
