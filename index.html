@@ -1964,7 +1964,16 @@
       : '';
   }
   ['plPliegos', 'plFormato', 'plMaterial', 'plKilos', 'plPack'].forEach(id => $(id).addEventListener('input', () => setTimeout(recalcularTotal)));
-  $('plKilos').addEventListener('input', () => $('plKilosInfo').textContent = 'Kilos cargados a mano.');
+  // Kilos a mano → hojas (formato × gramaje): cuántas hojas enteras salen de esos kilos
+  $('plKilos').addEventListener('input', () => {
+    const info = $('plKilosInfo'), kg = parseNum($('plKilos').value);
+    const med = medidasCm($('plFormato').value), g = gramajeDe($('plMaterial').value);
+    if (!(kg > 0)) { info.textContent = 'Kilos cargados a mano.'; return; }
+    if (!med || !g) { info.textContent = 'Kilos cargados a mano. Para calcular las hojas, poné el formato (ej. 72×102) y el gramaje en el material (ej. 150 g).'; return; }
+    const hojas = Math.floor(kg * 1e7 / (med[0] * med[1] * g) + 1e-6);
+    $('plPliegos').value = String(hojas);
+    info.textContent = `Kilos cargados a mano → ${fmtN(hojas)} hojas de ${fmtN(med[0], 1)}×${fmtN(med[1], 1)} cm · ${fmtN(g, 1)} g.`;
+  });
 
   $('plCancelar').addEventListener('click', () => { cancelarEdicion(); pintar(); });
   $('plBuscar').addEventListener('input', () => { window.Paginas.reset('pedidos'); pintar(); });
