@@ -2,6 +2,7 @@
 // Guarda en Firebase: usuarios/{uid}/config/test (catálogo) y usuarios/{uid}/presupuestosTest (presupuestos).
 // (Los nombres "test" quedaron de cuando era la pestaña de prueba; se mantienen para no perder lo ya guardado.)
 // Los presupuestos de la versión anterior siguen en usuarios/{uid}/presupuestos y se muestran aparte, solo lectura.
+import { todasLasOpciones, svgArmado, guardaAuto, fmtMm } from './troquel.js';
 import { presupuestar, presupuestarRevista, resumenFormas, pliegoMaquina, entraEnMaquina, piezasPorCompra, UNIDADES, fmt } from './presupuesto-calculo.js';
 
 const $ = id => document.getElementById(id);
@@ -112,6 +113,24 @@ sec.innerHTML = `
       <div><label for="tsCajaA">Ancho</label><div class="field"><input id="tsCajaA" inputmode="decimal"><span class="unit tsUT">mm</span></div></div>
       <div><label for="tsCajaH">Alto</label><div class="field"><input id="tsCajaH" inputmode="decimal"><span class="unit tsUT">mm</span></div></div>
     </div>
+    <details class="full ts-troq" data-solo="pack" id="tsTroq" open>
+      <summary>Calcular el tamaño del sacabocado</summary>
+      <div class="grid ts-troq-g">
+        <div class="full"><label for="tsTroqCierre">Cierre</label><select id="tsTroqCierre" class="ts-select">
+          <option value="opuesto">Galeno · tapas en caras opuestas</option>
+          <option value="recto">Galeno · tapas en la misma cara</option>
+          <option value="automatico">Galeno arriba + fondo automático</option></select></div>
+        <div><label for="tsTroqLeng">Lengüeta de la tapa</label><div class="field"><input id="tsTroqLeng" inputmode="decimal" value="15"><span class="unit">mm</span></div></div>
+        <div><label for="tsTroqPeg">Solapa de pegado</label><div class="field"><input id="tsTroqPeg" inputmode="decimal" value="15"><span class="unit">mm</span></div></div>
+        <div><label for="tsTroqGuarda">Guardapolvos</label><div class="field"><input id="tsTroqGuarda" inputmode="decimal" placeholder="auto"><span class="unit">mm</span></div></div>
+        <div id="tsTroqFondoBox"><label for="tsTroqFondo">Solapas del fondo</label><div class="field"><input id="tsTroqFondo" inputmode="decimal" placeholder="auto"><span class="unit">mm</span></div></div>
+        <div><label for="tsTroqBocas">Bocas</label><div class="field"><input id="tsTroqBocas" inputmode="numeric" placeholder="4"><span class="unit">cajas</span></div></div>
+        <div><label for="tsTroqSalto">Salto entre bocas</label><div class="field"><input id="tsTroqSalto" inputmode="decimal" value="4"><span class="unit">mm</span></div></div>
+        <label class="full ts-check"><input type="checkbox" id="tsTroqEnc" checked> Encastrar las bocas (las tapas de una entran en el hueco de la otra)</label>
+        <input type="hidden" id="tsTroqArm">
+      </div>
+      <div id="tsTroqRes" class="ts-troq-res"></div>
+    </details>
     <div class="full" data-solo="pack"><label>¿Qué medida cargás abajo?</label><div class="mode" role="group" id="tsPackMed"><button type="button" data-m="troquel" aria-pressed="true">El sacabocado completo</button><button type="button" data-m="pieza" aria-pressed="false">Una sola caja (desplegado)</button></div></div>
     <div data-solo="pack" id="tsPiezasWrap"><label for="tsPiezasTroquel">Cajas por sacabocado</label><div class="field"><input id="tsPiezasTroquel" inputmode="numeric" placeholder="1"><span class="unit">cajas</span></div></div>
     <div class="full estado" data-solo="pack" id="tsPackAyuda"></div>
@@ -379,12 +398,12 @@ const termSel = {};   // id → { on, lados }
 const CAMPOS = ['tsFecha', 'tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsCalle', 'tsPinza', 'tsPoses', 'tsPapelSel', 'tsPapelNombre', 'tsGramaje',
   'tsPapelPrecio', 'tsPapelUnidad', 'tsCw', 'tsCh', 'tsCorte', 'tsMw', 'tsMh', 'tsMaquina', 'tsColF', 'tsColD', 'tsDemFrente', 'tsDemDorso', 'tsDemPct',
   'tsMicroTipo', 'tsMicroW', 'tsMicroH', 'tsMicroPor', 'tsMicroPrecio', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsMargen', 'tsDesc', 'tsSacabocado', 'tsCunoMolde',
-  'tsCajaTipo', 'tsCajaL', 'tsCajaA', 'tsCajaH', 'tsPiezasTroquel', 'tsDesbarbado', 'tsVentana', 'tsArmado', 'tsEmpaque',
+  'tsCajaTipo', 'tsCajaL', 'tsCajaA', 'tsCajaH', 'tsPiezasTroquel', 'tsTroqCierre', 'tsTroqLeng', 'tsTroqPeg', 'tsTroqGuarda', 'tsTroqFondo', 'tsTroqBocas', 'tsTroqSalto', 'tsTroqArm', 'tsDesbarbado', 'tsVentana', 'tsArmado', 'tsEmpaque',
   'tsPaginas', 'tsPagsCara', 'tsTapaPapelSel', 'tsTapaPapelNombre', 'tsTapaGramaje', 'tsTapaPrecio', 'tsTapaUnidad', 'tsTapaCw', 'tsTapaCh', 'tsTapaCorte', 'tsTapaColF', 'tsTapaColD', 'tsTapaLomo', 'tsTapaPoses'];
 
 function snapshot() {
   const c = {}; CAMPOS.forEach(k => c[k] = $(k).value);
-  return { campos: c, uTr, demModo, iva, papelMon, microMon, margenCant: { ...margenCant }, microPlanchas: { ...microPlanchas }, sacabocadoSuma: $('tsSacabocadoSuma').checked, mismaChapa: $('tsMismaChapa').checked, termSel: structuredClone(termSel), tipo, tapaMon, tapaOn: $('tsTapaOn').checked, tapaMismaChapa: $('tsTapaMismaChapa').checked, uMicro, maquinaFija, gramajeCalc, tapaGramajeCalc, packMed };
+  return { campos: c, uTr, demModo, iva, papelMon, microMon, margenCant: { ...margenCant }, microPlanchas: { ...microPlanchas }, sacabocadoSuma: $('tsSacabocadoSuma').checked, mismaChapa: $('tsMismaChapa').checked, termSel: structuredClone(termSel), tipo, tapaMon, tapaOn: $('tsTapaOn').checked, tapaMismaChapa: $('tsTapaMismaChapa').checked, uMicro, maquinaFija, gramajeCalc, tapaGramajeCalc, packMed, troqEnc: $('tsTroqEnc').checked };
 }
 function restaurar(s) {
   if (!s) return;
@@ -393,7 +412,7 @@ function restaurar(s) {
   // presupuestos viejos: un solo número de planchas para todas las cantidades
   microPlanchas = { ...(s.microPlanchas || (s.campos?.tsMicroPlanchas ? { '*': s.campos.tsMicroPlanchas } : {})) }; pintarPlanchas.clave = null;
   $('tsMismaChapa').checked = !!s.mismaChapa;
-  uMicro = s.uMicro || 'cm'; maquinaFija = s.maquinaFija || null; $('tsSacabocadoSuma').checked = s.sacabocadoSuma !== false;
+  uMicro = s.uMicro || 'cm'; maquinaFija = s.maquinaFija || null; $('tsSacabocadoSuma').checked = s.sacabocadoSuma !== false; $('tsTroqEnc').checked = s.troqEnc !== false;
   gramajeCalc = s.gramajeCalc ?? null; tapaGramajeCalc = s.tapaGramajeCalc ?? null; packMed = s.packMed || 'troquel';
   // presupuestos viejos: el formato del micro era un texto ("70×100")
   if (s.campos && s.campos.tsMicroW == null) {
@@ -699,6 +718,48 @@ function microDatos() {
   };
 }
 // Packaging: qué hojas (del catálogo y la cargada) y qué corte sirven para el sacabocado, ordenadas por aprovechamiento
+// ---------- Calculadora de sacabocado (packaging) ----------
+let troqActual = null;
+function datosTroquel() {
+  const kT = uTr === 'cm' ? 10 : 1;
+  return { L: num($('tsCajaL').value) * kT, A: num($('tsCajaA').value) * kT, H: num($('tsCajaH').value) * kT, cierre: $('tsTroqCierre').value,
+    lengueta: num($('tsTroqLeng').value), pegado: num($('tsTroqPeg').value), guarda: num($('tsTroqGuarda').value), fondo: num($('tsTroqFondo').value),
+    bocas: Math.max(1, Math.floor(num($('tsTroqBocas').value)) || 4), salto: num($('tsTroqSalto').value), encastre: $('tsTroqEnc').checked };
+}
+function pintarTroquel() {
+  const o = datosTroquel(), box = $('tsTroqRes');
+  $('tsTroqFondoBox').hidden = o.cierre !== 'automatico';
+  $('tsTroqGuarda').placeholder = o.A > 0 ? 'auto: ' + guardaAuto(o) : 'auto';
+  $('tsTroqFondo').placeholder = o.A > 0 ? 'auto: ' + Math.round(o.A * 0.75) : 'auto';
+  if (!(o.L > 0 && o.A > 0 && o.H > 0)) { troqActual = null; box.innerHTML = '<p class="estado">Cargá arriba largo, ancho y alto de la caja armada (largo = la cara donde va la tapa).</p>'; return; }
+  const ops = todasLasOpciones(o);
+  const clave = r => r.filas + 'x' + r.cols;
+  let r = ops.find(x => clave(x) === $('tsTroqArm').value) || ops[0];
+  troqActual = r;
+  const b = r.boca, m = fmtMm;
+  const ahorro = r.sin.alto - r.alto;
+  const usado = num($('tsTw').value) * (uTr === 'cm' ? 10 : 1), usadoH = num($('tsTh').value) * (uTr === 'cm' ? 10 : 1);
+  const yaUsa = packMed === 'troquel' && Math.abs(usado - r.ancho) < 0.6 && Math.abs(usadoH - r.alto) < 0.6 && Math.floor(num($('tsPiezasTroquel').value)) === o.bocas;
+  box.innerHTML = `
+    <div class="ts-troq-tot"><span>Sacabocado</span><b>${m(r.ancho)} × ${m(r.alto)} mm</b><small>${o.bocas} boca${o.bocas === 1 ? '' : 's'} · ${r.filas} fila${r.filas === 1 ? '' : 's'} × ${r.cols} columna${r.cols === 1 ? '' : 's'}</small></div>
+    <p class="estado">Cada caja abierta: <b>${m(b.W)} × ${m(b.H)} mm</b> (pegado ${m(o.pegado)} + ${m(o.L)} + ${m(o.A)} + ${m(o.L)} + ${m(o.A)} de ancho; ${m(b.T)} + ${m(o.H)} + ${m(b.H - b.T - o.H)} de alto). Guardapolvos de ${m(b.guarda)} mm${o.cierre === 'automatico' ? `, fondo de ${m(b.fondo)} mm` : ''}.
+      ${r.filas > 1 ? (o.encastre && ahorro > 0.5 ? `Encastradas ahorran <b>${m(ahorro)} mm</b> de alto (sin encastrar: ${m(r.sin.ancho)} × ${m(r.sin.alto)} mm)${r.giro ? '; las filas pares van giradas 180°' : ''}.` : o.encastre ? 'Con este cierre no se ganan milímetros encastrando.' : '') : ''}</p>
+    ${ops.length > 1 ? `<div class="ts-troq-ops" role="group" aria-label="Armado">${ops.map(x => `<button type="button" class="btn small" data-arm="${clave(x)}" aria-pressed="${x === r}">${x.filas} × ${x.cols} · ${m(x.ancho)} × ${m(x.alto)}</button>`).join('')}</div>` : ''}
+    <div class="ts-troq-svg">${svgArmado(r)}</div>
+    <p class="estado ts-troq-ley"><span class="ts-troq-c"></span> corte <span class="ts-troq-p"></span> pliegue · medidas sin compensar el espesor de la cartulina.</p>
+    <div class="actions"><button type="button" class="btn primary small" id="tsTroqUsar" ${yaUsa ? 'disabled' : ''}>${yaUsa ? 'Ya se usa en el presupuesto ✓' : 'Usar este sacabocado en el presupuesto'}</button></div>`;
+}
+$('tsTroqRes').addEventListener('click', e => {
+  const a = e.target.closest('[data-arm]');
+  if (a) { $('tsTroqArm').value = a.dataset.arm; pintarTroquel(); return; }
+  if (e.target.closest('#tsTroqUsar') && troqActual) {
+    const k = uTr === 'cm' ? 10 : 1, f = v => fmt(v / k, 2).replace(/\./g, '').replace(/,00$/, '').replace(/(,\d)0$/, '$1');
+    packMed = 'troquel';
+    $('tsTw').value = f(troqActual.ancho); $('tsTh').value = f(troqActual.alto);
+    $('tsPiezasTroquel').value = String(troqActual.filas * troqActual.cols);
+    calcular(); msg('Sacabocado cargado: ' + fmtMm(troqActual.ancho) + ' × ' + fmtMm(troqActual.alto) + ' mm, ' + troqActual.filas * troqActual.cols + ' cajas.');
+  }
+});
 function pintarSugerencias(E) {
   const box = $('tsSug');
   if (tipo !== 'pack' || !(E.tw > 0 && E.th > 0) || !window.mejorPoses) { box.innerHTML = ''; return; }
@@ -777,6 +838,7 @@ function calcular() {
   if (rev) $('tsPosesTxt').textContent = E.pagsCara ? String(E.pagsCara) + (num($('tsPagsCara').value) > 0 ? ' (a mano)' : '') : '—';
   else $('tsPosesTxt').textContent = E.poses ? (E.porTroquel > 1 && !(num($('tsPoses').value) > 0) ? `${E.posesDibujo} sacab. × ${E.porTroquel} = ${E.poses}` : String(E.poses)) + (num($('tsPoses').value) > 0 ? ' (a mano)' : '') : '—';
   pintarSugerencias(E);
+  if (pk) pintarTroquel();
   $('tsPoses').placeholder = E.autoPoses ? String(E.autoPoses) : 'auto';
   $('tsPagsCara').placeholder = E.autoPagsCara ? String(E.autoPagsCara) : 'auto';
   $('tsTapaPoses').placeholder = E.tapaAutoPoses ? String(E.tapaAutoPoses) : 'auto';
@@ -1115,7 +1177,8 @@ function aplicarDefaults(todo) {
   if (todo) { $('tsPinza').value = d.pinza; iva = d.iva; }
 }
 function nuevoPresupuesto(aviso = 'Presupuesto nuevo.') {
-  ['tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsPoses', 'tsMicroTipo', 'tsMicroW', 'tsMicroH', 'tsMicroPrecio', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsNumero', 'tsSacabocado', 'tsCunoMolde', 'tsCajaL', 'tsCajaA', 'tsCajaH', 'tsDesbarbado', 'tsVentana', 'tsArmado', 'tsEmpaque', 'tsPaginas', 'tsPagsCara', 'tsTapaPoses'].forEach(id => $(id).value = '');
+  ['tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'tsTh', 'tsPoses', 'tsMicroTipo', 'tsMicroW', 'tsMicroH', 'tsMicroPrecio', 'tsPreimp', 'tsPruebas', 'tsFlete', 'tsOtro', 'tsPorCaja', 'tsCajaPrecio', 'tsNumero', 'tsSacabocado', 'tsCunoMolde', 'tsCajaL', 'tsCajaA', 'tsCajaH', 'tsDesbarbado', 'tsVentana', 'tsArmado', 'tsEmpaque', 'tsPaginas', 'tsPagsCara', 'tsTapaPoses', 'tsTroqGuarda', 'tsTroqFondo', 'tsTroqBocas', 'tsTroqArm'].forEach(id => $(id).value = '');
+  $('tsTroqCierre').value = 'opuesto'; $('tsTroqLeng').value = '15'; $('tsTroqPeg').value = '15'; $('tsTroqSalto').value = '4'; $('tsTroqEnc').checked = true;
   $('tsFecha').value = fechaAuto = hoy(); $('tsDesc').value = '0'; abierto = null; aplicarDefaults(true); margenCant = {}; pintarMargenes.clave = null; microPlanchas = {}; pintarPlanchas.clave = null; $('tsMicroPor').value = 'm2'; $('tsSacabocadoSuma').checked = true;
   for (const k in termSel) delete termSel[k]; maquinaFija = null; gramajeCalc = tapaGramajeCalc = null; abiertoCerrado = false; pintarTerminaciones();
   $('tsClienteWrap').hidden = true; $('tsCorteWrap').hidden = true; $('tsGuardar').textContent = 'Guardar presupuesto';
