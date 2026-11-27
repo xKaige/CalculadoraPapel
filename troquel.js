@@ -121,7 +121,8 @@ function dibujoBoca(b, sw) {
   for (const [x1, y1, x2, y2] of pl) g += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#fff" stroke-width="${sw * 1.4}"/><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#c0392b" stroke-width="${sw}" stroke-dasharray="${sw * 5} ${sw * 3}"/>`;
   return g;
 }
-export function svgArmado(r) {
+export function svgArmado(r, u = 'mm') {
+  const med = v => u === 'cm' ? (Math.round(v) / 10).toLocaleString('es-AR', { maximumFractionDigits: 1 }) + ' cm' : n1(v) + ' mm';
   const { boca: b, ancho, alto } = r, M = Math.max(ancho, alto), pad = M * 0.09, fs = M * 0.03, sw = M * 0.0018;
   let g = `<rect x="0" y="0" width="${ancho}" height="${alto}" fill="none" stroke="#888" stroke-width="${sw}" stroke-dasharray="${sw * 4} ${sw * 4}"/>`;
   r.bocas.forEach((p, i) => {
@@ -129,8 +130,8 @@ export function svgArmado(r) {
     g += `<g transform="${tr}">${dibujoBoca(b, sw)}</g>`;
     g += `<text x="${p.x + b.W / 2}" y="${p.y + (p.giro ? b.H - b.T - b.cuerpoH / 2 : b.T + b.cuerpoH / 2)}" font-size="${Math.min(b.W, b.cuerpoH) * 0.16}" text-anchor="middle" dominant-baseline="central" fill="#2f6b4f" font-family="Arial,sans-serif" font-weight="700">${i + 1}</text>`;
   });
-  g += `<text x="${ancho / 2}" y="${-pad * 0.4}" font-size="${fs}" text-anchor="middle" font-family="Arial,sans-serif" fill="currentColor">${n1(ancho)} mm</text>`;
-  g += `<text x="${-pad * 0.4}" y="${alto / 2}" font-size="${fs}" text-anchor="middle" font-family="Arial,sans-serif" fill="currentColor" transform="rotate(-90 ${-pad * 0.4} ${alto / 2})">${n1(alto)} mm</text>`;
+  g += `<text x="${ancho / 2}" y="${-pad * 0.4}" font-size="${fs}" text-anchor="middle" font-family="Arial,sans-serif" fill="currentColor">${med(ancho)}</text>`;
+  g += `<text x="${-pad * 0.4}" y="${alto / 2}" font-size="${fs}" text-anchor="middle" font-family="Arial,sans-serif" fill="currentColor" transform="rotate(-90 ${-pad * 0.4} ${alto / 2})">${med(alto)}</text>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-pad} ${-pad} ${ancho + pad * 1.6} ${alto + pad * 1.6}" role="img" aria-label="Armado del sacabocado">${g}</svg>`;
 }
 export const fmtMm = n1;
