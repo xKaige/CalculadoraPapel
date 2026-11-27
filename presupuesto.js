@@ -108,7 +108,7 @@ sec.innerHTML = `
       <option value="">—</option><option>Estuche solapa recta</option><option>Estuche solapa cruzada</option><option>Estuche fondo automático</option><option>Estuche fondo 1-2-3</option>
       <option>Caja base y tapa</option><option>Bandeja</option><option>Caja con ventana</option><option>Display / exhibidor</option><option>Porta / sobre</option><option>Otro</option></select></div>
     <div class="full ts-3" data-solo="pack">
-      <div class="ts-3-tit">Medidas de la caja armada</div>
+      <div class="ts-3-tit">Medidas de la caja armada <span class="ts-3-sub">largo: de tapa a tapa · ancho: el frente · alto: el lateral</span></div>
       <div><label for="tsCajaL">Largo</label><div class="field"><input id="tsCajaL" inputmode="decimal"><span class="unit tsUT">mm</span></div></div>
       <div><label for="tsCajaA">Ancho</label><div class="field"><input id="tsCajaA" inputmode="decimal"><span class="unit tsUT">mm</span></div></div>
       <div><label for="tsCajaH">Alto</label><div class="field"><input id="tsCajaH" inputmode="decimal"><span class="unit tsUT">mm</span></div></div>
@@ -725,7 +725,9 @@ function microDatos() {
 let troqActual = null;
 function datosTroquel() {
   const kT = uTr === 'cm' ? 10 : 1, kU = uTroq === 'cm' ? 10 : 1;
-  return { L: num($('tsCajaL').value) * kT, A: num($('tsCajaA').value) * kT, H: num($('tsCajaH').value) * kT, cierre: $('tsTroqCierre').value,
+  // Como se mide en el taller: largo = recorrido de tapa a tapa, ancho = el frente, alto = el lateral.
+  // En el cálculo: L = cara de donde sale la tapa (frente), A = lateral (profundidad de la tapa), H = recorrido.
+  return { L: num($('tsCajaA').value) * kT, A: num($('tsCajaH').value) * kT, H: num($('tsCajaL').value) * kT, cierre: $('tsTroqCierre').value,
     lengueta: num($('tsTroqLeng').value) * kU, pegado: num($('tsTroqPeg').value) * kU, guarda: num($('tsTroqGuarda').value) * kU, fondo: num($('tsTroqFondo').value) * kU,
     bocas: Math.max(1, Math.floor(num($('tsTroqBocas').value)) || 4), salto: num($('tsTroqSalto').value) * kU, encastre: $('tsTroqEnc').checked };
 }
@@ -737,7 +739,7 @@ function pintarTroquel() {
   $('tsTroqFondoBox').hidden = o.cierre !== 'automatico';
   $('tsTroqGuarda').placeholder = o.A > 0 ? 'auto: ' + m(guardaAuto(o)) : 'auto';
   $('tsTroqFondo').placeholder = o.A > 0 ? 'auto: ' + m(Math.round(o.A * 0.75)) : 'auto';
-  if (!(o.L > 0 && o.A > 0 && o.H > 0)) { troqActual = null; box.innerHTML = '<p class="estado">Cargá arriba largo, ancho y alto de la caja armada (largo = la cara donde va la tapa).</p>'; return; }
+  if (!(o.L > 0 && o.A > 0 && o.H > 0)) { troqActual = null; box.innerHTML = '<p class="estado">Cargá arriba largo, ancho y alto de la caja armada.</p>'; return; }
   const ops = todasLasOpciones(o);
   const clave = r => r.filas + 'x' + r.cols;
   let r = ops.find(x => clave(x) === $('tsTroqArm').value) || ops[0];
@@ -748,7 +750,7 @@ function pintarTroquel() {
   const yaUsa = packMed === 'troquel' && Math.abs(usado - r.ancho) < 0.6 && Math.abs(usadoH - r.alto) < 0.6 && Math.floor(num($('tsPiezasTroquel').value)) === o.bocas;
   box.innerHTML = `
     <div class="ts-troq-tot"><span>Sacabocado</span><b>${m(r.ancho)} × ${m(r.alto)} ${U}</b><small>${o.bocas} boca${o.bocas === 1 ? '' : 's'} · ${r.filas} fila${r.filas === 1 ? '' : 's'} × ${r.cols} columna${r.cols === 1 ? '' : 's'}</small></div>
-    <p class="estado">Cada caja abierta: <b>${m(b.W)} × ${m(b.H)} ${U}</b> (pegado ${m(o.pegado)} + ${m(o.L)} + ${m(o.A)} + ${m(o.L)} + ${m(o.A)} de ancho; ${m(b.T)} + ${m(o.H)} + ${m(b.H - b.T - o.H)} de alto). Guardapolvos de ${m(b.guarda)} ${U}${o.cierre === 'automatico' ? `, fondo de ${m(b.fondo)} ${U}` : ''}.
+    <p class="estado">Cada caja abierta: <b>${m(b.W)} × ${m(b.H)} ${U}</b> = pegado ${m(o.pegado)} + frente ${m(o.L)} + lateral ${m(o.A)} + frente ${m(o.L)} + lateral ${m(o.A)} · tapa ${m(b.T)} + largo ${m(o.H)} + ${o.cierre === 'automatico' ? 'fondo' : 'tapa'} ${m(b.H - b.T - o.H)}. Guardapolvos de ${m(b.guarda)} ${U}${o.cierre === 'automatico' ? `, fondo de ${m(b.fondo)} ${U}` : ''}.
       ${r.filas > 1 ? (o.encastre && ahorro > 0.5 ? `Encastradas ahorran <b>${m(ahorro)} ${U}</b> de alto (sin encastrar: ${m(r.sin.ancho)} × ${m(r.sin.alto)} ${U})${r.giro ? '; las filas pares van giradas 180°' : ''}.` : o.encastre ? 'Con este cierre no se ganan milímetros encastrando.' : '') : ''}</p>
     ${ops.length > 1 ? `<div class="ts-troq-ops" role="group" aria-label="Armado">${ops.map(x => `<button type="button" class="btn small" data-arm="${clave(x)}" aria-pressed="${x === r}">${x.filas} × ${x.cols} · ${m(x.ancho)} × ${m(x.alto)}</button>`).join('')}</div>` : ''}
     <div class="ts-troq-svg">${svgArmado(r, U)}</div>
