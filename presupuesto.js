@@ -114,7 +114,7 @@ sec.innerHTML = `
       <div><label for="tsCajaH">Alto</label><div class="field"><input id="tsCajaH" inputmode="decimal"><span class="unit tsUT">mm</span></div></div>
     </div>
     <details class="full ts-troq" data-solo="pack" id="tsTroq" open>
-      <summary>Calcular el tamaño del sacabocado</summary>
+      <summary>Esquema de Sacabocado</summary>
       <div class="grid ts-troq-g">
         <div class="full"><div class="mode" role="group" id="tsTroqU" aria-label="Unidad del sacabocado"><button type="button" data-u="cm" aria-pressed="false">Centímetros</button><button type="button" data-u="mm" aria-pressed="true">Milímetros</button></div></div>
         <div class="full"><label for="tsTroqCierre">Cierre</label><select id="tsTroqCierre" class="ts-select">
