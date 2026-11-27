@@ -747,12 +747,12 @@ function pintarTroquel() {
   const b = r.boca;
   const ahorro = r.sin.alto - r.alto;
   const usado = num($('tsTw').value) * (uTr === 'cm' ? 10 : 1), usadoH = num($('tsTh').value) * (uTr === 'cm' ? 10 : 1);
-  const yaUsa = packMed === 'troquel' && Math.abs(usado - r.ancho) < 0.6 && Math.abs(usadoH - r.alto) < 0.6 && Math.floor(num($('tsPiezasTroquel').value)) === o.bocas;
+  const yaUsa = packMed === 'troquel' && Math.abs(Math.max(usado, usadoH) - Math.max(r.ancho, r.alto)) < 0.6 && Math.abs(Math.min(usado, usadoH) - Math.min(r.ancho, r.alto)) < 0.6 && Math.floor(num($('tsPiezasTroquel').value)) === o.bocas;
   box.innerHTML = `
-    <div class="ts-troq-tot"><span>Sacabocado</span><b>${m(r.ancho)} × ${m(r.alto)} ${U}</b><small>${o.bocas} boca${o.bocas === 1 ? '' : 's'} · ${r.filas} fila${r.filas === 1 ? '' : 's'} × ${r.cols} columna${r.cols === 1 ? '' : 's'}</small></div>
+    <div class="ts-troq-tot"><span>Sacabocado</span><b>${m(Math.max(r.ancho, r.alto))} × ${m(Math.min(r.ancho, r.alto))} ${U}</b><small>${o.bocas} boca${o.bocas === 1 ? '' : 's'} · ${r.filas} fila${r.filas === 1 ? '' : 's'} × ${r.cols} columna${r.cols === 1 ? '' : 's'}</small></div>
     <p class="estado">Cada caja abierta: <b>${m(b.W)} × ${m(b.H)} ${U}</b> = pegado ${m(o.pegado)} + frente ${m(o.L)} + lateral ${m(o.A)} + frente ${m(o.L)} + lateral ${m(o.A)} · tapa ${m(b.T)} + largo ${m(o.H)} + ${o.cierre === 'automatico' ? 'fondo' : 'tapa'} ${m(b.H - b.T - o.H)}. Guardapolvos de ${m(b.guarda)} ${U}${o.cierre === 'automatico' ? `, fondo de ${m(b.fondo)} ${U}` : ''}.
-      ${r.filas > 1 ? (o.encastre && ahorro > 0.5 ? `Encastradas ahorran <b>${m(ahorro)} ${U}</b> de alto (sin encastrar: ${m(r.sin.ancho)} × ${m(r.sin.alto)} ${U})${r.giro ? '; las filas pares van giradas 180°' : ''}.` : o.encastre ? 'Con este cierre no se ganan milímetros encastrando.' : '') : ''}</p>
-    ${ops.length > 1 ? `<div class="ts-troq-ops" role="group" aria-label="Armado">${ops.map(x => `<button type="button" class="btn small" data-arm="${clave(x)}" aria-pressed="${x === r}">${x.filas} × ${x.cols} · ${m(x.ancho)} × ${m(x.alto)}</button>`).join('')}</div>` : ''}
+      ${r.filas > 1 ? (o.encastre && ahorro > 0.5 ? `Encastradas ahorran <b>${m(ahorro)} ${U}</b> (sin encastrar: ${m(Math.max(r.sin.ancho, r.sin.alto))} × ${m(Math.min(r.sin.ancho, r.sin.alto))} ${U})${r.giro ? '; las filas pares van giradas 180°' : ''}.` : o.encastre ? 'Con este cierre no se ganan milímetros encastrando.' : '') : ''}</p>
+    ${ops.length > 1 ? `<div class="ts-troq-ops" role="group" aria-label="Armado">${ops.map(x => `<button type="button" class="btn small" data-arm="${clave(x)}" aria-pressed="${x === r}">${x.filas} × ${x.cols} · ${m(Math.max(x.ancho, x.alto))} × ${m(Math.min(x.ancho, x.alto))}</button>`).join('')}</div>` : ''}
     <div class="ts-troq-svg">${svgArmado(r, U)}</div>
     <p class="estado ts-troq-ley"><span class="ts-troq-c"></span> corte <span class="ts-troq-p"></span> pliegue · medidas sin compensar el espesor de la cartulina.</p>
     <div class="actions"><button type="button" class="btn primary small" id="tsTroqUsar" ${yaUsa ? 'disabled' : ''}>${yaUsa ? 'Ya se usa en el presupuesto ✓' : 'Usar este sacabocado en el presupuesto'}</button></div>`;
@@ -769,7 +769,7 @@ $('tsTroqRes').addEventListener('click', e => {
   if (e.target.closest('#tsTroqUsar') && troqActual) {
     const k = uTr === 'cm' ? 10 : 1, f = v => fmt(v / k, 2).replace(/\./g, '').replace(/,00$/, '').replace(/(,\d)0$/, '$1');
     packMed = 'troquel';
-    $('tsTw').value = f(troqActual.ancho); $('tsTh').value = f(troqActual.alto);
+    $('tsTw').value = f(Math.max(troqActual.ancho, troqActual.alto)); $('tsTh').value = f(Math.min(troqActual.ancho, troqActual.alto));
     $('tsPiezasTroquel').value = String(troqActual.filas * troqActual.cols);
     calcular(); msg('Sacabocado cargado: ' + fmtMm(troqActual.ancho) + ' × ' + fmtMm(troqActual.alto) + ' mm, ' + troqActual.filas * troqActual.cols + ' cajas.');
   }

@@ -124,14 +124,24 @@ function dibujoBoca(b, sw) {
 export function svgArmado(r, u = 'mm') {
   const med = v => u === 'cm' ? (Math.round(v) / 10).toLocaleString('es-AR', { maximumFractionDigits: 1 }) + ' cm' : n1(v) + ' mm';
   const { boca: b, ancho, alto } = r, M = Math.max(ancho, alto), pad = M * 0.09, fs = M * 0.03, sw = M * 0.0018;
-  let g = `<rect x="0" y="0" width="${ancho}" height="${alto}" fill="none" stroke="#888" stroke-width="${sw}" stroke-dasharray="${sw * 4} ${sw * 4}"/>`;
-  r.bocas.forEach((p, i) => {
+  // En la vista previa el lado más largo va siempre horizontal: si el armado es más alto que ancho, se gira 90°
+  const gira = alto > ancho + 0.01, VW = gira ? alto : ancho, VH = gira ? ancho : alto;
+  const pt = (x, y) => gira ? [alto - y, x] : [x, y];
+  let g = '', num = '';
+  const marcas = [];
+  r.bocas.forEach(p => {
     const tr = `translate(${p.x} ${p.y})` + (p.giro ? ` rotate(180 ${b.W / 2} ${b.H / 2})` : '');
     g += `<g transform="${tr}">${dibujoBoca(b, sw)}</g>`;
-    g += `<text x="${p.x + b.W / 2}" y="${p.y + (p.giro ? b.H - b.T - b.cuerpoH / 2 : b.T + b.cuerpoH / 2)}" font-size="${Math.min(b.W, b.cuerpoH) * 0.16}" text-anchor="middle" dominant-baseline="central" fill="#2f6b4f" font-family="Arial,sans-serif" font-weight="700">${i + 1}</text>`;
+    marcas.push(pt(p.x + b.W / 2, p.y + (p.giro ? b.H - b.T - b.cuerpoH / 2 : b.T + b.cuerpoH / 2)));
   });
-  g += `<text x="${ancho / 2}" y="${-pad * 0.4}" font-size="${fs}" text-anchor="middle" font-family="Arial,sans-serif" fill="currentColor">${med(ancho)}</text>`;
-  g += `<text x="${-pad * 0.4}" y="${alto / 2}" font-size="${fs}" text-anchor="middle" font-family="Arial,sans-serif" fill="currentColor" transform="rotate(-90 ${-pad * 0.4} ${alto / 2})">${med(alto)}</text>`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-pad} ${-pad} ${ancho + pad * 1.6} ${alto + pad * 1.6}" role="img" aria-label="Armado del sacabocado">${g}</svg>`;
+  // numeradas como se leen: de arriba a abajo y de izquierda a derecha
+  const tol = Math.min(b.W, b.H) / 3;
+  marcas.sort((a, c) => Math.abs(a[1] - c[1]) > tol ? a[1] - c[1] : a[0] - c[0]).forEach(([nx, ny], i) =>
+    num += `<text x="${nx}" y="${ny}" font-size="${Math.min(b.W, b.cuerpoH) * 0.16}" text-anchor="middle" dominant-baseline="central" fill="#2f6b4f" font-family="Arial,sans-serif" font-weight="700">${i + 1}</text>`);
+  let out = `<rect x="0" y="0" width="${VW}" height="${VH}" fill="none" stroke="#888" stroke-width="${sw}" stroke-dasharray="${sw * 4} ${sw * 4}"/>`;
+  out += `<g${gira ? ` transform="translate(${alto} 0) rotate(90)"` : ''}>${g}</g>${num}`;
+  out += `<text x="${VW / 2}" y="${-pad * 0.4}" font-size="${fs}" text-anchor="middle" font-family="Arial,sans-serif" fill="currentColor">${med(VW)}</text>`;
+  out += `<text x="${-pad * 0.4}" y="${VH / 2}" font-size="${fs}" text-anchor="middle" font-family="Arial,sans-serif" fill="currentColor" transform="rotate(-90 ${-pad * 0.4} ${VH / 2})">${med(VH)}</text>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-pad} ${-pad} ${VW + pad * 1.6} ${VH + pad * 1.6}" role="img" aria-label="Armado del sacabocado">${out}</svg>`;
 }
 export const fmtMm = n1;
