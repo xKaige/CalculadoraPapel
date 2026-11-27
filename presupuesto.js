@@ -404,13 +404,20 @@ const CAMPOS = ['tsFecha', 'tsCliente', 'tsTrabajo', 'tsCantidades', 'tsTw', 'ts
   'tsCajaTipo', 'tsCajaL', 'tsCajaA', 'tsCajaH', 'tsPiezasTroquel', 'tsTroqCierre', 'tsTroqLeng', 'tsTroqPeg', 'tsTroqGuarda', 'tsTroqFondo', 'tsTroqBocas', 'tsTroqSalto', 'tsTroqArm', 'tsDesbarbado', 'tsVentana', 'tsArmado', 'tsEmpaque',
   'tsPaginas', 'tsPagsCara', 'tsTapaPapelSel', 'tsTapaPapelNombre', 'tsTapaGramaje', 'tsTapaPrecio', 'tsTapaUnidad', 'tsTapaCw', 'tsTapaCh', 'tsTapaCorte', 'tsTapaColF', 'tsTapaColD', 'tsTapaLomo', 'tsTapaPoses'];
 
+function valorInicial(k) {
+  const el = $(k);
+  if (el.tagName === 'SELECT') { const o = [...el.options].find(o => o.defaultSelected) || el.options[0]; return o ? o.value : ''; }
+  return el.defaultValue ?? '';
+}
 function snapshot() {
   const c = {}; CAMPOS.forEach(k => c[k] = $(k).value);
   return { campos: c, uTr, demModo, iva, papelMon, microMon, margenCant: { ...margenCant }, microPlanchas: { ...microPlanchas }, sacabocadoSuma: $('tsSacabocadoSuma').checked, mismaChapa: $('tsMismaChapa').checked, termSel: structuredClone(termSel), tipo, tapaMon, tapaOn: $('tsTapaOn').checked, tapaMismaChapa: $('tsTapaMismaChapa').checked, uMicro, maquinaFija, gramajeCalc, tapaGramajeCalc, packMed, troqEnc: $('tsTroqEnc').checked, uTroq };
 }
 function restaurar(s) {
   if (!s) return;
-  CAMPOS.forEach(k => { if (s.campos && s.campos[k] != null) $(k).value = s.campos[k]; });
+  // Un campo que el presupuesto no tiene (se guardó antes de que existiera) vuelve a su valor inicial:
+  // así no queda nada del presupuesto que estaba abierto antes (p. ej. el importe de un sacabocado)
+  CAMPOS.forEach(k => { $(k).value = s.campos && s.campos[k] != null ? s.campos[k] : valorInicial(k); });
   uTr = s.uTr || 'mm'; demModo = s.demModo || 'auto'; iva = s.iva ?? 21; papelMon = s.papelMon || 'USD'; microMon = s.microMon || 'ARS'; margenCant = { ...(s.margenCant || {}) }; pintarMargenes.clave = null;
   // presupuestos viejos: un solo número de planchas para todas las cantidades
   microPlanchas = { ...(s.microPlanchas || (s.campos?.tsMicroPlanchas ? { '*': s.campos.tsMicroPlanchas } : {})) }; pintarPlanchas.clave = null;
